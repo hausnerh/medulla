@@ -32,6 +32,22 @@
  */
 namespace pvars
 {
+   /**
+    * @brief Enumeration of particles
+    * @details This enum lists out the particles useful for analyses. No distinction
+    * is made between particles and antipartcles for this list.
+    **/
+   enum Particle_t
+   {
+     kPhoton   =  0,
+     kElectron =  1,
+     kMuon     =  2,
+     kPion     =  3,
+     kProton   =  4,
+     kUnknown  = -1
+   };
+
+
     /**
      * @brief Variable for true particle starting kinetic energy.
      * @details The starting kinetic energy is defined as the total energy
