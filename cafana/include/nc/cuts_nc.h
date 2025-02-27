@@ -10,12 +10,13 @@
 #ifndef CUTS_NC_H
 #define CUTS_NC_H
 #include "include/utilities.h"
+#include "include/nc/vars_nc.h"
 
 /**
  * @namespace cuts::nc
  * @brief Namespace containing cuts useful for NC analyses
  * @details This namespace is intended to be used for organizing cuts which act
- * on interactions specific to the muon2024 analysis. Each cut is implemented as
+ * on interactions specific to NC analyses. Each cut is implemented as
  * a function which takes an interaction object as an argument and returns a
  * boolean. The function should be templated on the type of interaction object if
  * the cut is intended to be used on both true and reconstructed interactions.
@@ -92,6 +93,20 @@ namespace cuts::nc
        }
      return foundPhoton && foundProton;
    } // end topology_1photon_1proton
+
+  /**
+   * @brief apply a no lepton topology cut based on the topology string
+   * @details instead of counting primaries by hand, check the topology string
+   * in the event. Do some regex magic.
+   * @param obj the interaction of interest (MC or data)
+   * @return true if no leptons exist in the topology string
+   **/
+  template<class T>
+    bool no_charged_leptons_string(const T& obj)
+    {
+      return (vars::nc::count_electrons(obj) == 0) &&
+             (vars::nc::count_muons    (obj) == 0) ;
+    }
 
   /**
    * @brief Apply fiducial, containment, & flash cuts to single photon topology

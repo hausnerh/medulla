@@ -74,6 +74,16 @@ void nc_1gamma()
     vars_sel_nu_1g.insert({"flash_time", SpineVar<RTYPE,RTYPE>(&vars::flash_time, &CUT, &TCUT)});
     vars_sel_nu_1g.insert({"flash_total", SpineVar<RTYPE,RTYPE>(&vars::flash_total_pe, &CUT, &TCUT)});
     vars_sel_nu_1g.insert({"flash_hypothesis", SpineVar<RTYPE,RTYPE>(&vars::flash_hypothesis, &CUT, &TCUT)});
+    vars_sel_nu_1g.insert({"reco_primary_photons", SpineVar<RTYPE,RTYPE>(&vars::nc::count_photons_double, &CUT, &TCUT)});
+    vars_sel_nu_1g.insert({"true_primary_photons", SpineVar<TTYPE,RTYPE>(&vars::nc::count_photons_double, &CUT, &TCUT)});
+    vars_sel_nu_1g.insert({"reco_primary_electrons", SpineVar<RTYPE,RTYPE>(&vars::nc::count_electrons_double, &CUT, &TCUT)});
+    vars_sel_nu_1g.insert({"true_primary_electrons", SpineVar<TTYPE,RTYPE>(&vars::nc::count_electrons_double, &CUT, &TCUT)});
+    vars_sel_nu_1g.insert({"reco_primary_muons", SpineVar<RTYPE,RTYPE>(&vars::nc::count_muons_double, &CUT, &TCUT)});
+    vars_sel_nu_1g.insert({"true_primary_muons", SpineVar<TTYPE,RTYPE>(&vars::nc::count_muons_double, &CUT, &TCUT)});
+    vars_sel_nu_1g.insert({"reco_primary_pions", SpineVar<RTYPE,RTYPE>(&vars::nc::count_pions_double, &CUT, &TCUT)});
+    vars_sel_nu_1g.insert({"true_primary_pions", SpineVar<TTYPE,RTYPE>(&vars::nc::count_pions_double, &CUT, &TCUT)});
+    vars_sel_nu_1g.insert({"reco_primary_protons", SpineVar<RTYPE,RTYPE>(&vars::nc::count_protons_double, &CUT, &TCUT)});
+    vars_sel_nu_1g.insert({"true_primary_protons", SpineVar<TTYPE,RTYPE>(&vars::nc::count_protons_double, &CUT, &TCUT)});
 
     analysis.AddTree("selectedNu_1photon", vars_sel_nu_1g, true);
 
@@ -92,6 +102,16 @@ void nc_1gamma()
     vars_sel_cos_1g.insert({"flash_time", SpineVar<RTYPE,RTYPE>(&vars::flash_time, &CUT, &TCUT)});
     vars_sel_cos_1g.insert({"flash_total", SpineVar<RTYPE,RTYPE>(&vars::flash_total_pe, &CUT, &TCUT)});
     vars_sel_cos_1g.insert({"flash_hypothesis", SpineVar<RTYPE,RTYPE>(&vars::flash_hypothesis, &CUT, &TCUT)});
+    vars_sel_cos_1g.insert({"reco_primary_photons", SpineVar<RTYPE,RTYPE>(&vars::nc::count_photons_double, &CUT, &TCUT)});
+    vars_sel_cos_1g.insert({"true_primary_photons", SpineVar<TTYPE,RTYPE>(&vars::nc::count_photons_double, &CUT, &TCUT)});
+    vars_sel_cos_1g.insert({"reco_primary_electrons", SpineVar<RTYPE,RTYPE>(&vars::nc::count_electrons_double, &CUT, &TCUT)});
+    vars_sel_cos_1g.insert({"true_primary_electrons", SpineVar<TTYPE,RTYPE>(&vars::nc::count_electrons_double, &CUT, &TCUT)});
+    vars_sel_cos_1g.insert({"reco_primary_muons", SpineVar<RTYPE,RTYPE>(&vars::nc::count_muons_double, &CUT, &TCUT)});
+    vars_sel_cos_1g.insert({"true_primary_muons", SpineVar<TTYPE,RTYPE>(&vars::nc::count_muons_double, &CUT, &TCUT)});
+    vars_sel_cos_1g.insert({"reco_primary_pions", SpineVar<RTYPE,RTYPE>(&vars::nc::count_pions_double, &CUT, &TCUT)});
+    vars_sel_cos_1g.insert({"true_primary_pions", SpineVar<TTYPE,RTYPE>(&vars::nc::count_pions_double, &CUT, &TCUT)});
+    vars_sel_cos_1g.insert({"reco_primary_protons", SpineVar<RTYPE,RTYPE>(&vars::nc::count_protons_double, &CUT, &TCUT)});
+    vars_sel_cos_1g.insert({"true_primary_protons", SpineVar<TTYPE,RTYPE>(&vars::nc::count_protons_double, &CUT, &TCUT)});
     
     analysis.AddTree("selectedCos_1photon", vars_sel_cos_1g, true);
     
@@ -112,6 +132,16 @@ void nc_1gamma()
     vars_sel_nu_1g1p.insert({"flash_time", SpineVar<RTYPE,RTYPE>(&vars::flash_time, &CUT, &TCUT)});
     vars_sel_nu_1g1p.insert({"flash_total", SpineVar<RTYPE,RTYPE>(&vars::flash_total_pe, &CUT, &TCUT)});
     vars_sel_nu_1g1p.insert({"flash_hypothesis", SpineVar<RTYPE,RTYPE>(&vars::flash_hypothesis, &CUT, &TCUT)});
+    vars_sel_nu_1g1p.insert({"reco_primary_photons", SpineVar<RTYPE,RTYPE>(&vars::nc::count_photons_double, &CUT, &TCUT)});
+    vars_sel_nu_1g1p.insert({"true_primary_photons", SpineVar<TTYPE,RTYPE>(&vars::nc::count_photons_double, &CUT, &TCUT)});
+    vars_sel_nu_1g1p.insert({"reco_primary_electrons", SpineVar<RTYPE,RTYPE>(&vars::nc::count_electrons_double, &CUT, &TCUT)});
+    vars_sel_nu_1g1p.insert({"true_primary_electrons", SpineVar<TTYPE,RTYPE>(&vars::nc::count_electrons_double, &CUT, &TCUT)});
+    vars_sel_nu_1g1p.insert({"reco_primary_muons", SpineVar<RTYPE,RTYPE>(&vars::nc::count_muons_double, &CUT, &TCUT)});
+    vars_sel_nu_1g1p.insert({"true_primary_muons", SpineVar<TTYPE,RTYPE>(&vars::nc::count_muons_double, &CUT, &TCUT)});
+    vars_sel_nu_1g1p.insert({"reco_primary_pions", SpineVar<RTYPE,RTYPE>(&vars::nc::count_pions_double, &CUT, &TCUT)});
+    vars_sel_nu_1g1p.insert({"true_primary_pions", SpineVar<TTYPE,RTYPE>(&vars::nc::count_pions_double, &CUT, &TCUT)});
+    vars_sel_nu_1g1p.insert({"reco_primary_protons", SpineVar<RTYPE,RTYPE>(&vars::nc::count_protons_double, &CUT, &TCUT)});
+    vars_sel_nu_1g1p.insert({"true_primary_protons", SpineVar<TTYPE,RTYPE>(&vars::nc::count_protons_double, &CUT, &TCUT)});
 
     analysis.AddTree("selectedNu_1photon1proton", vars_sel_nu_1g1p, true);
 
@@ -130,6 +160,16 @@ void nc_1gamma()
     vars_sel_cos_1g1p.insert({"flash_time", SpineVar<RTYPE,RTYPE>(&vars::flash_time, &CUT, &TCUT)});
     vars_sel_cos_1g1p.insert({"flash_total", SpineVar<RTYPE,RTYPE>(&vars::flash_total_pe, &CUT, &TCUT)});
     vars_sel_cos_1g1p.insert({"flash_hypothesis", SpineVar<RTYPE,RTYPE>(&vars::flash_hypothesis, &CUT, &TCUT)});
+    vars_sel_cos_1g.insert({"reco_primary_photons", SpineVar<RTYPE,RTYPE>(&vars::nc::count_photons_double, &CUT, &TCUT)});
+    vars_sel_cos_1g.insert({"true_primary_photons", SpineVar<TTYPE,RTYPE>(&vars::nc::count_photons_double, &CUT, &TCUT)});
+    vars_sel_cos_1g.insert({"reco_primary_electrons", SpineVar<RTYPE,RTYPE>(&vars::nc::count_electrons_double, &CUT, &TCUT)});
+    vars_sel_cos_1g.insert({"true_primary_electrons", SpineVar<TTYPE,RTYPE>(&vars::nc::count_electrons_double, &CUT, &TCUT)});
+    vars_sel_cos_1g.insert({"reco_primary_muons", SpineVar<RTYPE,RTYPE>(&vars::nc::count_muons_double, &CUT, &TCUT)});
+    vars_sel_cos_1g.insert({"true_primary_muons", SpineVar<TTYPE,RTYPE>(&vars::nc::count_muons_double, &CUT, &TCUT)});
+    vars_sel_cos_1g.insert({"reco_primary_pions", SpineVar<RTYPE,RTYPE>(&vars::nc::count_pions_double, &CUT, &TCUT)});
+    vars_sel_cos_1g.insert({"true_primary_pions", SpineVar<TTYPE,RTYPE>(&vars::nc::count_pions_double, &CUT, &TCUT)});
+    vars_sel_cos_1g.insert({"reco_primary_protons", SpineVar<RTYPE,RTYPE>(&vars::nc::count_protons_double, &CUT, &TCUT)});
+    vars_sel_cos_1g.insert({"true_primary_protons", SpineVar<TTYPE,RTYPE>(&vars::nc::count_protons_double, &CUT, &TCUT)});
     
     analysis.AddTree("selectedCos_1photon1proton", vars_sel_cos_1g1p, true);
     
@@ -152,6 +192,16 @@ void nc_1gamma()
     vars_sig_1g.insert({"fiducial_cut", SpineVar<RTYPE,TTYPE>(WRAP_BOOL(cuts::fiducial_cut), &SIGCUT, &SIGCUT)});
     vars_sig_1g.insert({"contain_cut", SpineVar<RTYPE,TTYPE>(WRAP_BOOL(cuts::containment_cut), &SIGCUT, &SIGCUT)});
     vars_sig_1g.insert({"flash_cut", SpineVar<RTYPE,TTYPE>(WRAP_BOOL(cuts::flash_cut), &SIGCUT, &SIGCUT)});
+    vars_sig_1g.insert({"reco_primary_photons", SpineVar<RTYPE,RTYPE>(&vars::nc::count_photons_double, &CUT, &TCUT)});
+    vars_sig_1g.insert({"true_primary_photons", SpineVar<TTYPE,RTYPE>(&vars::nc::count_photons_double, &CUT, &TCUT)});
+    vars_sig_1g.insert({"reco_primary_electrons", SpineVar<RTYPE,RTYPE>(&vars::nc::count_electrons_double, &CUT, &TCUT)});
+    vars_sig_1g.insert({"true_primary_electrons", SpineVar<TTYPE,RTYPE>(&vars::nc::count_electrons_double, &CUT, &TCUT)});
+    vars_sig_1g.insert({"reco_primary_muons", SpineVar<RTYPE,RTYPE>(&vars::nc::count_muons_double, &CUT, &TCUT)});
+    vars_sig_1g.insert({"true_primary_muons", SpineVar<TTYPE,RTYPE>(&vars::nc::count_muons_double, &CUT, &TCUT)});
+    vars_sig_1g.insert({"reco_primary_pions", SpineVar<RTYPE,RTYPE>(&vars::nc::count_pions_double, &CUT, &TCUT)});
+    vars_sig_1g.insert({"true_primary_pions", SpineVar<TTYPE,RTYPE>(&vars::nc::count_pions_double, &CUT, &TCUT)});
+    vars_sig_1g.insert({"reco_primary_protons", SpineVar<RTYPE,RTYPE>(&vars::nc::count_protons_double, &CUT, &TCUT)});
+    vars_sig_1g.insert({"true_primary_protons", SpineVar<TTYPE,RTYPE>(&vars::nc::count_protons_double, &CUT, &TCUT)});
 
     analysis.AddTree("signalNu_1photon", vars_sig_1g, true);
 
@@ -168,6 +218,16 @@ void nc_1gamma()
     vars_sig_1g1p.insert({"fiducial_cut", SpineVar<RTYPE,TTYPE>(WRAP_BOOL(cuts::fiducial_cut), &SIGCUT, &SIGCUT)});
     vars_sig_1g1p.insert({"contain_cut", SpineVar<RTYPE,TTYPE>(WRAP_BOOL(cuts::containment_cut), &SIGCUT, &SIGCUT)});
     vars_sig_1g1p.insert({"flash_cut", SpineVar<RTYPE,TTYPE>(WRAP_BOOL(cuts::flash_cut), &SIGCUT, &SIGCUT)});
+    vars_sig_1g1p.insert({"reco_primary_photons", SpineVar<RTYPE,RTYPE>(&vars::nc::count_photons_double, &CUT, &TCUT)});
+    vars_sig_1g1p.insert({"true_primary_photons", SpineVar<TTYPE,RTYPE>(&vars::nc::count_photons_double, &CUT, &TCUT)});
+    vars_sig_1g1p.insert({"reco_primary_electrons", SpineVar<RTYPE,RTYPE>(&vars::nc::count_electrons_double, &CUT, &TCUT)});
+    vars_sig_1g1p.insert({"true_primary_electrons", SpineVar<TTYPE,RTYPE>(&vars::nc::count_electrons_double, &CUT, &TCUT)});
+    vars_sig_1g1p.insert({"reco_primary_muons", SpineVar<RTYPE,RTYPE>(&vars::nc::count_muons_double, &CUT, &TCUT)});
+    vars_sig_1g1p.insert({"true_primary_muons", SpineVar<TTYPE,RTYPE>(&vars::nc::count_muons_double, &CUT, &TCUT)});
+    vars_sig_1g1p.insert({"reco_primary_pions", SpineVar<RTYPE,RTYPE>(&vars::nc::count_pions_double, &CUT, &TCUT)});
+    vars_sig_1g1p.insert({"true_primary_pions", SpineVar<TTYPE,RTYPE>(&vars::nc::count_pions_double, &CUT, &TCUT)});
+    vars_sig_1g1p.insert({"reco_primary_protons", SpineVar<RTYPE,RTYPE>(&vars::nc::count_protons_double, &CUT, &TCUT)});
+    vars_sig_1g1p.insert({"true_primary_protons", SpineVar<TTYPE,RTYPE>(&vars::nc::count_protons_double, &CUT, &TCUT)});
 
     analysis.AddTree("signalNu_1photon1proton", vars_sig_1g1p, true);
 
