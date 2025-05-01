@@ -53,6 +53,24 @@ namespace vars
     double neutrino_id(const caf::SRInteractionTruthDLPProxy & obj) { return obj.nu_id; }
 
     /**
+     * @brief Variable for the best-match IoU of the interaction.
+     * @details The best-match IoU is the intersection over union of the
+     * points belonging to a pair of reconstructed and true interactions. The
+     * best-match IoU is calculated upstream in the SPINE reconstruction.
+     * @tparam T the type of interaction (true or reco).
+     * @param obj the interaction to apply the variable on.
+     * @return the best-match IoU of the interaction.
+     */
+    template<class T>
+        double iou(const T & obj)
+        {
+            if(obj.match_ids.size() > 0)
+                return obj.match_overlaps[0];
+            else 
+                return PLACEHOLDERVALUE;
+        }
+
+    /**
      * @brief Variable for the containment status of the interaction.
      * @details The containment status is determined upstream in the SPINE
      * reconstruction and is based on the set of all points in the interaction,
@@ -91,7 +109,7 @@ namespace vars
                 if(pcuts::final_state_signal(p))
                 {
                     energy += pvars::energy(p);
-                    if(p.pid == 4) energy -= PROTON_MASS - PROTON_BINDING_ENERGY;
+                    if(PIDFUNC(p) == 4) energy -= pvars::mass(p) - PROTON_BINDING_ENERGY;
                 }
             }
             return energy/1000.0;
@@ -117,7 +135,7 @@ namespace vars
                 if(pcuts::final_state_signal(p))
                 {
                     energy += pvars::energy(p);
-                    if(p.pid == 4) energy -= PROTON_MASS - PROTON_BINDING_ENERGY;
+                    if(PIDFUNC(p) == 4) energy -= PROTON_MASS - PROTON_BINDING_ENERGY;
                 }
                 else if(pcuts::is_primary(p))
                     energy += p.calo_ke;
@@ -289,14 +307,14 @@ namespace vars
                 if(pcuts::final_state_signal(p))
                 {
                     // Find the leading charged lepton and proton
-                    if((p.pid == 1 || p.pid == 2) && pvars::ke(p) > l_ke)
+                    if((PIDFUNC(p) == 1 || PIDFUNC(p) == 2) && pvars::ke(p) > l_ke)
                     {
                         l_ke = pvars::ke(p);
                         utilities::three_vector momentum = {pvars::px(p), pvars::py(p), pvars::pz(p)};
                         utilities::three_vector vtx = {pvars::start_x(p), pvars::start_y(p), pvars::start_z(p)};
                         l_pt = utilities::transverse_momentum(momentum, vtx);
                     }
-                    else if(p.pid == 4 && pvars::ke(p) > p_ke)
+                    else if(PIDFUNC(p) == 4 && pvars::ke(p) > p_ke)
                     {
                         p_ke = pvars::ke(p);
                         utilities::three_vector momentum = {pvars::px(p), pvars::py(p), pvars::pz(p)};
@@ -340,10 +358,10 @@ namespace vars
                     utilities::three_vector momentum = {pvars::px(p), pvars::py(p), pvars::pz(p)};
                     utilities::three_vector vtx = {pvars::start_x(p), pvars::start_y(p), pvars::start_z(p)};
                     utilities::three_vector this_pt = utilities::transverse_momentum(momentum, vtx);
-                    if(p.pid == 1 || p.pid == 2)
+                    if(PIDFUNC(p) == 1 || PIDFUNC(p) == 2)
                         lepton_pt = this_pt;
                     // The total hadronic system is treated as a single object.
-                    else if(p.pid > 2)
+                    else if(PIDFUNC(p) > 2)
                         hadronic_pt = utilities::add(hadronic_pt, this_pt);
                 }
             }
@@ -378,7 +396,7 @@ namespace vars
                     utilities::three_vector momentum = {pvars::px(p), pvars::py(p), pvars::pz(p)};
                     utilities::three_vector vtx = {pvars::start_x(p), pvars::start_y(p), pvars::start_z(p)};
                     utilities::three_vector this_pt = utilities::transverse_momentum(momentum, vtx);
-                    if(p.pid == 1 || p.pid == 2)
+                    if(PIDFUNC(p) == 1 || PIDFUNC(p) == 2)
                         lepton_pt = this_pt;
                     total_pt = utilities::add(total_pt, this_pt);
                 }
@@ -413,10 +431,10 @@ namespace vars
                     utilities::three_vector momentum = {pvars::px(p), pvars::py(p), pvars::pz(p)};
                     utilities::three_vector vtx = {pvars::start_x(p), pvars::start_y(p), pvars::start_z(p)};
                     utilities::three_vector this_pl = utilities::longitudinal_momentum(momentum, vtx);
-                    if(p.pid == 1 || p.pid == 2)
+                    if(PIDFUNC(p) == 1 || PIDFUNC(p) == 2)
                         lepton_pl = this_pl;
                     // The total hadronic system is treated as a single object.
-                    else if(p.pid > 2)
+                    else if(PIDFUNC(p) > 2)
                         hadronic_pl = utilities::add(hadronic_pl, this_pl);
                 }
             }
@@ -448,14 +466,14 @@ namespace vars
                 if(pcuts::final_state_signal(p))
                 {
                     // Find the leading charged lepton and proton
-                    if((p.pid == 1 || p.pid == 2) && pvars::ke(p) > l_ke)
+                    if((PIDFUNC(p) == 1 || PIDFUNC(p) == 2) && pvars::ke(p) > l_ke)
                     {
                         l_ke = pvars::ke(p);
                         utilities::three_vector momentum = {pvars::px(p), pvars::py(p), pvars::pz(p)};
                         utilities::three_vector vtx = {pvars::start_x(p), pvars::start_y(p), pvars::start_z(p)};
                         l_pl = utilities::longitudinal_momentum(momentum, vtx);
                     }
-                    else if(p.pid == 4 && pvars::ke(p) > p_ke)
+                    else if(PIDFUNC(p) == 4 && pvars::ke(p) > p_ke)
                     {
                         p_ke = pvars::ke(p);
                         utilities::three_vector momentum = {pvars::px(p), pvars::py(p), pvars::pz(p)};
