@@ -344,6 +344,30 @@ namespace pvars
     }
 
     /**
+     * @brief Variable for the softmax score for a given Particle_t
+     * @details index the particle pid array by the Particle_t enum
+     * while checking if the Particle_t is out of range
+     * @param p the particle to apply the variable on.
+     * @param p_type the Particle_t you want the softmax score for
+     * @return the Particle_t softmax score of the particle.
+     **/
+    double particle_softmax(const caf::SRParticleDLPProxy& p, const Particle_t& p_type)
+    {
+      if (p_type == kUnknown)
+        return std::numeric_limits<double>::lowest();
+      return p.pid_scores[p_type];
+    }
+
+    std::vector<double> particle_softmax_vec(const caf::SRParticleDLPProxy& p)
+    {
+      return {particle_softmax(p, kPhoton  ),
+              particle_softmax(p, kElectron),
+              particle_softmax(p, kMuon    ),
+              particle_softmax(p, kPion    ),
+              particle_softmax(p, kProton  )};
+    }
+
+    /**
      * @brief Variable for the "MIP" softmax score of the particle.
      * @details The "MIP" softmax score is calculated as the sum of the softmax
      * scores for the muon and pion. The score represents the confidence that
