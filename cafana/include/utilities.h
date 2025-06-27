@@ -46,7 +46,7 @@ namespace utilities
             for(auto &p : obj.particles)
             {
                 if(pcuts::final_state_signal(p))
-                    ++counts[p.pid];
+                    ++counts[PIDFUNC(p)];
             }
             return counts;
         }
@@ -73,7 +73,7 @@ namespace utilities
                 double energy(p.csda_ke);
                 if constexpr (std::is_same_v<T, caf::SRInteractionTruthDLPProxy>)
                     energy = pvars::ke(p);
-                if(p.pid == pid && energy > leading_ke)
+                if(PIDFUNC(p) == pid && energy > leading_ke)
                 {
                     leading_ke = energy;
                     index = i;
@@ -111,5 +111,78 @@ namespace utilities
         {
             return leading_particle_index(obj, 4);
         }
+
+  /**
+   * @brief get the particle vector for an interaction
+   * @tparam TP the type of particles (true or reco).
+   * @tparam T the type of interaction (true or reco).
+   * @param obj the interaction to operate on.
+   * @return the vector of primary particles above threshold in the interaction
+   **/
+  template<class TP, class T>
+    std::vector<const TP*> get_all_particles(const T& obj)
+    {
+      std::vector<const TP*> retParticles;
+      for (auto const& p : obj.particles)
+        retParticles.push_back(&p);
+      return retParticles;
+    }
+
+  /**
+   * @brief get the indices of the particles for the specified type
+   * @tparam T the type of interaction (true or reco).
+   * @param obj the interaction to operate on.
+   * @param id the type of particle you want (see inclue/particle_utilities.h)
+   * @return a vector of indices coresponding to the primary particles of the given type
+   **/
+  template<class T>
+    std::vector<unsigned int> get_particle_indices(const T& obj, const pvars::Particle_t id)
+    {
+      std::vector<unsigned int> indices;
+      if      constexpr (std::is_same_v<T, caf::SRInteractionTruthDLPProxy>)
+      {
+        std::vector<const caf::SRParticleTruthDLPProxy*> particles = get_all_particles<caf::SRParticleTruthDLPProxy>(obj);
+        for (unsigned int idx = 0; idx < particles.size(); ++idx)
+          if (pcuts::final_state_signal(*particles[idx]) && (PIDFUNC(*particles[idx]) == id))
+            indices.push_back(idx);
+      }
+      else if constexpr (std::is_same_v<T, caf::SRInteractionDLPProxy>)
+      {
+        std::vector<const caf::SRParticleDLPProxy*> particles = get_all_particles<caf::SRParticleDLPProxy>(obj);
+        for (unsigned int idx = 0; idx < particles.size(); ++idx)
+          if (pcuts::final_state_signal(*particles[idx]) && (PIDFUNC(*particles[idx]) == id))
+            indices.push_back(idx);
+      }
+      return indices;
+    }
+
+  /**
+   * @brief get the specified particles from the interaction
+   * @tparam TP the type of particles (true or reco).
+   * @tparam T the type of interaction (true or reco).
+   * @param obj the interaction to operate on.
+   * @param id the type of particle you want (see inclue/particle_utilities.h)
+   * @return the vector of primary particles of specified type above threshold in the interaction
+   **/
+  template<class TP, class T>
+    std::vector<const TP*> get_specified_particles(const T& obj, const pvars::Particle_t id)
+    {
+      std::vector<const TP*> targetParticles;
+      if      constexpr (std::is_same_v<T, caf::SRInteractionTruthDLPProxy>)
+      {
+        std::vector<const caf::SRParticleTruthDLPProxy*> particles = get_all_particles<caf::SRParticleTruthDLPProxy>(obj);
+        for (unsigned int idx = 0; idx < particles.size(); ++idx)
+          if (pcuts::final_state_signal(*particles[idx]) && (PIDFUNC(*particles[idx]) == id))
+            targetParticles.push_back(particles[idx]);
+      }
+      else if constexpr (std::is_same_v<T, caf::SRInteractionDLPProxy>)
+      {
+        std::vector<const caf::SRParticleDLPProxy*> particles = get_all_particles<caf::SRParticleDLPProxy>(obj);
+        for (unsigned int idx = 0; idx < particles.size(); ++idx)
+          if (pcuts::final_state_signal(*particles[idx]) && (PIDFUNC(*particles[idx]) == id))
+            targetParticles.push_back(particles[idx]);
+      }
+      return targetParticles;
+    }
 }
 #endif // UTILITIES_H
