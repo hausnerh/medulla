@@ -175,6 +175,25 @@ namespace vars::nc
     }
   
   /**
+   * @brief Count the number of particles in the interaction with no care for thresholds
+   * @details this method is similar to that used by count_primaries defined in utilities.h,
+   * However here we only count the particles of the specified pid and do not care about threshold energy
+   * @param obj the interaction of interest (MC or data)
+   * @param pid the pvars::Particle_t particle enumeration we are trying to count
+   **/
+  template<class T>
+    unsigned int count_particle_no_threshold(const T& obj, int pid)
+    {
+      unsigned int count = 0;
+      for (auto& particle : obj.particles)
+      {
+        if ((PIDFUNC(particle) == pid) && pcuts::is_primary(particle))
+         ++count;
+      }
+      return count;
+    }
+  
+  /**
    * @brief Count the number of particles in the interaction which are above threshold
    * @details this method is similar to that used by count_primaries defined in utilities.h,
    * However here we only count the particles of the specified pid
@@ -187,10 +206,70 @@ namespace vars::nc
       unsigned int count = 0;
       for (auto& particle : obj.particles)
       {
-        if ((particle.pid == pid) && pcuts::final_state_signal(particle))
+        if ((PIDFUNC(particle) == pid) && pcuts::final_state_signal(particle))
          ++count;
       }
       return count;
+    }
+
+  /**
+   * @brief count photons in the interaction
+   * @details call count_particle_no_threshold with pid = pvars::kPhoton
+   * @param obj the interaction of interest (MC or data)
+   * @return the number of photons
+   **/
+  template<class T>
+    unsigned int count_photons_no_threshold(const T& obj)
+    {
+      return count_particle_no_threshold(obj, pvars::kPhoton);
+    }
+
+  /**
+   * @brief count electrons in the interaction
+   * @details call count_particle_no_threshold with pid = pvars::kElectron
+   * @param obj the interaction of interest (MC or data)
+   * @return the number of electrons
+   **/
+  template<class T>
+    unsigned int count_electrons_no_threshold(const T& obj)
+    {
+      return count_particle_no_threshold(obj, pvars::kElectron);
+    }
+
+  /**
+   * @brief count muons in the interaction
+   * @details call count_particle_no_threshold with pid = pvars::kMuon
+   * @param obj the interaction of interest (MC or data)
+   * @return the number of muons
+   **/
+  template<class T>
+    unsigned int count_muons_no_threshold(const T& obj)
+    {
+      return count_particle_no_threshold(obj, pvars::kMuon);
+    }
+
+  /**
+   * @brief count pions in the interaction
+   * @details call count_particle_no_threshold with pid = pvars::kPion
+   * @param obj the interaction of interest (MC or data)
+   * @return the number of pions
+   **/
+  template<class T>
+    unsigned int count_pions_no_threshold(const T& obj)
+    {
+      return count_particle_no_threshold(obj, pvars::kPion);
+    }
+
+  /**
+   * @brief count protons in the interaction
+   * @details call count_particle_no_threshold with pid = pvars::kProton
+   * @param obj the interaction of interest (MC or data)
+   * @return the number of protons
+   **/
+  template<class T>
+    unsigned int count_protons_no_threshold(const T& obj)
+    {
+      return count_particle_no_threshold(obj, pvars::kProton);
     }
 
   /**
@@ -251,6 +330,66 @@ namespace vars::nc
     unsigned int count_protons_above_threshold(const T& obj)
     {
       return count_particle_above_threshold(obj, pvars::kProton);
+    }
+    
+  /**
+   * @brief count photons in the interaction (double version)
+   * @details call count_photons_no_threshold and cast the return as a double
+   * @param obj the interaction of interest (MC or data)
+   * @return the number of photons
+   **/
+  template<class T>
+    double count_photons_no_threshold_double(const T& obj)
+    {
+      return count_photons_no_threshold(obj);
+    }
+    
+  /**
+   * @brief count electrons in the interaction (double version)
+   * @details call count_electrons_no_threshold and cast the return as a double
+   * @param obj the interaction of interest (MC or data)
+   * @return the number of electrons
+   **/
+  template<class T>
+    double count_electrons_no_threshold_double(const T& obj)
+    {
+      return count_electrons_no_threshold(obj);
+    }
+    
+  /**
+   * @brief count muons in the interaction (double version)
+   * @details call count_muons_no_threshold and cast the return as a double
+   * @param obj the interaction of interest (MC or data)
+   * @return the number of muons
+   **/
+  template<class T>
+    double count_muons_no_threshold_double(const T& obj)
+    {
+      return count_muons_no_threshold(obj);
+    }
+    
+  /**
+   * @brief count pions in the interaction (double version)
+   * @details call count_pions_no_threshold and cast the return as a double
+   * @param obj the interaction of interest (MC or data)
+   * @return the number of pions
+   **/
+  template<class T>
+    double count_pions_no_threshold_double(const T& obj)
+    {
+      return count_pions_no_threshold(obj);
+    }
+    
+  /**
+   * @brief count protons in the interaction (double version)
+   * @details call count_protons_no_threshold and cast the return as a double
+   * @param obj the interaction of interest (MC or data)
+   * @return the number of protons
+   **/
+  template<class T>
+    double count_protons_no_threshold_double(const T& obj)
+    {
+      return count_protons_no_threshold(obj);
     }
     
   /**
@@ -326,8 +465,8 @@ namespace vars::nc
     {
       double pE = std::numeric_limits<double>::lowest();
       for (auto& particle : obj.particles)
-        if ((particle.pid == particleType) && pcuts::is_primary(particle))
-          pE = (pE > (pvars::energy(particle) / 1000.)) ? pE : pvars::energy(particle) / 1000.;
+        if ((PIDFUNC(particle) == particleType) && pcuts::is_primary(particle))
+          pE = (pE > (pvars::ke(particle) / 1000.)) ? pE : pvars::ke(particle) / 1000.;
       return pE;
     }
 
@@ -356,6 +495,90 @@ namespace vars::nc
     }
 
   /**
+   * @brief The energy of the photon in a 1g topology
+   * @param obj the interaction of interest (MC or data)
+   * @return the energy of the photon
+   **/
+  template<class T>
+    double photon_energy(const T& obj)
+    {
+      double energy = std::numeric_limits<double>::lowest();
+      if      constexpr (std::is_same_v<T, caf::SRInteractionTruthDLPProxy>)
+      {
+        std::vector<const caf::SRParticleTruthDLPProxy*> photons = utilities::get_specified_particles<caf::SRParticleTruthDLPProxy>(obj, pvars::kPhoton);
+        if (photons.size() != 1)
+          return energy;
+        return (pvars::ke(*photons[0]) / 1000.);
+      }
+      else if constexpr (std::is_same_v<T, caf::SRInteractionDLPProxy>)
+      {
+        std::vector<const caf::SRParticleDLPProxy*> photons = utilities::get_specified_particles<caf::SRParticleDLPProxy>(obj, pvars::kPhoton);
+        if (photons.size() != 1)
+          return energy;
+        return (pvars::ke(*photons[0]) / 1000.);
+      }
+      return energy;
+    }
+
+  /**
+   * @brief The energy of the proton in a 1g topology
+   * @param obj the interaction of interest (MC or data)
+   * @return the energy of the proton
+   **/
+  template<class T>
+    double proton_energy(const T& obj)
+    {
+      double energy = std::numeric_limits<double>::lowest();
+      if      constexpr (std::is_same_v<T, caf::SRInteractionTruthDLPProxy>)
+      {
+        std::vector<const caf::SRParticleTruthDLPProxy*> protons = utilities::get_specified_particles<caf::SRParticleTruthDLPProxy>(obj, pvars::kProton);
+        if (protons.size() != 1)
+          return energy;
+        return (pvars::ke(*protons[0]) / 1000.);
+      }
+      else if constexpr (std::is_same_v<T, caf::SRInteractionDLPProxy>)
+      {
+        std::vector<const caf::SRParticleDLPProxy*> protons = utilities::get_specified_particles<caf::SRParticleDLPProxy>(obj, pvars::kProton);
+        if (protons.size() != 1)
+          return energy;
+        return (pvars::ke(*protons[0]) / 1000.);
+      }
+      return energy;
+    }
+
+  /**
+   * @brief what fraction of the visible energy is in the photon?
+   * @details only consider the energy of particles above threshold as "visible"
+   * @param obj the interaction of interest (MC or data)
+   * @return the fraction of the visible energy is in the photon?
+   **/
+  template<class T>
+    double photon_energy_frac(const T& obj)
+    {
+      double ePhoton = photon_energy(obj);
+      if (ePhoton == std::numeric_limits<double>::lowest())
+        return std::numeric_limits<double>::lowest();
+      double eVis = vars::visible_energy(obj);
+      return (ePhoton / eVis);
+    }
+
+  /**
+   * @brief what fraction of the visible energy is in the proton?
+   * @details only consider the energy of particles above threshold as "visible"
+   * @param obj the interaction of interest (MC or data)
+   * @return the fraction of the visible energy is in the proton?
+   **/
+  template<class T>
+    double proton_energy_frac(const T& obj)
+    {
+      double eProton = proton_energy(obj);
+      if (eProton == std::numeric_limits<double>::lowest())
+        return std::numeric_limits<double>::lowest();
+      double eVis = vars::visible_energy(obj);
+      return (eProton / eVis);
+    }
+
+  /**
    * @brief The transverse momentum fraction of the particle (of specified type) with the most energy
    * @details Find the primary particleType particle with the largest energy,
    * and return that particle's transverse momentum fraction. If no such particle exists return nonsense
@@ -369,9 +592,9 @@ namespace vars::nc
       double pE = std::numeric_limits<double>::lowest();
       double dpT_frac = std::numeric_limits<double>::lowest();
       for (auto& particle : obj.particles)
-        if ((particle.pid == particleType) && pcuts::is_primary(particle) && (pE < (pvars::energy(particle) / 1000.)))
+        if ((PIDFUNC(particle) == particleType) && pcuts::is_primary(particle) && (pE < (pvars::ke(particle) / 1000.)))
         {
-          pE = pvars::energy(particle) / 1000.;
+          pE = pvars::ke(particle) / 1000.;
           dpT_frac = pvars::dpT(particle) / utilities::magnitude(utilities::to_three_vector(particle.momentum));
         }
       return dpT_frac;
@@ -391,9 +614,9 @@ namespace vars::nc
       double pE = std::numeric_limits<double>::lowest();
       double dpT = std::numeric_limits<double>::lowest();
       for (auto& particle : obj.particles)
-        if ((particle.pid == particleType) && pcuts::is_primary(particle) && (pE < (pvars::energy(particle) / 1000.)))
+        if ((PIDFUNC(particle) == particleType) && pcuts::is_primary(particle) && (pE < (pvars::ke(particle) / 1000.)))
         {
-          pE = pvars::energy(particle) / 1000.;
+          pE = pvars::ke(particle) / 1000.;
           dpT = pvars::dpT(particle);
         }
       return dpT;
@@ -413,9 +636,9 @@ namespace vars::nc
       double pE = std::numeric_limits<double>::lowest();
       double length = std::numeric_limits<double>::lowest();
       for (auto& particle : obj.particles)
-        if ((particle.pid == particleType) && pcuts::is_primary(particle) && (pE < (pvars::energy(particle) / 1000.)))
+        if ((PIDFUNC(particle) == particleType) && pcuts::is_primary(particle) && (pE < (pvars::ke(particle) / 1000.)))
         {
-          pE = pvars::energy(particle) / 1000.;
+          pE = pvars::ke(particle) / 1000.;
           length = pvars::length(particle);
         }
       return length;
@@ -431,6 +654,114 @@ namespace vars::nc
     double primary_photon_dpT_frac(const T& obj)
     {
       return primary_particle_dpT_frac(obj, pvars::kPhoton);
+    }
+
+  /**
+   * @brief Photon transverse momentum for 1g topologies
+   * @details only valid if there is exactly one photon over threshold
+   * @param obj the interaction of interest (MC or data)
+   * @return the transverse momentum of the photon
+   **/
+  template<class T>
+    double photon_dpT(const T& obj)
+    {
+      double dpT = std::numeric_limits<double>::lowest();
+      if      constexpr (std::is_same_v<T, caf::SRInteractionTruthDLPProxy>)
+      {
+        std::vector<const caf::SRParticleTruthDLPProxy*> photons = utilities::get_specified_particles<caf::SRParticleTruthDLPProxy>(obj, pvars::kPhoton);
+        if (photons.size() != 1)
+          return dpT;
+        return (pvars::dpT(*photons[0]));
+      }
+      else if constexpr (std::is_same_v<T, caf::SRInteractionDLPProxy>)
+      {
+        std::vector<const caf::SRParticleDLPProxy*> photons = utilities::get_specified_particles<caf::SRParticleDLPProxy>(obj, pvars::kPhoton);
+        if (photons.size() != 1)
+          return dpT;
+        return (pvars::dpT(*photons[0]));
+      }
+      return dpT;
+    }
+
+  /**
+   * @brief Photon transverse momentum fraction for 1g topologies
+   * @details only valid if there is exactly one photon over threshold
+   * @param obj the interaction of interest (MC or data)
+   * @return the transverse momentum fraction of the photon
+   **/
+  template<class T>
+    double photon_dpT_frac(const T& obj)
+    {
+      double dpT_frac = std::numeric_limits<double>::lowest();
+      if      constexpr (std::is_same_v<T, caf::SRInteractionTruthDLPProxy>)
+      {
+        std::vector<const caf::SRParticleTruthDLPProxy*> photons = utilities::get_specified_particles<caf::SRParticleTruthDLPProxy>(obj, pvars::kPhoton);
+        if (photons.size() != 1)
+          return dpT_frac;
+        return (pvars::dpT(*photons[0]) / utilities::magnitude(utilities::to_three_vector(photons[0]->momentum)));
+      }
+      else if constexpr (std::is_same_v<T, caf::SRInteractionDLPProxy>)
+      {
+        std::vector<const caf::SRParticleDLPProxy*> photons = utilities::get_specified_particles<caf::SRParticleDLPProxy>(obj, pvars::kPhoton);
+        if (photons.size() != 1)
+          return dpT_frac;
+        return (pvars::dpT(*photons[0]) / utilities::magnitude(utilities::to_three_vector(photons[0]->momentum)));
+      }
+      return dpT_frac;
+    }
+
+  /**
+   * @brief Proton transverse momentum for 1g topologies
+   * @details only valid if there is exactly one proton over threshold
+   * @param obj the interaction of interest (MC or data)
+   * @return the transverse momentum of the proton
+   **/
+  template<class T>
+    double proton_dpT(const T& obj)
+    {
+      double dpT = std::numeric_limits<double>::lowest();
+      if      constexpr (std::is_same_v<T, caf::SRInteractionTruthDLPProxy>)
+      {
+        std::vector<const caf::SRParticleTruthDLPProxy*> protons = utilities::get_specified_particles<caf::SRParticleTruthDLPProxy>(obj, pvars::kProton);
+        if (protons.size() != 1)
+          return dpT;
+        return (pvars::dpT(*protons[0]));
+      }
+      else if constexpr (std::is_same_v<T, caf::SRInteractionDLPProxy>)
+      {
+        std::vector<const caf::SRParticleDLPProxy*> protons = utilities::get_specified_particles<caf::SRParticleDLPProxy>(obj, pvars::kProton);
+        if (protons.size() != 1)
+          return dpT;
+        return (pvars::dpT(*protons[0]));
+      }
+      return dpT;
+    }
+
+  /**
+   * @brief Proton transverse momentum fraction for 1g topologies
+   * @details only valid if there is exactly one proton over threshold
+   * @param obj the interaction of interest (MC or data)
+   * @return the transverse momentum fraction of the proton
+   **/
+  template<class T>
+    double proton_dpT_frac(const T& obj)
+    {
+      double dpT_frac = std::numeric_limits<double>::lowest();
+      if      constexpr (std::is_same_v<T, caf::SRInteractionTruthDLPProxy>)
+      {
+        std::vector<const caf::SRParticleTruthDLPProxy*> protons = utilities::get_specified_particles<caf::SRParticleTruthDLPProxy>(obj, pvars::kProton);
+        if (protons.size() != 1)
+          return dpT_frac;
+        return (pvars::dpT(*protons[0]) / utilities::magnitude(utilities::to_three_vector(protons[0]->momentum)));
+      }
+      else if constexpr (std::is_same_v<T, caf::SRInteractionDLPProxy>)
+      {
+        std::vector<const caf::SRParticleDLPProxy*> protons = utilities::get_specified_particles<caf::SRParticleDLPProxy>(obj, pvars::kProton);
+        if (protons.size() != 1)
+          return dpT_frac;
+        return (pvars::dpT(*protons[0]) / utilities::magnitude(utilities::to_three_vector(protons[0]->momentum)));
+      }
+      return dpT_frac;
     }
 
   /**
@@ -509,14 +840,14 @@ namespace vars::nc
       double prE = std::numeric_limits<double>::lowest();
       for (auto& particle : obj.particles)
       {
-        if ((particle.pid == pvars::kPhoton) && pcuts::is_primary(particle) && (phE < (pvars::energy(particle) / 1000.)))
+        if ((PIDFUNC(particle) == pvars::kPhoton) && pcuts::is_primary(particle) && (phE < (pvars::ke(particle) / 1000.)))
         {
-          phE = pvars::energy(particle) / 1000.;
+          phE = pvars::ke(particle) / 1000.;
           phStart = utilities::to_three_vector(particle.start_point);
         }
-        if ((particle.pid == pvars::kProton) && pcuts::is_primary(particle) && (prE < (pvars::energy(particle) / 1000.)))
+        if ((PIDFUNC(particle) == pvars::kProton) && pcuts::is_primary(particle) && (prE < (pvars::ke(particle) / 1000.)))
         {
-          prE = pvars::energy(particle) / 1000.;
+          prE = pvars::ke(particle) / 1000.;
           prStart = utilities::to_three_vector(particle.start_point);
         }
       }
@@ -546,14 +877,14 @@ namespace vars::nc
       double prE = std::numeric_limits<double>::lowest();
       for (auto& particle : obj.particles)
       {
-        if ((particle.pid == pvars::kPhoton) && pcuts::is_primary(particle) && (phE < (pvars::energy(particle) / 1000.)))
+        if ((PIDFUNC(particle) == pvars::kPhoton) && pcuts::is_primary(particle) && (phE < (pvars::ke(particle) / 1000.)))
         {
-          phE = pvars::energy(particle) / 1000.;
+          phE = pvars::ke(particle) / 1000.;
           phP = utilities::to_three_vector(particle.momentum);
         }
-        if ((particle.pid == pvars::kProton) && pcuts::is_primary(particle) && (prE < (pvars::energy(particle) / 1000.)))
+        if ((PIDFUNC(particle) == pvars::kProton) && pcuts::is_primary(particle) && (prE < (pvars::ke(particle) / 1000.)))
         {
-          prE = pvars::energy(particle) / 1000.;
+          prE = pvars::ke(particle) / 1000.;
           prP = utilities::to_three_vector(particle.momentum);
         }
       }
@@ -577,9 +908,9 @@ namespace vars::nc
       double pE = std::numeric_limits<double>::lowest();
       double angle = std::numeric_limits<double>::lowest();
       for (auto& particle : obj.particles)
-        if ((particle.pid == pvars::kPhoton) && pcuts::is_primary(particle) && (pE < (pvars::energy(particle) / 1000.)))
+        if ((PIDFUNC(particle) == pvars::kPhoton) && pcuts::is_primary(particle) && (pE < (pvars::ke(particle) / 1000.)))
         {
-          pE = pvars::energy(particle) / 1000.;
+          pE = pvars::ke(particle) / 1000.;
           angle = pvars::polar_angle(particle);
         }
       return angle;
@@ -596,16 +927,158 @@ namespace vars::nc
       double pE = std::numeric_limits<double>::lowest();
       double angle = std::numeric_limits<double>::lowest();
       for (auto& particle : obj.particles)
-        if ((particle.pid == pvars::kPhoton) && pcuts::is_primary(particle) && (pE < (pvars::energy(particle) / 1000.)))
+        if ((PIDFUNC(particle) == pvars::kPhoton) && pcuts::is_primary(particle) && (pE < (pvars::ke(particle) / 1000.)))
         {
-          pE = pvars::energy(particle) / 1000.;
+          pE = pvars::ke(particle) / 1000.;
           angle = pvars::azimuthal_angle(particle);
         }
       return angle;
     }
 
+  /**
+   * @brief For single photon events what is the photon dist from vertex
+   * @param obj the interaction of interest (MC or data)
+   * @return the distance of the single photon from the vertex
+   **/
+  template<class T>
+    double photon_vtx_dist(const T& obj)
+    {
+      std::vector<uint32_t> topology = utilities::count_primaries(obj);
+      if (topology[pvars::kPhoton] == 1)
+        for (auto& particle : obj.particles)
+          if ((PIDFUNC(particle) == pvars::kPhoton) && pcuts::final_state_signal(particle))
+          {
+            if constexpr(std::is_same_v<T, caf::SRInteractionDLPProxy>)
+            {
+              return particle.vertex_distance;
+            }
+            else if constexpr(std::is_same_v<T, caf::SRInteractionTruthDLPProxy>)
+            {
+              utilities::three_vector trueVtx = utilities::to_three_vector(obj.vertex);
+              utilities::three_vector phStart = utilities::to_three_vector(particle.start_point);
+              utilities::three_vector gapVec = utilities::subtract(trueVtx, phStart);
+              return utilities::magnitude(gapVec);
+            }
+          }
+      return std::numeric_limits<double>::lowest();
+    }
+
+  /**
+   * @brief For single electron events what is the electron dist from vertex
+   * @param obj the interaction of interest (MC or data)
+   * @return the distance of the single electron from the vertex
+   **/
+  template<class T>
+    double electron_vtx_dist(const T& obj)
+    {
+      std::vector<uint32_t> topology = utilities::count_primaries(obj);
+      if (topology[pvars::kElectron] == 1)
+        for (auto& particle : obj.particles)
+          if ((PIDFUNC(particle) == pvars::kElectron) && pcuts::final_state_signal(particle))
+          {
+            if constexpr(std::is_same_v<T, caf::SRInteractionDLPProxy>)
+            {
+              return particle.vertex_distance;
+            }
+            else if constexpr(std::is_same_v<T, caf::SRInteractionTruthDLPProxy>)
+            {
+              utilities::three_vector trueVtx = utilities::to_three_vector(obj.vertex);
+              utilities::three_vector phStart = utilities::to_three_vector(particle.start_point);
+              utilities::three_vector gapVec = utilities::subtract(trueVtx, phStart);
+              return utilities::magnitude(gapVec);
+            }
+          }
+      return std::numeric_limits<double>::lowest();
+    }
+
   // RECO ONLY VARS
 
+  /**
+   * @brief For single photon events what is the photon starting dEdx
+   * @param obj the interaction of interest (data only)
+   * @return the photon starting dEdx
+   **/
+  double photon_start_dedx(const caf::SRInteractionDLPProxy& obj)
+  {
+    std::vector<uint32_t> topology = utilities::count_primaries(obj);
+    if (topology[pvars::kPhoton] == 1)
+      for (auto& particle : obj.particles)
+        if ((PIDFUNC(particle) == pvars::kPhoton) && pcuts::final_state_signal(particle))
+          return particle.start_dedx;
+    return std::numeric_limits<double>::lowest();
+  }
+
+  /**
+   * @brief The axial spread of the photon
+   * @param obj the interaction of interest (data only)
+   * @return The axial spread of the photon
+   **/
+  double photon_axial_spread(const caf::SRInteractionDLPProxy& obj)
+  {
+    std::vector<const caf::SRParticleDLPProxy*> photons = utilities::get_specified_particles<caf::SRParticleDLPProxy>(obj, pvars::kPhoton);
+    if (photons.size() != 1)
+      return std::numeric_limits<double>::lowest();;
+    return (photons[0]->axial_spread);
+  }
+
+  /**
+   * @brief The directional spread of the photon
+   * @param obj the interaction of interest (data only)
+   * @return The directional spread of the photon
+   **/
+  double photon_directional_spread(const caf::SRInteractionDLPProxy& obj)
+  {
+    std::vector<const caf::SRParticleDLPProxy*> photons = utilities::get_specified_particles<caf::SRParticleDLPProxy>(obj, pvars::kPhoton);
+    if (photons.size() != 1)
+      return std::numeric_limits<double>::lowest();;
+    return (photons[0]->directional_spread);
+  }
+
+  /**
+   * @brief For single photon events what is the photon starting straightness
+   * @param obj the interaction of interest (data only)
+   * @return the photon starting straightness
+   **/
+  double photon_straightness(const caf::SRInteractionDLPProxy& obj)
+  {
+    std::vector<uint32_t> topology = utilities::count_primaries(obj);
+    if (topology[pvars::kPhoton] == 1)
+      for (auto& particle : obj.particles)
+        if ((PIDFUNC(particle) == pvars::kPhoton) && pcuts::final_state_signal(particle))
+          return particle.start_straightness;
+    return std::numeric_limits<double>::lowest();
+  }
+
+  /**
+   * @brief For single electron events what is the electron starting dEdx
+   * @param obj the interaction of interest (data only)
+   * @return the electron starting dEdx
+   **/
+  double electron_start_dedx(const caf::SRInteractionDLPProxy& obj)
+  {
+    std::vector<uint32_t> topology = utilities::count_primaries(obj);
+    if (topology[pvars::kElectron] == 1)
+      for (auto& particle : obj.particles)
+        if ((PIDFUNC(particle) == pvars::kElectron) && pcuts::final_state_signal(particle))
+          return particle.start_dedx;
+    return std::numeric_limits<double>::lowest();
+  }
+
+  /**
+   * @brief For single electron events what is the electron starting straightness
+   * @param obj the interaction of interest (data only)
+   * @return the electron starting straightness
+   **/
+  double electron_straightness(const caf::SRInteractionDLPProxy& obj)
+  {
+    std::vector<uint32_t> topology = utilities::count_primaries(obj);
+    if (topology[pvars::kElectron] == 1)
+      for (auto& particle : obj.particles)
+        if ((PIDFUNC(particle) == pvars::kElectron) && pcuts::final_state_signal(particle))
+          return particle.start_straightness;
+    return std::numeric_limits<double>::lowest();
+  }
+ 
   /**
    * @brief If the event has a single reco electron, what is the electron softmax score?
    * @param obj the interaction of interest (data only)
@@ -619,7 +1092,7 @@ namespace vars::nc
     {
       for (auto& particle : obj.particles)
       {
-        if ((particle.pid == pvars::kElectron) && pcuts::final_state_signal(particle))
+        if ((PIDFUNC(particle) == pvars::kElectron) && pcuts::final_state_signal(particle))
         {
           std::vector<double> softmax_vec = pvars::particle_softmax_vec(particle);
           softmax = softmax_vec[pvars::kElectron];
@@ -643,7 +1116,7 @@ namespace vars::nc
     {
       for (auto& particle : obj.particles)
       {
-        if ((particle.pid == pvars::kElectron) && pcuts::final_state_signal(particle))
+        if ((PIDFUNC(particle) == pvars::kElectron) && pcuts::final_state_signal(particle))
         {
           std::vector<double> softmax_vec = pvars::particle_softmax_vec(particle);
           softmax = softmax_vec[pvars::kPhoton];
@@ -666,11 +1139,12 @@ namespace vars::nc
   {
     double skew = std::numeric_limits<double>::lowest();
     std::vector<uint32_t> topology = utilities::count_primaries(obj);
-    if (topology[pvars::kElectron] == 1)
+    if ( ((topology[pvars::kElectron] == 1) && (topology[pvars::kPhoton] == 0)) ||
+         ((topology[pvars::kElectron] == 0) && (topology[pvars::kPhoton] == 1))  )
     {
       for (auto& particle : obj.particles)
       {
-        if ((particle.pid == pvars::kElectron) && pcuts::final_state_signal(particle))
+        if (pcuts::final_state_signal(particle) && ((PIDFUNC(particle) == pvars::kElectron) || (PIDFUNC(particle) == pvars::kPhoton)))
         {
           std::vector<double> softmax_vec = pvars::particle_softmax_vec(particle);
           skew = softmax_vec[pvars::kPhoton] - softmax_vec[pvars::kElectron];
@@ -696,7 +1170,7 @@ namespace vars::nc
       std::vector<utilities::three_vector> momenta;
       for (auto& particle : obj.particles)
       {
-        if ((particle.pid == pvars::kPhoton) && pcuts::final_state_signal(particle))
+        if ((PIDFUNC(particle) == pvars::kPhoton) && pcuts::final_state_signal(particle))
           momenta.push_back(utilities::to_three_vector(particle.momentum));
       }
       if (momenta.size() != 2)
@@ -725,7 +1199,7 @@ namespace vars::nc
       std::vector<utilities::three_vector> momenta;
       for (auto& particle : obj.particles)
       {
-        if ((particle.pid == pvars::kPhoton) && pcuts::final_state_signal(particle))
+        if ((PIDFUNC(particle) == pvars::kPhoton) && pcuts::final_state_signal(particle))
         {
           starts.push_back(utilities::to_three_vector(particle.start_point));
           stops.push_back(utilities::to_three_vector(particle.end_point));
@@ -765,9 +1239,9 @@ namespace vars::nc
     double pE = std::numeric_limits<double>::lowest();
     std::vector<double> pids(5, std::numeric_limits<double>::lowest());
     for (auto& particle : obj.particles)
-      if ((particle.pid == target_type) && pcuts::is_primary(particle) && (pE < (pvars::energy(particle) / 1000.)))
+      if ((PIDFUNC(particle) == target_type) && pcuts::is_primary(particle) && (pE < (pvars::ke(particle) / 1000.)))
       {
-        pE = pvars::energy(particle) / 1000.;
+        pE = pvars::ke(particle) / 1000.;
         pids = pvars::particle_softmax_vec(particle);
       }
     return pids;
@@ -848,5 +1322,47 @@ namespace vars::nc
     }
     return scndClass;
   }
+
+  // MC Truth Vars
+  
+  /**
+   * @brief get the resonance number from the MC Truth
+   * @details from genie::EResonance enum (I think)
+   *  kNoResonance = -1,
+   *  kP33_1232    =  0,
+   *  kS11_1535    =  1,
+   *  kD13_1520    =  2,
+   *  kS11_1650    =  3,
+   *  kD13_1700    =  4,
+   *  kD15_1675    =  5,
+   *  kS31_1620    =  6,
+   *  kD33_1700    =  7,
+   *  kP11_1440    =  8,
+   *  kP33_1600    =  9,
+   *  kP13_1720    = 10,
+   *  kF15_1680    = 11,
+   *  kP31_1910    = 12,
+   *  kP33_1920    = 13,
+   *  kF35_1905    = 14,
+   *  kF37_1950    = 15,
+   *  kP11_1710    = 16,
+   *  kF17_1970    = 17
+   * @param obj the interaction of interest (MCTruth only)
+   * @return the resonance number (straight from GENIE)
+   **/
+  double baryon_res_code(const caf::Proxy<caf::SRTrueInteraction>& obj)
+  {
+    return obj.resnum;
+  }
+
+  /**
+   * @brief return the number of primaries in the MC Truth interaction
+   * @param obj the interaction of interest (MCTruth only)
+   **/
+  double mc_nprim(const caf::Proxy<caf::SRTrueInteraction>& obj)
+  {
+    return obj.nprim;
+  }
+
 } // end vars::nc namespace
 #endif

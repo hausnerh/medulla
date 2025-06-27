@@ -26,48 +26,20 @@
 
 namespace cuts::nc
 {
-  // ****** PARTICLE CUTS ******
-
-    /**
-     * @brief Check if the particle meets final state signal requirements (NC Edition).
-     * @details must be primary and have an energy above threshold.
-     * Muons must have a length of at least 50 cm (143.425 MeV), protons
-     * must have an energy above 50 MeV, and all other particles must have
-     * an energy above 25 MeV.
-     * @tparam T the type of particle (true or reco).
-     * @param p the particle to check.
-     * @return true if the particle is a final state signal particle.
-     */
-    template<class T>
-        bool final_state_signal(const T & p)
-        {
-            bool passes(false);
-            if(is_primary(p))
-            {
-                double energy(pvars::ke(p));
-                switch (p.pid)
-                {
-                  case pvars::kPhoton:
-                    passes = (energy > 25.);
-                    break;
-                  case pvars::kProton:
-                    passes = (energy > 50.);
-                    break;
-                  case pvars::kElectron:
-                    passes = (energy > 25.);
-                    break;
-                  case pvars::kMuon:
-                    passes = (energy > 143.425);
-                    break;
-                  case pvars::kPion:
-                    passes = (energy > 25.);
-                    break;
-                }
-            }
-            return passes;
-        }
-
   // ****** SELECTION CUTS ******
+  
+  /**
+   * @brief Check if the event has a quality photon
+   * @details Require a sufficiently separated vertex (to reject electron misconstructions)
+   * and a transverse momentum greater than 40 MeV/c (to remove backgrounds)
+   * @param obj the interaction to examine (MC or data)
+   * @return true if there is a single quality photon
+   **/
+  template<class T>
+    bool photon_quality(const T& obj)
+    {
+      return (vars::nc::photon_vtx_dist(obj) > 2.) && (vars::nc::primary_photon_dpT(obj) > 40.);
+    }
 
   /**
    * @brief Check if the interaction has charged lepton primaries
@@ -80,13 +52,13 @@ namespace cuts::nc
      bool no_charged_leptons(const T& obj)
      {
        for (auto const& daughter : obj.particles)
-         if (is_primary(daughter) && ((daughter.pid == pvars::kElectron) || 
-                                      (daughter.pid == pvars::kMuon)     )) return false;
+         if (is_primary(daughter) && ((PIDFUNC(daughter) == pvars::kElectron) || 
+                                      (PIDFUNC(daughter) == pvars::kMuon)     )) return false;
        return true;
      } // end no_charged_leptons
 
  /**
-  * @brief Is the final state topology a signle photon?
+  * @brief Is the final state topology a single photon?
   * @details Checks if the final state is exactly one photon above threshold
   * @param obj the interaction to examine (MC or data)
   * @return true if there is exactly 1 photon above threshold in the final state, false otherwise
@@ -101,6 +73,60 @@ namespace cuts::nc
             (topology[pvars::kPion]     == 0) &&
             (topology[pvars::kProton]   == 0) ;
    } // end topology_single_photon
+
+ /**
+  * @brief Is the final state topology a single photon or single electron?
+  * @details Checks if the final state is exactly one photon above threshold or one electron above threshold
+  * @param obj the interaction to examine (MC or data)
+  * @return true if there is exactly 1 photon or exactly 1 electron above threshold in the final state, false otherwise
+  **/
+ template<class T>
+   bool topology_single_photon_or_electron(const T& obj)
+   {
+     std::vector<uint32_t> topology = utilities::count_primaries(obj);
+     bool no_others = ((topology[pvars::kMuon]   == 0) &&
+                       (topology[pvars::kPion]   == 0) &&
+                       (topology[pvars::kProton] == 0) );
+     bool single_photon   = (topology[pvars::kPhoton] == 1) && (topology[pvars::kElectron] == 0);
+     bool single_electron = (topology[pvars::kPhoton] == 0) && (topology[pvars::kElectron] == 1);
+     return (single_photon || single_electron) && no_others;
+   } // end topology_single_photon_or_electron
+
+ /**
+  * @brief Is the final state topology a single electron?
+  * @details Checks if the final state is exactly one electron above threshold
+  * This is an important background to constrain for NC 1photon
+  * @param obj the interaction to examine (MC or data)
+  * @return true if there is exactly 1 electron above threshold in the final state, false otherwise
+  **/
+ template<class T>
+   bool topology_single_electron(const T& obj)
+   {
+     std::vector<uint32_t> topology = utilities::count_primaries(obj);
+     return (topology[pvars::kPhoton]   == 0) &&
+            (topology[pvars::kElectron] == 1) &&
+            (topology[pvars::kMuon]     == 0) &&
+            (topology[pvars::kPion]     == 0) &&
+            (topology[pvars::kProton]   == 0) ;
+   } // end topology_single_electron
+
+ /**
+  * @brief Is the final state topology 2 photons?
+  * @details Checks if the final state is exactly 2 photons above threshold
+  * This is an important background to constrain for NC 1photon
+  * @param obj the interaction to examine (MC or data)
+  * @return true if there is exactly 2 photons above threshold in the final state, false otherwise
+  **/
+ template<class T>
+   bool topology_diphoton(const T& obj)
+   {
+     std::vector<uint32_t> topology = utilities::count_primaries(obj);
+     return (topology[pvars::kPhoton]   == 2) &&
+            (topology[pvars::kElectron] == 0) &&
+            (topology[pvars::kMuon]     == 0) &&
+            (topology[pvars::kPion]     == 0) &&
+            (topology[pvars::kProton]   == 0) ;
+   } // end topology_diphoton
 
  /**
   * @brief Is the final state topology inclusive of a signle photon?
@@ -133,6 +159,17 @@ namespace cuts::nc
    } // end topology_1photon_1proton
 
   /**
+   * @brief Is the photon separated from the vertex?
+   * @param obj the interaction to examine (MC or data)
+   * @return true if the start of the photon is not at the vertex
+   **/
+  template<class T>
+    bool photon_not_at_vertex(const T& obj)
+    {
+      return (vars::nc::photon_vtx_dist(obj) > 0.);
+    }
+
+  /**
    * @brief apply a no lepton topology cut based on the topology string
    * @details instead of counting primaries by hand, check the topology string
    * in the event. Do some regex magic.
@@ -156,6 +193,54 @@ namespace cuts::nc
     bool fiducial_containment_flash_cut_single_photon(const T& obj)
     {
       return cuts::fiducial_containment_flash_cut(obj) && topology_single_photon(obj);
+    }
+
+  /**
+   * @brief Apply fiducial, containment, & flash cuts to single photon or single electron topology
+   * @details Logical and of `fiducial_containment_flash_cut` and `topology_single_photon_or_electron`
+   * @param obj the interaction of interest (MC or data)
+   * @return true if the interaction is fiducial, contained, passes flash cuts, and has a single photon or single electron topology
+   **/
+  template<class T>
+    bool fiducial_containment_flash_cut_single_photon_or_electron(const T& obj)
+    {
+      return cuts::fiducial_containment_flash_cut(obj) && topology_single_photon_or_electron(obj);
+    }
+
+  /**
+   * @brief Apply fiducial, containment, flash & quality cuts to single photon topology
+   * @details Logical and of `fiducial_containment_flash_cut_single_photon` and `photon_quality`
+   * @param obj the interaction of interest (MC or data)
+   * @return true if the interaction is fiducial, contained, passes flash cuts, and has a single quality photon
+   **/
+  template<class T>
+    bool fiducial_containment_flash_cut_quality_single_photon(const T& obj)
+    {
+      return fiducial_containment_flash_cut_single_photon(obj) && photon_quality(obj);
+    }
+
+  /**
+   * @brief Apply fiducial, containment, & flash cuts to single electron topology
+   * @details Logical and of `fiducial_containment_flash_cut` and `topology_single_electron`
+   * @param obj the interaction of interest (MC or data)
+   * @return true if the interaction is fiducial, contained, passes flash cuts, and has a single electron topology
+   **/
+  template<class T>
+    bool fiducial_containment_flash_cut_single_electron(const T& obj)
+    {
+      return cuts::fiducial_containment_flash_cut(obj) && topology_single_electron(obj);
+    }
+
+  /**
+   * @brief Apply fiducial, containment, & flash cuts to diphoton topology
+   * @details Logical and of `fiducial_containment_flash_cut` and `topology_diphoton`
+   * @param obj the interaction of interest (MC or data)
+   * @return true if the interaction is fiducial, contained, passes flash cuts, and has a diphoton topology
+   **/
+  template<class T>
+    bool fiducial_containment_flash_cut_diphoton(const T& obj)
+    {
+      return cuts::fiducial_containment_flash_cut(obj) && topology_diphoton(obj);
     }
 
   /**
@@ -183,6 +268,18 @@ namespace cuts::nc
       return cuts::fiducial_containment_flash_cut(obj) && topology_1photon_1proton(obj);
     }
 
+  /**
+   * @brief Apply fiducial, containment, flash & quality cuts to 1photon1proton topology
+   * @details Logical and of `fiducial_containment_flash_cut_1photon1proton` and `photon_quality`
+   * @param obj the interaction of interest (MC or data)
+   * @return true if the interaction is fiducial, contained, passes flash cuts, and has a quality 1photon1proton topology
+   **/
+  template<class T>
+    bool fiducial_containment_flash_cut_quality_1photon_1proton(const T& obj)
+    {
+      return fiducial_containment_flash_cut_1photon_1proton(obj) && photon_quality(obj);
+    }
+
   // ****** TRUTH CUTS ******
   
   /**
@@ -194,6 +291,16 @@ namespace cuts::nc
    * @return true if the interaction is NC, otherwise false
    **/
   bool isnc(const caf::SRInteractionTruthDLPProxy& obj) { return obj.current_type == 1; }
+  
+  /**
+   * @brief Check if the MC interaction is CC
+   * @details This checks if the true interaction is CC,
+   * which is not exactly not NC due to internal enum issues,
+   * ie obj.current_type could be -1 (unknown type)
+   * @param obj the interaction (MC only)
+   * @return true if the interaction is CC, otherwise false
+   **/
+  bool iscc(const caf::SRInteractionTruthDLPProxy& obj) { return obj.current_type == 0; }
 
   /**
    * @brief Check if MC interaction is NC neutrino
@@ -228,6 +335,17 @@ namespace cuts::nc
   }
 
   /**
+   * @brief Check if MC interaction is fiducial contained NC Res event
+   * @details This is a logical and of `is_fid_con_nc_nu` and `obj.interaction_mode == caf::kRes`
+   * @param obj the interaction (MC only)
+   * @return true if obj is a true fiducial contained NC neutrino event, false otherwise
+   **/
+  bool is_fid_con_nc_nu_res(const caf::SRInteractionTruthDLPProxy& obj)
+  {
+    return is_fid_con_nc_nu(obj) && (obj.interaction_mode == caf::kRes);
+  }
+
+  /**
    * @brief Check if MC interaction is fiducial contained CC neutrino
    * @details This is a logical and of `is_fid_con_nu` and `iscc`
    * @param obj the interaction (MC only)
@@ -253,7 +371,7 @@ namespace cuts::nc
      {
        if(not pcuts::is_primary(particle))
          continue;
-       switch (particle.pid)
+       switch (int(PIDFUNC(particle)))
        {
          case pvars::kPhoton:
            if (pcuts::final_state_signal(particle))
@@ -284,7 +402,7 @@ namespace cuts::nc
      {
        if(not pcuts::is_primary(particle))
          continue;
-       switch (particle.pid)
+       switch (int(PIDFUNC(particle)))
        {
          case pvars::kPhoton:
            if (pcuts::final_state_signal(particle))
@@ -312,6 +430,39 @@ namespace cuts::nc
   bool is_fid_con_single_photon(const caf::SRInteractionTruthDLPProxy& obj)
   {
     return is_fid_con_nu(obj) && topology_single_photon(obj);
+  }
+
+  /**
+   * @brief Check if MC interaction is a quality fiducial contained single photon event
+   * @details This is a logical and of `is_fid_con_single_photon` & `photon_quality`
+   * @param obj the interaction (MC only)
+   * @return true if obj is a true quality fiducial contained single photon event
+   **/
+  bool is_fid_con_quality_single_photon(const caf::SRInteractionTruthDLPProxy& obj)
+  {
+    return is_fid_con_single_photon(obj) && photon_quality(obj);
+  }
+
+  /**
+   * @brief Check if MC interaction is fiducial contained single electron event
+   * @details This is a logical and of `is_fid_con_nu` & `topology_single_electron`
+   * @param obj the interaction (MC only)
+   * @return true if obj is a true fiducial contained single electron event
+   **/
+  bool is_fid_con_single_electron(const caf::SRInteractionTruthDLPProxy& obj)
+  {
+    return is_fid_con_nu(obj) && topology_single_electron(obj);
+  }
+
+  /**
+   * @brief Check if MC interaction is fiducial contained diphoton event
+   * @details This is a logical and of `is_fid_con_nu` & `topology_diphoton`
+   * @param obj the interaction (MC only)
+   * @return true if obj is a true fiducial contained diphoton event
+   **/
+  bool is_fid_con_diphoton(const caf::SRInteractionTruthDLPProxy& obj)
+  {
+    return is_fid_con_nu(obj) && topology_diphoton(obj);
   }
 
   /**
@@ -348,6 +499,17 @@ namespace cuts::nc
   bool is_fid_con_1photon_1proton(const caf::SRInteractionTruthDLPProxy& obj)
   {
     return is_fid_con_nu(obj) && true_topology_1photon_1proton(obj);
+  }
+
+  /**
+   * @brief Check if MC interaction is a quality fiducial contained 1photon1proton event
+   * @details This is a logical and of `is_fid_con_1photon_1proton` & `photon_quality`
+   * @param obj the interaction (MC only)
+   * @return true if obj is a true quality fiducial contained 1photon1proton event
+   **/
+  bool is_fid_con_quality_1photon_1proton(const caf::SRInteractionTruthDLPProxy& obj)
+  {
+    return is_fid_con_1photon_1proton(obj) && photon_quality(obj);
   }
 
   /**
@@ -398,24 +560,192 @@ namespace cuts::nc
 
   /**
    * @brief Check if the interaction is a non-signal 1photon NC interaction
-   * @details Event should match our signal apart from the fiducial or containment cuts
+   * @details Event should match our signal apart from the fiducial, containment, & flash cuts
    * @param obj the interaction (MC only)
    * @return true if obj is non-fiducial or uncontained NC-1photon event
    **/
   bool nonsignal_single_photon(const caf::SRInteractionTruthDLPProxy& obj)
   {
-    return cuts::neutrino(obj) && isnc(obj) && not (cuts::fiducial_cut(obj) && cuts::containment_cut(obj)) && topology_single_photon(obj);
+    return cuts::neutrino(obj) && not cuts::fiducial_containment_flash_cut(obj) && topology_single_photon(obj);
   }
 
   /**
    * @brief Check if the interaction is a non-signal 1photon1proton NC interaction
-   * @details Event should match our signal apart from the fiducial or containment cuts
+   * @details Event should match our signal apart from the fiducial, containment, & flash cuts
    * @param obj the interaction (MC only)
    * @return true if obj is non-fiducial or uncontained NC-1photon1proton event
    **/
   bool nonsignal_1photon_1proton(const caf::SRInteractionTruthDLPProxy& obj)
   {
-    return cuts::neutrino(obj) && isnc(obj) && not (cuts::fiducial_cut(obj) && cuts::containment_cut(obj)) && topology_1photon_1proton(obj);
+    return cuts::neutrino(obj) && not cuts::fiducial_containment_flash_cut(obj) && topology_1photon_1proton(obj);
+  }
+
+  // MC Truth Cuts
+
+  /**
+   * @brief is the interaction a true NC Δ res event?
+   * @param The MC Truth of the interaction
+   **/
+  bool true_nc_delta_res(const caf::Proxy<caf::SRTrueInteraction>& obj)
+  {
+    return (obj.isnc && (vars::nc::baryon_res_code(obj) == 0));
+  }
+
+  /**
+   * @brief is the interaction a true NC Δ res event which isn't catagorized as producing pions?
+   * @details check the GENIE interaction type against the different NC Res modes enumerated
+   * Would prefer to have the photon producing resonancy to check instead, but w/e
+   * @param The MC Truth of the interaction
+   **/
+  bool true_nc_delta_res_no_pion(const caf::Proxy<caf::SRTrueInteraction>& obj)
+  {
+    return true_nc_delta_res(obj) &&
+           (obj.genie_inttype != caf::kResNCNuProtonPi0)       &&
+           (obj.genie_inttype != caf::kResNCNuProtonPiPlus)    &&
+           (obj.genie_inttype != caf::kResNCNuNeutronPi0)      &&
+           (obj.genie_inttype != caf::kResNCNuNeutronPiMinus)  &&
+           (obj.genie_inttype != caf::kResNCNuBarProtonPi0)    &&
+           (obj.genie_inttype != caf::kResNCNuBarProtonPiPlus) &&
+           (obj.genie_inttype != caf::kResNCNuBarNeutronPi0)   &&
+           (obj.genie_inttype != caf::kResNCNuBarNeutronPiMinus);
+  }
+
+  /**
+   * @brief is the interaction a true NC Δ → Nγ (a res to nucleon + photon)?
+   * @details Check that the GENIE truth for the interaction is that of a NC Delta_1232
+   * resonance and then that the true primary particles are a single photon and a signle nucleon
+   * @param The MC Truth of the interaction
+   * @return is the interaction a true NC Δ → 1γ1n?
+   **/
+  bool true_delta_res_Ngamma(const caf::Proxy<caf::SRTrueInteraction>& obj)
+  {
+    if (not obj.isnc)
+      return false;
+    if (vars::nc::baryon_res_code(obj) != 0)
+      return false;
+    if (obj.nprim != 2)
+      return false;
+    caf::Proxy<caf::SRTrueParticle>* primParticle0 = &obj.prim.at(0);
+    caf::Proxy<caf::SRTrueParticle>* primParticle1 = &obj.prim.at(1);
+    bool prim0_isPhoton = (primParticle0->pdg == 22);
+    bool prim1_isPhoton = (primParticle1->pdg == 22);
+    bool prim0_isNucleon = ((primParticle0->pdg == 2212) || (primParticle0->pdg == 2112));
+    bool prim1_isNucleon = ((primParticle1->pdg == 2212) || (primParticle1->pdg == 2112));
+    bool is_Ngamma = (prim0_isPhoton && prim1_isNucleon) || (prim1_isPhoton && prim0_isNucleon);
+    return is_Ngamma;
+  }
+
+  /**
+   * @brief is the interaction a true NC Δ → 1γ1n?
+   * @details Check that the GENIE truth for the interaction is that of a NC Delta_1232
+   * resonance and then that the true primary particles are a single photon and a signle neutron.
+   * Since we do not reconconstruct the neutron, this is a single photon event.
+   * @param The MC Truth of the interaction
+   * @return is the interaction a true NC Δ → 1γ1n?
+   **/
+  bool true_delta_res_1g(const caf::Proxy<caf::SRTrueInteraction>& obj)
+  {
+    if (not obj.isnc)
+      return false;
+    if (vars::nc::baryon_res_code(obj) != 0)
+      return false;
+    if (obj.nprim != 2)
+      return false;
+    caf::Proxy<caf::SRTrueParticle>* primParticle0 = &obj.prim.at(0);
+    caf::Proxy<caf::SRTrueParticle>* primParticle1 = &obj.prim.at(1);
+    bool prim0_isPhoton  = (primParticle0->pdg == 22);
+    bool prim1_isPhoton  = (primParticle1->pdg == 22);
+    bool prim0_isNeutron = (primParticle0->pdg == 2112);
+    bool prim1_isNeutron = (primParticle1->pdg == 2112);
+    bool is_1g = (prim0_isPhoton && prim1_isNeutron) || (prim1_isPhoton && prim0_isNeutron);
+    return is_1g;
+  }
+
+  /**
+   * @brief is the interaction a true NC Δ → 1γ1p?
+   * @details Check that the GENIE truth for the interaction is that of a NC Delta_1232
+   * resonance and then that the true primary particles are a single photon and a signle proton.
+   * @param The MC Truth of the interaction
+   * @return is the interaction a true NC Δ → 1γ1p?
+   **/
+  bool true_delta_res_1g1p(const caf::Proxy<caf::SRTrueInteraction>& obj)
+  {
+    if (not obj.isnc)
+      return false;
+    if (vars::nc::baryon_res_code(obj) != 0)
+      return false;
+    if (obj.nprim != 2)
+      return false;
+    caf::Proxy<caf::SRTrueParticle>* primParticle0 = &obj.prim.at(0);
+    caf::Proxy<caf::SRTrueParticle>* primParticle1 = &obj.prim.at(1);
+    bool prim0_isPhoton = (primParticle0->pdg == 22);
+    bool prim1_isPhoton = (primParticle1->pdg == 22);
+    bool prim0_isProton = (primParticle0->pdg == 2212);
+    bool prim1_isProton = (primParticle1->pdg == 2212);
+    bool is_1g1p = (prim0_isPhoton && prim1_isProton) || (prim1_isPhoton && prim0_isProton);
+    return is_1g1p;
+  }
+
+  /**
+   * @brief is the interaction a true NC Δ → 1γ1n above threshold?
+   * @details Check that the GENIE truth for the interaction is that of a NC Delta_1232
+   * resonance and then that the true primary particles are a single photon and a signle neutron.
+   * Since we do not reconconstruct the neutron, this is a single photon event.
+   * Also check that the photon is above our threshold energy (25 MeV)
+   * @param The MC Truth of the interaction
+   * @return is the interaction a true NC Δ → 1γ1n above threshold?
+   **/
+  bool true_delta_res_1g_abvThrsh(const caf::Proxy<caf::SRTrueInteraction>& obj)
+  {
+    if (not obj.isnc)
+      return false;
+    if (vars::nc::baryon_res_code(obj) != 0)
+      return false;
+    if (obj.nprim != 2)
+      return false;
+    caf::Proxy<caf::SRTrueParticle>* primParticle0 = &obj.prim.at(0);
+    caf::Proxy<caf::SRTrueParticle>* primParticle1 = &obj.prim.at(1);
+    bool prim0_isPhoton  = (primParticle0->pdg == 22);
+    bool prim1_isPhoton  = (primParticle1->pdg == 22);
+    bool prim0_isNeutron = (primParticle0->pdg == 2112);
+    bool prim1_isNeutron = (primParticle1->pdg == 2112);
+    bool is_1g = (prim0_isPhoton && prim1_isNeutron) || (prim1_isPhoton && prim0_isNeutron);
+    bool photon_abvThrsh = (prim0_isPhoton) ? (primParticle0->genE > 0.025)
+                         : (prim1_isPhoton) ? (primParticle1->genE > 0.025)
+                         : false;
+    return (is_1g && photon_abvThrsh);
+  }
+
+  /**
+   * @brief is the interaction a true NC Δ → 1γ1p above threshold?
+   * @details Check that the GENIE truth for the interaction is that of a NC Delta_1232
+   * resonance and then that the true primary particles are a single photon and a signle proton.
+   * Also check that the photon and proton are above threshold energy (25 MeV and 50 MeV respectfully)
+   * @param The MC Truth of the interaction
+   * @return is the interaction a true NC Δ → 1γ1p above threshold?
+   **/
+  bool true_delta_res_1g1p_abvThrsh(const caf::Proxy<caf::SRTrueInteraction>& obj)
+  {
+    if (not obj.isnc)
+      return false;
+    if (vars::nc::baryon_res_code(obj) != 0)
+      return false;
+    if (obj.nprim != 2)
+      return false;
+    caf::Proxy<caf::SRTrueParticle>* primParticle0 = &obj.prim.at(0);
+    caf::Proxy<caf::SRTrueParticle>* primParticle1 = &obj.prim.at(1);
+    bool prim0_isPhoton = (primParticle0->pdg == 22);
+    bool prim1_isPhoton = (primParticle1->pdg == 22);
+    bool prim0_isProton = (primParticle0->pdg == 2212);
+    bool prim1_isProton = (primParticle1->pdg == 2212);
+    bool is_1g1p = (prim0_isPhoton && prim1_isProton) || (prim1_isPhoton && prim0_isProton);
+    bool photon_abvThrsh = (prim0_isPhoton) ? (primParticle0->genE > 0.025)
+                         : (prim1_isPhoton) ? (primParticle1->genE > 0.025)
+                         : false;
+    bool proton_abvThrsh = (prim0_isProton) ? (primParticle0->genE > 0.050)
+                         : (prim1_isProton) ? (primParticle1->genE > 0.050)
+                         : false;
+    return (is_1g1p && photon_abvThrsh && proton_abvThrsh);
   }
 } // end namespace cuts::nc
  
@@ -429,7 +759,7 @@ namespace vars::nc
    * 0: 1g (contained and fiducial)
    * 1: NC 2g (ie pi0-like) (contained and fiducial)
    * 2: CC 2g (ie pi0-like) (contained and fiducial)
-   * 3: 1g (not contained or not fiducial)
+   * 3: Nonfiducial nu
    * 4: Other NC nu
    * 5: Other CC nu
    * 6: Cosmic
@@ -438,22 +768,47 @@ namespace vars::nc
   */
   double category_single_photon(const caf::SRInteractionTruthDLPProxy& obj)
   {
-    if      (cuts::nc::is_fid_con_nc_single_photon(obj)) return 0;
-    else if (cuts::nc::nc_pi0_background(obj))           return 1;
-    else if (cuts::nc::cc_pi0_background(obj))           return 2;
-    else if (cuts::nc::nonsignal_single_photon(obj))     return 3;
+    if      (cuts::nc::is_fid_con_single_photon(obj))                     return 0;
+    else if (cuts::nc::nc_pi0_background(obj))                            return 1;
+    else if (cuts::nc::cc_pi0_background(obj))                            return 2;
+    else if (cuts::neutrino(obj) && (not cuts::fiducial_cut(obj)))        return 3;
+    else if (cuts::neutrino(obj) && cuts::nc::isnc(obj))                  return 4;
+    else if (cuts::neutrino(obj) && cuts::iscc(obj))                      return 5;
+    else                                                                  return 6;
+  }
+
+  /**
+   * @brief Variable for enumerating interaction categories for 1photonOr1electron selection.
+   * @details This variable provides a basic categorization of interactions
+   * 0: 1g (contained and fiducial)
+   * 1: 1e (contained and fiducial)
+   * 2: NC 2g (ie pi0-like) (contained and fiducial)
+   * 3: CC 2g (ie pi0-like) (contained and fiducial)
+   * 4: Other NC nu
+   * 5: Other CC nu
+   * 6: Cosmic
+   * @param obj The interaction to apply the variable on.
+   * @return the enumerated category of the interaction.
+  */
+  double category_single_photon_or_electron(const caf::SRInteractionTruthDLPProxy& obj)
+  {
+    if      (cuts::nc::is_fid_con_single_photon(obj))    return 0;
+    else if (cuts::nc::is_fid_con_single_electron(obj))  return 1;
+    else if (cuts::nc::nc_pi0_background(obj))           return 2;
+    else if (cuts::nc::cc_pi0_background(obj))           return 3;
     else if (cuts::neutrino(obj) && cuts::nc::isnc(obj)) return 4;
     else if (cuts::neutrino(obj) && cuts::iscc(obj))     return 5;
     else                                                 return 6;
   }
 
   /**
-   * @brief Variable for enumerating interaction categories for inclusive 1photon selection.
+   * @brief Variable for eobj))
+   *   return numerating interaction categories for inclusive 1photon selection.
    * @details This variable provides a basic categorization of interactions
    * 0: 1g + stuff (contained and fiducial)
    * 1: NC 2g (ie pi0-like) (contained and fiducial)
    * 2: CC 2g (ie pi0-like) (contained and fiducial)
-   * 3: 1g (not contained or not fiducial)
+   * 3: Nonfiducial nu
    * 4: Other NC nu
    * 5: Other CC nu
    * 6: Cosmic
@@ -462,13 +817,13 @@ namespace vars::nc
   */
   double category_single_photon_inclusive(const caf::SRInteractionTruthDLPProxy& obj)
   {
-    if      (cuts::nc::is_fid_con_single_photon_inclusive(obj)) return 0;
-    else if (cuts::nc::nc_pi0_background(obj))                  return 1;
-    else if (cuts::nc::cc_pi0_background(obj))                  return 2;
-    else if (cuts::nc::nonsignal_single_photon(obj))            return 3;
-    else if (cuts::neutrino(obj) && cuts::nc::isnc(obj))        return 4;
-    else if (cuts::neutrino(obj) && cuts::iscc(obj))            return 5;
-    else                                                        return 6;
+    if      (cuts::nc::is_fid_con_single_photon_inclusive(obj))   return 0;
+    else if (cuts::nc::nc_pi0_background(obj))                    return 1;
+    else if (cuts::nc::cc_pi0_background(obj))                    return 2;
+    else if (cuts::neutrino(obj) && (not cuts::fiducial_cut(obj)))return 3;
+    else if (cuts::neutrino(obj) && cuts::nc::isnc(obj))          return 4;
+    else if (cuts::neutrino(obj) && cuts::iscc(obj))              return 5;
+    else                                                          return 6;
   }
 
   /**
@@ -477,7 +832,7 @@ namespace vars::nc
    * 0: 1g1p (contained and fiducial)
    * 1: NC 2g (ie pi0-like) (contained and fiducial)
    * 2: CC 2g (ie pi0-like) (contained and fiducial)
-   * 3: 1g1p (not contained or not fiducial)
+   * 3: Nonfiducial nu
    * 4: Other NC nu
    * 5: Other CC nu
    * 6: Cosmic
@@ -486,13 +841,13 @@ namespace vars::nc
   */
   double category_1photon_1proton(const caf::SRInteractionTruthDLPProxy& obj)
   {
-    if      (cuts::nc::is_fid_con_nc_1photon_1proton(obj)) return 0;
-    else if (cuts::nc::nc_pi0_background(obj))             return 1;
-    else if (cuts::nc::cc_pi0_background(obj))             return 2;
-    else if (cuts::nc::nonsignal_1photon_1proton(obj))     return 3;
-    else if (cuts::neutrino(obj) && cuts::nc::isnc(obj))   return 4;
-    else if (cuts::neutrino(obj) && cuts::iscc(obj))       return 5;
-    else                                                   return 6;
+    if      (cuts::nc::is_fid_con_1photon_1proton(obj))           return 0;
+    else if (cuts::nc::nc_pi0_background(obj))                    return 1;
+    else if (cuts::nc::cc_pi0_background(obj))                    return 2;
+    else if (cuts::neutrino(obj) && (not cuts::fiducial_cut(obj)))return 3;
+    else if (cuts::neutrino(obj) && cuts::nc::isnc(obj))          return 4;
+    else if (cuts::neutrino(obj) && cuts::iscc(obj))              return 5;
+    else                                                          return 6;
   }
 
   /**
@@ -502,7 +857,7 @@ namespace vars::nc
    * 1: CC 1g
    * 2: NC 2g (ie pi0-like) (contained and fiducial)
    * 3: CC 2g (ie pi0-like) (contained and fiducial)
-   * 4: 1g (not contained or not fiducial)
+   * 4: Nonfiducial nu
    * 5: Other NC nu
    * 6: Other CC nu
    * 7: Cosmic
@@ -511,14 +866,14 @@ namespace vars::nc
   */
   double alt_category_single_photon(const caf::SRInteractionTruthDLPProxy& obj)
   {
-    if      (cuts::nc::is_fid_con_nc_single_photon(obj))                               return 0;
-    else if (cuts::nc::is_fid_con_cc_nu(obj) && cuts::nc::topology_single_photon(obj)) return 1;
-    else if (cuts::nc::nc_pi0_background(obj))                                         return 2;
-    else if (cuts::nc::cc_pi0_background(obj))                                         return 3;
-    else if (cuts::nc::nonsignal_single_photon(obj))                                   return 4;
-    else if (cuts::neutrino(obj) && cuts::nc::isnc(obj))                               return 5;
-    else if (cuts::neutrino(obj) && cuts::iscc(obj))                                   return 6;
-    else                                                                               return 7;
+    if      (cuts::nc::is_fid_con_single_photon(obj) && cuts::nc::isnc(obj)) return 0;
+    else if (cuts::nc::is_fid_con_single_photon(obj) && cuts::nc::iscc(obj)) return 1;
+    else if (cuts::nc::nc_pi0_background(obj))                               return 2;
+    else if (cuts::nc::cc_pi0_background(obj))                               return 3;
+    else if (cuts::neutrino(obj) && (not cuts::fiducial_cut(obj)))           return 4;
+    else if (cuts::neutrino(obj) && cuts::nc::isnc(obj))                     return 5;
+    else if (cuts::neutrino(obj) && cuts::nc::iscc(obj))                     return 6;
+    else                                                                     return 7;
   }
 
   /**
@@ -528,7 +883,7 @@ namespace vars::nc
    * 1: CC 1g + stuff (contained and fiducial)
    * 2: NC 2g (ie pi0-like) (contained and fiducial)
    * 3: CC 2g (ie pi0-like) (contained and fiducial)
-   * 4: 1g (not contained or not fiducial)
+   * 4: Nonfiducial nu
    * 5: Other NC nu
    * 6: Other CC nu
    * 7: Cosmic
@@ -541,7 +896,7 @@ namespace vars::nc
     else if (cuts::nc::is_fid_con_cc_nu(obj) && cuts::nc::topology_single_photon_inclusive(obj)) return 1;
     else if (cuts::nc::nc_pi0_background(obj))                                                   return 2;
     else if (cuts::nc::cc_pi0_background(obj))                                                   return 3;
-    else if (cuts::nc::nonsignal_single_photon(obj))                                             return 4;
+    else if (cuts::neutrino(obj) && (not cuts::fiducial_cut(obj)))                               return 4;
     else if (cuts::neutrino(obj) && cuts::nc::isnc(obj))                                         return 5;
     else if (cuts::neutrino(obj) && cuts::iscc(obj))                                             return 6;
     else                                                                                         return 7;
@@ -554,7 +909,7 @@ namespace vars::nc
    * 1: CC 1g1p (contained and fiducial)
    * 2: NC 2g (ie pi0-like) (contained and fiducial)
    * 3: CC 2g (ie pi0-like) (contained and fiducial)
-   * 4: 1g1p (not contained or not fiducial)
+   * 4: Nonfiducial nu
    * 5: Other NC nu
    * 6: Other CC nu
    * 7: Cosmic
@@ -563,14 +918,15 @@ namespace vars::nc
   */
   double alt_category_1photon_1proton(const caf::SRInteractionTruthDLPProxy& obj)
   {
-    if      (cuts::nc::is_fid_con_nc_1photon_1proton(obj))                               return 0;
-    else if (cuts::nc::is_fid_con_cc_nu(obj) && cuts::nc::topology_1photon_1proton(obj)) return 1;
-    else if (cuts::nc::nc_pi0_background(obj))                                           return 2;
-    else if (cuts::nc::cc_pi0_background(obj))                                           return 3;
-    else if (cuts::nc::nonsignal_1photon_1proton(obj))                                   return 4;
-    else if (cuts::neutrino(obj) && cuts::nc::isnc(obj))                                 return 5;
-    else if (cuts::neutrino(obj) && cuts::iscc(obj))                                     return 6;
-    else                                                                                 return 7;
+    if      (cuts::nc::is_fid_con_1photon_1proton(obj) && cuts::nc::isnc(obj)) return 0;
+    else if (cuts::nc::is_fid_con_1photon_1proton(obj) && cuts::nc::iscc(obj)) return 1;
+    else if (cuts::nc::nc_pi0_background(obj))                                 return 2;
+    else if (cuts::nc::cc_pi0_background(obj))                                 return 3;
+    else if (cuts::neutrino(obj) && (not cuts::fiducial_cut(obj)))             return 4;
+    else if (cuts::neutrino(obj) && cuts::nc::isnc(obj))                       return 5;
+    else if (cuts::neutrino(obj) && cuts::iscc(obj))                           return 6;
+    else                                                                       return 7;
   }
+
 } // end namespace vars::nc
 #endif
