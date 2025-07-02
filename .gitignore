@@ -3,6 +3,7 @@
 *.pcm
 *.root
 *.png
+*.pdf
 *ACLiC*
 *.log
 *.cpython*
