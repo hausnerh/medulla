@@ -57,13 +57,17 @@ namespace gOre
     {"category_gOre",            &gOreVar::gOre_category                  },
     {"n_true_protons",           &gOreVar::n_protons                      },
     {"n_true_subthresh_protons", &gOreVar::n_protons_subthreshold         },
+    {"n_true_gOre_showers",      &gOreVar::n_gOre_showers                 },
     {"total_true_proton_ke",     &gOreVar::total_proton_ke                },
     {"gOre_true_ke",             &gOreVar::gOre_ke                        },
+    {"true_total_gOre_ke",       &gOreVar::total_gOre_KE                  },
     {"true_min_muon_ke",         &gOreVar::min_muon_ke                    },
     {"true_min_pion_ke",         &gOreVar::min_pion_ke                    },
     {"true_vertex_x",            &vars::vertex_x                          },
     {"true_vertex_y",            &vars::vertex_y                          },
-    {"true_vertex_z",            &vars::vertex_z                          }
+    {"true_vertex_z",            &vars::vertex_z                          },
+    {"true_wall_xy",             &gOreVar::xy_wall_dist                   },
+    {"true_wall_z",              &gOreVar::z_wall_dist                    }
   };
   std::unordered_map<std::string, RVAR> rtypeVars =
   {
@@ -75,14 +79,18 @@ namespace gOre
     {"vertex_x",                 &vars::vertex_x                   },
     {"vertex_y",                 &vars::vertex_y                   },
     {"vertex_z",                 &vars::vertex_z                   },
+    {"wall_xy",                  &gOreVar::xy_wall_dist            },
+    {"wall_z",                   &gOreVar::z_wall_dist             },
     {"fiducial_cut",             WRAP_BOOL(cuts::fiducial_cut)     },
     {"containment_cut",          WRAP_BOOL(cuts::containment_cut)  },
     {"flash_cut",                WRAP_BOOL(cuts::flash_cut)        },
     {"is_gOre",                  WRAP_BOOL(gOreCut::gOre_topology) },
     {"n_protons",                &gOreVar::n_protons               },
     {"n_subthresh_protons",      &gOreVar::n_protons_subthreshold  },
+    {"n_gOre_showers",           &gOreVar::n_gOre_showers          },
     {"total_proton_ke",          &gOreVar::total_proton_ke         },
     {"gOre_ke",                  &gOreVar::gOre_ke                 },
+    {"total_gOre_ke",            &gOreVar::total_gOre_KE           },
     {"subleading_gOre_ke",       &gOreVar::subleading_gOre_ke      },
     {"gOre_axial_spread",        &gOreVar::gOre_axial_spread       },
     {"gOre_directional_spread",  &gOreVar::gOre_directional_spread },

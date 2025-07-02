@@ -97,12 +97,13 @@ namespace core::nc::gOre
       Interaction(const T& object) : obj(object)
       {
         bool found_gOre(false);
-        bool found_more_gOre(false);
         bool found_Other(false);
         min_muon_ke = std::numeric_limits<double>::max();
         min_pion_ke = std::numeric_limits<double>::max();
         subleading_gore_ke = std::numeric_limits<double>::lowest();
         double leading_gore_ke = std::numeric_limits<double>::lowest();
+        nShowers = 0;
+        total_gore_ke = 0;
         for (auto& particle : obj.particles)
         {
           pvars::Particle_t pid = static_cast<pvars::Particle_t>(PIDFUNC(particle));
@@ -122,6 +123,8 @@ namespace core::nc::gOre
               default:
                 if (pid == pvars::kPhoton || pid == pvars::kElectron)
                 {
+                  ++nShowers;
+                  total_gore_ke += pKE;
                   if (pKE > leading_gore_ke)
                   {
                     subleading_gore_ke = leading_gore_ke;
@@ -186,9 +189,11 @@ namespace core::nc::gOre
       double min_muon_ke; // lowest muon KE below threshold
       double min_pion_ke; // lowest pion KE below threshold
       double subleading_gore_ke; // what is the KE of the subleading gOre candidate?
+      double total_gore_ke; // what is the sum of KE for all gOre showers (above and below theshold)?
       bool is_valid; // are there no pions or muons above threshold?
       size_t nProtons; // how many protons are there?
       size_t nProtons_subthresh; // how many protons are there below threshold?
+      size_t nShowers; // how many gOre showers are there (should be at least 1 above theshold)
     };
 
   typedef Interaction<caf::SRInteractionDLPProxy>      Reco_Interaction;

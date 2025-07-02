@@ -250,14 +250,74 @@ namespace vars::nc::gOre
     }
 
   /**
-   * @brief distance between the vertex and the x-/y-side walls of the detector
+   * @brief distance between the vertex and the x-/y-side active volume boundaries
+   * @details getting geom info from https://sbn-docdb.fnal.gov/cgi-bin/sso/RetrieveFile?docid=21693&filename=ICARUS_geometry_update_26Apr21_v3.pdf&version=3
    **/
   template <class T>
     double xy_wall_dist(const T& obj)
     {
-      double vtxX = vars::vertex_x(obj);
-      double vtxY = vars::vertex_x(obj);
-      return std::numeric_limits<double>::quiet_NaN(); 
+      double min_dist = std::numeric_limits<double>::quiet_NaN();
+      double vtx_x = vars::vertex_x(obj);
+      double vtx_y = vars::vertex_y(obj);
+      double pos_x_wall =  358.49;
+      double neg_x_wall = -358.49;
+      double pos_y_wall =  134.96;
+      double neg_y_wall = -181.89;
+      // taxi cab metric, so just min dist in each coordinate
+      // vtx should be between, but if any are negative that's worth noting
+      double pos_x_dist = (pos_x_wall - vtx_x);
+      double neg_x_dist = (vtx_x - neg_x_wall);
+      double pos_y_dist = (pos_y_wall - vtx_y);
+      double neg_y_dist = (vtx_y - neg_y_wall);
+
+      min_dist = std::min({pos_x_dist, neg_x_dist, pos_y_dist, neg_y_dist});
+
+      return min_dist;
+    }
+
+  /**
+   * @brief distance between the vertex and the z-side active volume boundaries
+   * @details getting geom info from https://sbn-docdb.fnal.gov/cgi-bin/sso/RetrieveFile?docid=21693&filename=ICARUS_geometry_update_26Apr21_v3.pdf&version=3
+   **/
+  template <class T>
+    double z_wall_dist(const T& obj)
+    {
+      double min_dist = std::numeric_limits<double>::quiet_NaN();
+      double vtx_z = vars::vertex_z(obj);
+      double pos_z_wall =  894.95;
+      double neg_z_wall = -894.95;
+      // taxi cab metric, so just min dist in each coordinate
+      // vtx should be between, but if any are negative that's worth noting
+      double pos_z_dist = (pos_z_wall - vtx_z);
+      double neg_z_dist = (vtx_z - neg_z_wall);
+
+      min_dist = std::min({pos_z_dist, neg_z_dist});
+
+      return min_dist;
+    }
+
+  /**
+   * @brief sum of gOre shower KE (including sub-thresholds) 
+   **/
+  template <class T>
+    double total_gOre_KE(const T& obj)
+    {
+      core::nc::gOre::Interaction<T> interaction(obj);
+      if (not interaction.is_valid)
+        return std::numeric_limits<double>::quiet_NaN();
+      return interaction.total_gore_ke;
+    }
+
+  /**
+   * @brief how many subthreshold gOre showers are there?
+   **/
+  template <class T>
+    double n_gOre_showers(const T& obj)
+    {
+      core::nc::gOre::Interaction<T> interaction(obj);
+      if (not interaction.is_valid)
+        return std::numeric_limits<double>::quiet_NaN();
+      return interaction.nShowers;
     }
 
   //*** TRUTH ONLY VARS ***//
