@@ -104,6 +104,8 @@ namespace core::nc::gOre
         double leading_gore_ke = std::numeric_limits<double>::lowest();
         nShowers = 0;
         total_gore_ke = 0;
+        caf::Proxy<float[3]>    leading_p;
+        caf::Proxy<float[3]> subleading_p;
         for (auto& particle : obj.particles)
         {
           pvars::Particle_t pid = static_cast<pvars::Particle_t>(PIDFUNC(particle));
@@ -128,11 +130,14 @@ namespace core::nc::gOre
                   if (pKE > leading_gore_ke)
                   {
                     subleading_gore_ke = leading_gore_ke;
+                    subleading_p = leading_p;
                     leading_gore_ke = pKE;
+                    leading_p = particle.momentum;
                   }
                   else if (pKE > subleading_gore_ke)
                   {
                     subleading_gore_ke = pKE;
+                    subleading_p = particle.momentum;
                   }
                 }
                 break;
@@ -182,6 +187,13 @@ namespace core::nc::gOre
           std::string msg = "Primary gOre KE is less than subleading gOre KE!!!\n  Primary gOre KE: " + std::to_string(pvars::ke(*photon_or_electron)) + "\n  Leading gOre KE: " + std::to_string(leading_gore_ke) + " (should be the same as above)\n  subleading gOre KE: " + std::to_string(subleading_gore_ke);
           throw std::runtime_error(msg);
         }
+        pion_costh = std::numeric_limits<double>::max();
+        if (nShowers > 1)
+        {
+          utilities::three_vector gOre_1_p = utilities::to_three_vector(photon_or_electron.momentum);
+          utilities::three_vector gOre_2_p = utilities::to_three_vector(subleading_p);
+          pion_costh = utilities::dot_product(gOre_1_p, gOre_2_p) / (utilities::magnitude(gOre_1_p) * utilities::magnitude(gOre_2_p));
+        }
       }
       const T& obj;
       PT* photon_or_electron;
@@ -189,6 +201,7 @@ namespace core::nc::gOre
       double min_muon_ke; // lowest muon KE below threshold
       double min_pion_ke; // lowest pion KE below threshold
       double subleading_gore_ke; // what is the KE of the subleading gOre candidate?
+      double pion_costh; // if there is a subleading gOre candidate, what is the cosine of the angle between it and the primary?
       double total_gore_ke; // what is the sum of KE for all gOre showers (above and below theshold)?
       bool is_valid; // are there no pions or muons above threshold?
       size_t nProtons; // how many protons are there?
