@@ -188,7 +188,7 @@ namespace core::nc::gOre
           throw std::runtime_error(msg);
         }
         pion_costh = std::numeric_limits<double>::max();
-        if (nShowers > 1)
+        if (is_valid && nShowers > 1)
         {
           utilities::three_vector gOre_1_p = utilities::to_three_vector(photon_or_electron->momentum);
           utilities::three_vector gOre_2_p = subleading_p;
