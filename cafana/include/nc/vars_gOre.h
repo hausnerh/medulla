@@ -335,7 +335,7 @@ namespace vars::nc::gOre
       if (interaction.nShowers == 1)
       {
         // truth particles don't have directional spread, so return a quiet NaN (for now at least)
-        if constexpr (std::is_same_v<T, af::SRInteractionTruthDLPProxy>)
+        if constexpr (std::is_same_v<T, caf::SRInteractionTruthDLPProxy>)
         {
           return std::numeric_limits<double>::quiet_NaN();
         }
