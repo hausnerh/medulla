@@ -333,7 +333,17 @@ namespace vars::nc::gOre
       // if there is only one shower reconstructed, assume it is actually 2 with (1 - CosTh) ~ directional spread
       // ie sqrt(2*spread)*E, The directional spread may need a scale factor, but this is a first pass
       if (interaction.nShowers == 1)
-        return std::sqrt(2.*interaction.photon_or_electron->directional_spread)*interaction.photon_or_electron->ke;
+      {
+        // truth particles don't have directional spread, so return a quiet NaN (for now at least)
+        if constexpr (std::is_same_v<T, af::SRInteractionTruthDLPProxy>)
+        {
+          return std::numeric_limits<double>::quiet_NaN();
+        }
+        else
+        {
+          return std::sqrt(2.*interaction.photon_or_electron->directional_spread)*interaction.photon_or_electron->ke;
+        }
+      }
       // in this case there must be a subleading shower. Use it for the pion mass estimate.
       return std::sqrt(2.*interaction.photon_or_electron->ke*interaction.subleading_gore_ke*(1.-interaction.pion_costh));
     }
