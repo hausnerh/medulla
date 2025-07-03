@@ -104,8 +104,8 @@ namespace core::nc::gOre
         double leading_gore_ke = std::numeric_limits<double>::lowest();
         nShowers = 0;
         total_gore_ke = 0;
-        caf::Proxy<float[3]>    leading_p;
-        caf::Proxy<float[3]> subleading_p;
+        utilities::three_vector    leading_p;
+        utilities::three_vector subleading_p;
         for (auto& particle : obj.particles)
         {
           pvars::Particle_t pid = static_cast<pvars::Particle_t>(PIDFUNC(particle));
@@ -132,12 +132,12 @@ namespace core::nc::gOre
                     subleading_gore_ke = leading_gore_ke;
                     subleading_p = leading_p;
                     leading_gore_ke = pKE;
-                    leading_p = particle.momentum;
+                    leading_p = utilities::to_three_vector(particle.momentum);
                   }
                   else if (pKE > subleading_gore_ke)
                   {
                     subleading_gore_ke = pKE;
-                    subleading_p = particle.momentum;
+                    subleading_p = utilities::to_three_vector(particle.momentum);
                   }
                 }
                 break;
@@ -190,8 +190,8 @@ namespace core::nc::gOre
         pion_costh = std::numeric_limits<double>::max();
         if (nShowers > 1)
         {
-          utilities::three_vector gOre_1_p = utilities::to_three_vector(photon_or_electron.momentum);
-          utilities::three_vector gOre_2_p = utilities::to_three_vector(subleading_p);
+          utilities::three_vector gOre_1_p = utilities::to_three_vector(photon_or_electron->momentum);
+          utilities::three_vector gOre_2_p = subleading_p;
           pion_costh = utilities::dot_product(gOre_1_p, gOre_2_p) / (utilities::magnitude(gOre_1_p) * utilities::magnitude(gOre_2_p));
         }
       }
