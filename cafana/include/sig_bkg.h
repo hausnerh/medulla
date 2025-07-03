@@ -205,17 +205,6 @@ namespace nc
 
       stack_canvas plot_var_sel(const std::string& var, const std::string& cut) const
       {
-        // check the var is in each of the TTrees
-        auto check_branch = [](const std::unique_ptr<TTree>& tree, const std::string var)
-        {
-          if (not tree->GetBranch(var.c_str()) &&
-              not tree->GetLeaf  (var.c_str())  )
-              throw std::runtime_error("Tree "+std::string(tree->GetName())+" has no "+var+" branch. Cannot plot it.");
-        };
-        check_branch(selectedSignalTree, var);
-        check_branch(nuBackgroundTree,   var);
-        check_branch(cosmicTree,         var);
-
         stack_canvas sc;
         sc.canvas = std::make_shared<TCanvas>(var.c_str(), var.c_str(), 1618, 1000);
         sc.canvas->SetBit(kCanDelete, false);
@@ -266,15 +255,6 @@ namespace nc
 
       stack_canvas plot_var_sig(const std::string& var, const std::string& cut) const
       {
-        // check the var is in each of the TTrees
-        auto check_branch = [](const std::unique_ptr<TTree>& tree, const std::string var)
-        {
-          if (not tree->GetBranch(var.c_str()) &&
-              not tree->GetLeaf  (var.c_str())  )
-              throw std::runtime_error("Tree "+std::string(tree->GetName())+" has no "+var+" branch. Cannot plot it.");
-        };
-        check_branch(signalTree, var);
-
         stack_canvas sc;
         sc.canvas = std::make_shared<TCanvas>(var.c_str(), var.c_str(), 1618, 1000);
         sc.canvas->SetBit(kCanDelete, false);

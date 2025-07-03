@@ -49,7 +49,8 @@ int run_analysis(const std::string& treeDir,
     std::filesystem::create_directory("plots/"+treeDir+"/"+sample);
   
   // setup analysis tree
-  std::string fileName = "trees/"+treeDir+"/nc_gOre_"+sample+".root";
+  //std::string fileName = "trees/"+treeDir+"/nc_gOre_"+sample+".root";
+  std::string fileName = "nc_gOre_"+sample+".root";
   std::string directoryName = "events/nominal";
   std::string selTreeName = "Nu_Topology_gOre";
   std::string sigTreeName = (deltaResSwitch) ? "signalNu_FidCon_NCRes" : "signalNu_Topology_gOre";
@@ -66,9 +67,16 @@ int run_analysis(const std::string& treeDir,
   my_analysis_tree.add_variable("min_pion_ke",            250,     0,     25,    "Minimum Subthreshold Pion KE (MeV)");
   my_analysis_tree.add_variable("gOre_score",              50,    -1,      1,    "#gamma-candiate PID Score");
   my_analysis_tree.add_variable("n_protons",                6,     0,      6,    "Protons above Threshold");
+  my_analysis_tree.add_variable("true_vertex_x",           50,  -400,    400,    "True Vertex X (cm)");
+  my_analysis_tree.add_variable("true_vertex_y",           50,  -200,    200,    "True Vertex Y (cm)");
+  my_analysis_tree.add_variable("true_vertex_z",           50, -1000,   1000,    "True Vertex Z (cm)");
   my_analysis_tree.add_variable("vertex_x",                50,  -400,    400,    "Vertex X (cm)");
   my_analysis_tree.add_variable("vertex_y",                50,  -200,    200,    "Vertex Y (cm)");
   my_analysis_tree.add_variable("vertex_z",                50, -1000,   1000,    "Vertex Z (cm)");
+  my_analysis_tree.add_variable("true_wall_xy",            50,     0,    200,    "True Minimum Distance from Vertex to X-/Y-side Detector Wall");
+  my_analysis_tree.add_variable("true_wall_z",             50,     0,   1000,    "True Minimum Distance from Vertex to Z-side Detector Wall");
+  my_analysis_tree.add_variable("wall_xy",                 50,     0,    200,    "Minimum Distance from Vertex to X-/Y-side Detector Wall");
+  my_analysis_tree.add_variable("wall_z",                  50,     0,   1000,    "Minimum Distance from Vertex to Z-side Detector Wall");
   my_analysis_tree.add_variable("gOre_start_dedx",         50,     0,     10,    "#gamma-candiate Start dE/dx (MeV/cm)");
   my_analysis_tree.add_variable("gOre_azimuthal_angle",    50,     0,      3.14, "#gamma-candiate Azimuthal Angle (rad)");
   my_analysis_tree.add_variable("gOre_polar_angle",        50,     0,      3.14, "#gamma-candiate Polar Angle (rad)");
@@ -78,6 +86,8 @@ int run_analysis(const std::string& treeDir,
   my_analysis_tree.add_variable("gOre_axial_spread",       75,     0,      1,    "#gamma-candiate Axial Spread");
   my_analysis_tree.add_variable("gOre_directional_spread", 75,     0,      1,    "#gamma-candiate Directional Spread");
   my_analysis_tree.add_variable("gOre_gap",               100,     0,    100,    "#gamma-candiate Distance from Vertex (cm)");
+  my_analysis_tree.add_variable("total_gOre_ke",          150,     0,    150,    "Total KE in Showers (incl. subthreshold)");
+  my_analysis_tree.add_variable("sqrt(2*gOre_ke*subleading_gOre_ke)", 100, 0, 400, "Reconstructed Neutral Pion Mass Peak (MeV/c^{2}_{})");
 
   std::string signal_def = (deltaResSwitch) ? "NC Delta Res No Pions " + sel : "TOPOLOGICAL "+sel;
   std::string pdf_suffix = "_"+sample+"_sig-"+sig+"_sel-"+sel;
@@ -151,9 +161,16 @@ int run_analysis(const std::string& treeDir,
     "min_pion_ke",           
     "gOre_score",            
     "n_protons",             
+    "true_vertex_x",              
+    "true_vertex_y",              
+    "true_vertex_z",              
     "vertex_x",              
     "vertex_y",              
     "vertex_z",              
+    "wall_xy",
+    "wall_z",
+    "true_wall_xy",
+    "true_wall_z",
     "gOre_start_dedx",       
     "gOre_azimuthal_angle",  
     "gOre_polar_angle",      
@@ -162,7 +179,8 @@ int run_analysis(const std::string& treeDir,
     "gOre_straightness",     
     "gOre_axial_spread",     
     "gOre_directional_spread",
-    "gOre_gap"
+    "gOre_gap",
+    "sqrt(2*gOre_ke*subleading_gOre_ke)"
   };
   for (auto const& var : vars)
   {
