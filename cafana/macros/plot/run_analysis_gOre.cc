@@ -87,7 +87,8 @@ int run_analysis(const std::string& treeDir,
   my_analysis_tree.add_variable("gOre_directional_spread", 75,     0,      1,    "#gamma-candiate Directional Spread");
   my_analysis_tree.add_variable("gOre_gap",               100,     0,    100,    "#gamma-candiate Distance from Vertex (cm)");
   my_analysis_tree.add_variable("total_gOre_ke",          150,     0,    150,    "Total KE in Showers (incl. subthreshold)");
-  my_analysis_tree.add_variable("sqrt(2*gOre_ke*subleading_gOre_ke)", 100, 0, 400, "Reconstructed Neutral Pion Mass Peak (MeV/c^{2}_{})");
+  my_analysis_tree.add_variable("sqrt(2*gOre_ke*subleading_gOre_ke)", 100, 0, 200, "Reconstructed Neutral Pion Mass Peak (MeV/c^{2}_{})");
+  my_analysis_tree.add_variable("pion_mass",              100,     0,    200,    "Reconstructed Neutral Pion Mass Peak (MeV/c^{2}_{}");
 
   std::string signal_def = (deltaResSwitch) ? "NC Delta Res No Pions " + sel : "TOPOLOGICAL "+sel;
   std::string pdf_suffix = "_"+sample+"_sig-"+sig+"_sel-"+sel;
@@ -153,36 +154,36 @@ int run_analysis(const std::string& treeDir,
   //try_call(cut, [&my_analysis_tree, &cut]{ my_analysis_tree.report_on_cut(cut); });
 
   //*** Plot Vars ***//
-  std::vector<std::string> vars =
-  {
-    "flash_total_PE",        
-    "reco_edep",             
-    "min_muon_ke",           
-    "min_pion_ke",           
-    "gOre_score",            
-    "n_protons",             
-    "true_vertex_x",              
-    "true_vertex_y",              
-    "true_vertex_z",              
-    "vertex_x",              
-    "vertex_y",              
-    "vertex_z",              
-    "wall_xy",
-    "wall_z",
-    "true_wall_xy",
-    "true_wall_z",
-    "gOre_start_dedx",       
-    "gOre_azimuthal_angle",  
-    "gOre_polar_angle",      
-    "gOre_ke",               
-    "subleading_gOre_ke",    
-    "gOre_straightness",     
-    "gOre_axial_spread",     
-    "gOre_directional_spread",
-    "gOre_gap",
-    "sqrt(2*gOre_ke*subleading_gOre_ke)"
-  };
-  for (auto const& var : vars)
+  //std::vector<std::string> vars =
+  //{
+  //  "flash_total_PE",        
+  //  "reco_edep",             
+  //  "min_muon_ke",           
+  //  "min_pion_ke",           
+  //  "gOre_score",            
+  //  "n_protons",             
+  //  "true_vertex_x",              
+  //  "true_vertex_y",              
+  //  "true_vertex_z",              
+  //  "vertex_x",              
+  //  "vertex_y",              
+  //  "vertex_z",              
+  //  "wall_xy",
+  //  "wall_z",
+  //  "true_wall_xy",
+  //  "true_wall_z",
+  //  "gOre_start_dedx",       
+  //  "gOre_azimuthal_angle",  
+  //  "gOre_polar_angle",      
+  //  "gOre_ke",               
+  //  "subleading_gOre_ke",    
+  //  "gOre_straightness",     
+  //  "gOre_axial_spread",     
+  //  "gOre_directional_spread",
+  //  "gOre_gap",
+  //  "sqrt(2*gOre_ke*subleading_gOre_ke)"
+  //};
+  for (auto const& var : my_analysis_tree.variables())
   {
     auto var_plot =
       try_call("plot "+var,

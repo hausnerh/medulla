@@ -151,13 +151,19 @@ namespace nc
                         const unsigned int& bins,
                         const double& lw, const double& up,
                         const std::string& title)
-       {
-         if (var_to_range.count(name) != 0 ||
-             var_to_title.count(name) != 0)
-           throw std::runtime_error("analysis_tree::add_variable -- Variable " + name + " already added to tree");
-         var_to_range.emplace(name, std::make_tuple(bins, lw, up));
-         var_to_title.emplace(name, title);
-       }
+        {
+          if (var_to_range.count(name) != 0 ||
+              var_to_title.count(name) != 0)
+            throw std::runtime_error("analysis_tree::add_variable -- Variable " + name + " already added to tree");
+          vars.push_back(name);
+          var_to_range.emplace(name, std::make_tuple(bins, lw, up));
+          var_to_title.emplace(name, title);
+        }
+
+      std::vector<std::string> variables() const
+      {
+        return vars;
+      }
 
       std::string get_bkg_cut(const std::string& signal_cut) const
       {
@@ -544,6 +550,7 @@ namespace nc
       std::vector<std::string> sel_cat_cuts;
       std::vector<std::string> sig_cat_labels;
       std::vector<std::string> sig_cat_cuts;
+      std::vector<std::string> vars;
       std::unordered_map<std::string, std::tuple<unsigned int, double, double>> var_to_range;
       std::unordered_map<std::string, std::string> var_to_title;
   };
