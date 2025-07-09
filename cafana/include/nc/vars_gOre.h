@@ -259,16 +259,12 @@ namespace vars::nc::gOre
       double min_dist = std::numeric_limits<double>::quiet_NaN();
       double vtx_x = vars::vertex_x(obj);
       double vtx_y = vars::vertex_y(obj);
-      double pos_x_wall =  358.49;
-      double neg_x_wall = -358.49;
-      double pos_y_wall =  134.96;
-      double neg_y_wall = -181.89;
       // taxi cab metric, so just min dist in each coordinate
       // vtx should be between, but if any are negative that's worth noting
-      double pos_x_dist = (pos_x_wall - vtx_x);
-      double neg_x_dist = (vtx_x - neg_x_wall);
-      double pos_y_dist = (pos_y_wall - vtx_y);
-      double neg_y_dist = (vtx_y - neg_y_wall);
+      double pos_x_dist = (GORE_WALL_X_POS - vtx_x);
+      double neg_x_dist = (vtx_x - GORE_WALL_X_NEG);
+      double pos_y_dist = (GORE_WALL_Y_POS - vtx_y);
+      double neg_y_dist = (vtx_y - GORE_WALL_Y_NEG);
 
       min_dist = std::min({pos_x_dist, neg_x_dist, pos_y_dist, neg_y_dist});
 
@@ -284,12 +280,10 @@ namespace vars::nc::gOre
     {
       double min_dist = std::numeric_limits<double>::quiet_NaN();
       double vtx_z = vars::vertex_z(obj);
-      double pos_z_wall =  894.95;
-      double neg_z_wall = -894.95;
       // taxi cab metric, so just min dist in each coordinate
       // vtx should be between, but if any are negative that's worth noting
-      double pos_z_dist = (pos_z_wall - vtx_z);
-      double neg_z_dist = (vtx_z - neg_z_wall);
+      double pos_z_dist = (GORE_WALL_Z_POS - vtx_z);
+      double neg_z_dist = (vtx_z - GORE_WALL_Z_NEG);
 
       min_dist = std::min({pos_z_dist, neg_z_dist});
 
@@ -484,6 +478,46 @@ namespace vars::nc::gOre
       cat = 6;
     return cat;
   }
-} // end vars::nc::gOre namespace
+
+  /**
+   * @brief categorize for MC Truth
+   * @details The fiducialization is being a pain, so focus on FSI topology and mode/interaction tyoe
+   * 0: NC ∆->Nγ
+   * 1: NC Other Single Photon
+   * 2: NC π0 No Photon
+   * 3: Other NC
+   * 4: CC
+   * 5: Non-neutrino
+   **/
+  double gOre_mc_category(const caf::Proxy<caf::SRTrueInteraction>& obj)
+  {
+    double cat(5);
+    bool isnc = obj.isnc;
+    caf::genie_interaction_mode_ genie_mode = obj.genie_mode;
+    caf::genie_interaction_type_ genie_inttype = obj.genie_inttype;
+    int resnum = obj.resnum;
+    // post-FSI primary particles
+    core::nc::gOre::mc_topology topology(obj.prim);
+    // is NC ∆ res
+    bool is_nc_delta_res = isnc && (resnum == 0) && (genie_inttype == 1000);
+    // single photon topology (1γ and maybe some nucleons)
+    bool is_single_photon_topology = topology.single_photon() && topology.only_photons_and_nucleons();
+    // has π0 no photons
+    bool has_pi0_0g = topology.has_pi0() && not topology.has(22);
+    // is a neutrino interaction
+    bool is_nu = obj.index != -1;
+    if (is_nc_delta_res && is_single_photon_topology)
+      cat = 0;
+    else if (isnc && is_single_photon_topology)
+      cat = 1;
+    else if (isnc && has_pi0_0g)
+      cat = 2;
+    else if (isnc)
+      cat = 3;
+    else if (is_nu)
+      cat = 4;
+    return cat;
+  }
+} //end vars::nc::gOre namespace
 
 #endif

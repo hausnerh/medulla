@@ -19,10 +19,227 @@
 #define GORE_MIN_PROTON_ENERGY 50.0    // MeV
 #define GORE_MIN_PION_ENERGY   25.0    // MeV
 
+/**
+ * Wall Locations in cm
+ * getting geom info from https://sbn-docdb.fnal.gov/cgi-bin/sso/RetrieveFile?docid=21693&filename=ICARUS_geometry_update_26Apr21_v3.pdf&version=3
+ **/
+#define GORE_WALL_X_POS  358.49
+#define GORE_WALL_X_NEG -358.49
+#define GORE_WALL_Y_POS  134.96
+#define GORE_WALL_Y_NEG -181.89
+#define GORE_WALL_Z_POS  894.95
+#define GORE_WALL_Z_NEG -894.95
+
+/**
+ * Fiducial Thresholds in cm
+ **/
+#define GORE_FID_THRESH_X_POS 25
+#define GORE_FID_THRESH_X_NEG 25
+#define GORE_FID_THRESH_Y_POS 25
+#define GORE_FID_THRESH_Y_NEG 25
+#define GORE_FID_THRESH_Z_POS 50
+#define GORE_FID_THRESH_Z_NEG 30
+
 #include "include/utilities.h"
 
 namespace core::nc::gOre
 {
+  // mc particle container for mc_topology
+  class mc_topo_particle
+  {
+    public:
+      mc_topo_particle(const caf::Proxy<caf::SRTrueParticle>& particle)
+      {
+        pdg_code = particle.pdg;
+        gen_energy = particle.genE * 1000.; // convert from GeV to MeV
+        start = {particle.start.x, particle.start.y, particle.start.z};
+        contained = particle.contained;
+      }
+      int pdg() const
+      {
+        return pdg_code;
+      }
+      double energy() const
+      {
+        return gen_energy;
+      }
+      bool is_fiducial() const
+      {
+        double vtx_x = std::get<0>(start);
+        double vtx_y = std::get<1>(start);
+        double vtx_z = std::get<2>(start);
+        return (GORE_WALL_X_POS - vtx_x > GORE_FID_THRESH_X_POS) &&
+               (vtx_x - GORE_WALL_X_NEG > GORE_FID_THRESH_X_NEG) &&
+               (GORE_WALL_Y_POS - vtx_y > GORE_FID_THRESH_Y_POS) &&
+               (vtx_y - GORE_WALL_Y_NEG > GORE_FID_THRESH_Y_NEG) &&
+               (GORE_WALL_Z_POS - vtx_z > GORE_FID_THRESH_Z_POS) &&
+               (vtx_z - GORE_WALL_Z_NEG > GORE_FID_THRESH_Z_NEG) ;
+      }
+      bool is_contained() const
+      {
+        return contained;
+      }
+      bool is_photon() const
+      {
+        return (std::abs(pdg_code) == 22);
+      }
+      bool is_electron() const
+      {
+        return (std::abs(pdg_code) == 11);
+      }
+      bool is_proton() const
+      {
+        return (std::abs(pdg_code) == 2212);
+      }
+      bool is_neutron() const
+      {
+        return (std::abs(pdg_code) == 2112);
+      }
+      bool is_muon() const
+      {
+        return (std::abs(pdg_code) == 13);
+      }
+      bool is_charged_pion() const
+      {
+        return (std::abs(pdg_code) == 211);
+      }
+      bool is_neutral_pion() const
+      {
+        return (std::abs(pdg_code) == 111);
+      }
+      bool is_neutrino() const
+      {
+        // flavor doesn't matter here
+        return (std::abs(pdg_code) == 12 ||
+                std::abs(pdg_code) == 14 ||
+                std::abs(pdg_code) == 16 );
+      }
+      bool is_above_threshold() const
+      {
+        // only check photons, protons, electrons, muons, and pions (since those are the ones with thresholds)
+        // since the thresholds are for kinetic energy, subtract off the mass
+        // neutrinos are are subthreshold (they're outgoing and basicaly invisible)
+        // everything else say it's above
+        if (is_neutrino())
+          return false;
+        if (is_photon())
+          return (gen_energy > GORE_MIN_GORE_ENERGY);
+        if (is_electron())
+          return (gen_energy - ELECTRON_MASS > GORE_MIN_GORE_ENERGY);
+        if (is_proton())
+          return (gen_energy - PROTON_MASS > GORE_MIN_PROTON_ENERGY);
+        if (is_muon())
+          return (gen_energy - MUON_MASS > GORE_MIN_MUON_ENERGY);
+        if (is_charged_pion())
+          return (gen_energy - PION_MASS > GORE_MIN_PION_ENERGY);
+        return true;
+      }
+    private:
+      int pdg_code;
+      double gen_energy;
+      utilities::three_vector start;
+      bool contained;
+  };
+
+  // topology
+  class mc_topology
+  {
+    public:
+      mc_topology(const caf::Proxy<std::vector<caf::SRTrueParticle>>& particle_vec)
+      {
+        // verify non-empty vector
+        if (particle_vec.size() == 0)
+          throw std::runtime_error("mc_topology: cannot initialize from empty vector.");
+        // first particle is the lepton. Use for fiducialization
+        // caf::Proxy is annoying so we can't use first
+        mc_topo_particle lepton(particle_vec[0]);
+        fiducial = lepton.is_fiducial();
+        // default assume event is contained. if anything over threshold is not, then the event isn't
+        contained = true;
+        for (auto const& particle : particle_vec)
+        {
+          mc_topo_particle cur_topo_particle(particle);
+          if (cur_topo_particle.is_above_threshold())
+          {
+            contained = contained && cur_topo_particle.is_contained();
+            add(cur_topo_particle);
+          }
+        }
+      }
+      bool has(const int& pdg) const
+      {
+        return (particles_by_pdg.count(pdg) == 1);
+      }
+      void add(const mc_topo_particle& topo_particle)
+      {
+        int pdg = topo_particle.pdg();
+        if(has(pdg))
+        {
+          particles_by_pdg.at(pdg).push_back(topo_particle);
+        }
+        else
+        {
+          particles_by_pdg[pdg] = {topo_particle};
+        }
+      }
+      unsigned int count(const int& pdg) const
+      {
+        return (has(pdg)) ? particles_by_pdg.at(pdg).size() : 0;
+      }
+      unsigned int count_with_antiparticles(const int& pdg) const
+      {
+        unsigned int counts = 0;
+        if(has( pdg)) counts += particles_by_pdg.at( pdg).size();
+        if(has(-pdg)) counts += particles_by_pdg.at(-pdg).size();
+        return counts;
+      }
+      void report() const
+      {
+        std::cout << "~~ MC TOPOLOGY ~~" << std::endl;
+        for (auto const& [pdg, particles] : particles_by_pdg)
+          std::cout << "  " << pdg << ": " << particles.size() << std::endl;
+        std::cout << "~~ ~~ ~~ ~~ ~~ ~~" << std::endl;
+      }
+      unsigned int total_particles() const
+      {
+        unsigned int counts = 0;
+        for (auto const& [pdg, particles] : particles_by_pdg)
+          counts += particles.size();
+        return counts;
+      }
+      bool single_photon() const
+      {
+        return count(22) == 1;
+      }
+      bool only_photons_and_nucleons() const
+      {
+        bool is_it = true;
+        for (auto const& [pdg, particles] : particles_by_pdg)
+          if (pdg != 22 && pdg != 2112 && pdg != 2212)
+          {
+            is_it = false;
+            break;
+          }
+        return is_it;
+      }
+      bool has_pi0() const
+      {
+        return has(111);
+      }
+      bool is_fiducial() const
+      {
+        return fiducial;
+      }
+      bool is_contained() const
+      {
+        return contained;
+      }
+    private:
+      std::unordered_map<int, std::vector<mc_topo_particle>> particles_by_pdg;
+      bool contained;
+      bool fiducial;
+  };
+
   template<class T>
     bool final_state_signal(const T& p,
                             const double gore_min   = GORE_MIN_GORE_ENERGY,

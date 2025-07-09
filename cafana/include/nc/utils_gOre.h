@@ -61,6 +61,7 @@ namespace gOre
     {"total_true_proton_ke",     &gOreVar::total_proton_ke                },
     {"gOre_true_ke",             &gOreVar::gOre_ke                        },
     {"true_total_gOre_ke",       &gOreVar::total_gOre_KE                  },
+    {"true_subleading_gOre_ke",  &gOreVar::subleading_gOre_ke             },
     {"true_pion_mass",           &gOreVar::pion_mass                      },
     {"true_min_muon_ke",         &gOreVar::min_muon_ke                    },
     {"true_min_pion_ke",         &gOreVar::min_pion_ke                    },
@@ -80,12 +81,12 @@ namespace gOre
     {"vertex_x",                 &vars::vertex_x                   },
     {"vertex_y",                 &vars::vertex_y                   },
     {"vertex_z",                 &vars::vertex_z                   },
-    {"wall_xy",                  &gOreVar::xy_wall_dist            },
-    {"wall_z",                   &gOreVar::z_wall_dist             },
     {"fiducial_cut",             WRAP_BOOL(cuts::fiducial_cut)     },
     {"containment_cut",          WRAP_BOOL(cuts::containment_cut)  },
     {"flash_cut",                WRAP_BOOL(cuts::flash_cut)        },
     {"is_gOre",                  WRAP_BOOL(gOreCut::gOre_topology) },
+    {"wall_xy",                  &gOreVar::xy_wall_dist            },
+    {"wall_z",                   &gOreVar::z_wall_dist             },
     {"n_protons",                &gOreVar::n_protons               },
     {"n_subthresh_protons",      &gOreVar::n_protons_subthreshold  },
     {"n_gOre_showers",           &gOreVar::n_gOre_showers          },
@@ -116,10 +117,11 @@ namespace gOre
     {"interaction_mode",         &mctruth::interaction_mode              },
     {"interaction_type",         &mctruth::interaction_type              },
     {"true_energy",              &mctruth::true_neutrino_energy          },
-    {"res_code",                 &gOreVar::baryon_res_code               },
     {"nc_delta_res",             WRAP_BOOL(gOreCut::nc_delta_res)        },
     {"nc_delta_res_no_pion",     WRAP_BOOL(gOreCut::nc_delta_res_no_pion)},
-    {"nc_delta_res_pi0",         WRAP_BOOL(gOreCut::nc_delta_res_pi0)    }
+    {"nc_delta_res_pi0",         WRAP_BOOL(gOreCut::nc_delta_res_pi0)    },
+    {"res_code",                 &gOreVar::baryon_res_code               },
+    {"gOre_mc_category",         &gOreVar::gOre_mc_category              }
   };
   
   /**
