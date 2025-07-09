@@ -90,7 +90,7 @@ int run_analysis(const std::string& treeDir,
   my_analysis_tree.add_variable("gOre_gap",               100,     0,    100,    "#gamma-candiate Distance from Vertex (cm)");
   my_analysis_tree.add_variable("total_gOre_ke",          150,     0,    150,    "Total KE in Showers (incl. subthreshold)");
   my_analysis_tree.add_variable("pion_mass",               50,     0,    200,    "Reconstructed Neutral Pion Mass Peak (MeV/c^{2}_{}");
-  my_analysis_tree.add_variable("interaction_mode",        16,    -1.5,   14,5,  "GENIE Interaction Mode");
+  my_analysis_tree.add_variable("interaction_mode",        16,    -1.5,   14.5,  "GENIE Interaction Mode");
   my_analysis_tree.add_variable("interaction_type",       100,   999.5, 1100.5,  "GENIE Interaction Type");
   my_analysis_tree.add_variable("res_code",                18,    -1.5,   17.5,  "Resonance Number");
   my_analysis_tree.add_variable("gOre_mc_category",         6,    -0.5,    5.5,  "MC Category");
