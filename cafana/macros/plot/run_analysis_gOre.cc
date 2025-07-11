@@ -34,6 +34,111 @@ inline std::vector<std::pair<std::string, std::string>> sig_cats =
   //{"True 1eXp Topology",        "(gOre_is_electron == 1)"}
 };
 
+inline std::map<int, std::string> genie_modes =
+{
+  { -1, "Unknown"},
+  {  0, "Quasi-Elastic"},
+  {  1, "Resonance"},
+  {  2, "DIS"},
+  {  3, "Coherent"},
+  {  4, "Coherenet Elastic"},
+  {  5, "Electron Scattering"},
+  {  6, "IMD Annihilation"},
+  {  7, "IBD"},
+  {  8, "Glashow Resonance"},
+  {  9, "AM #nu-#gamma"},
+  { 10, "MEC"},
+  { 11, "Diffractive"},
+  { 12, "EM"},
+  { 13, "Weak Mixing"}
+};
+
+inline std::map<int, std::string> genie_inttypes =
+{
+  {  -1, "Unknown"},
+  {1000, "Nuance Offset"},
+  {1001, "CC QE"},
+  {1002, "NC QE"},
+  {1003, "CC Res #nu p #pi^{+}"},
+  {1004, "CC Res #nu p #pi^{0}"},
+  {1005, "CC Res #nu n #pi^{+}"},
+  {1006, "NC Res #nu p #pi^{0}"},
+  {1007, "NC Res #nu n #pi^{+}"},
+  {1008, "NC Res #nu n #pi^{0}"},
+  {1009, "NC Res #nu p #pi^{-}"},
+  {1010, "CC Res anti-#nu n #pi^{-}"},
+  {1011, "CC Res anti-#nu n #pi^{0}"},
+  {1012, "CC Res anti-#nu p #pi^{-}"},
+  {1013, "NC Res anti-#nu p #pi^{0}"},
+  {1014, "NC Res anti-#nu n #pi^{+}"},
+  {1015, "NC Res anti-#nu n #pi^{0}"},
+  {1016, "NC Res anti-#nu p #pi^{-}"},
+  {1017, "CC Res #nu #Delta^{-}"},
+  {1021, "CC Res #nu #Delta^{++} #pi^{-}"},
+  {1028, "CC Res anti-#nu #Delta^{0} #pi^{-}"},
+  {1032, "CC Res anti-#nu #Delta^{-} #pi^{+}"},
+  {1039, "CC Res #nu p #rho^{+}"},
+  {1041, "CC Res #nu n #rho^{+}"},
+  {1046, "CC Res anti-#nu n #rho^{-}"},
+  {1048, "CC Res anti-#nu n #rho^{0}"},
+  {1053, "CC Res #nu #Sigma^{+} #Kappa^{+}"},
+  {1055, "CC Res #nu #Sigma^{+} #Kappa^{0}"},
+  {1060, "CC Res anti-#nu #Sigma^{-} #Kappa^{0}"},
+  {1062, "CC Res anti-#nu #Sigma^{0} #Kappa^{0}"},
+  {1067, "CC Res #nu p #eta"},
+  {1070, "CC Res anti-#nu n #eta"},
+  {1073, "CC Res #nu #Kappa^{+} #Lambda^{0}"},
+  {1076, "CC Res anti-#nu #Kappa^{0} #Lambda^{0}"},
+  {1079, "CC Res #nu p #pi^{+} #pi^{-}"},
+  {1080, "CC Res #nu p #pi^{0} #pi^{0}"},
+  {1085, "CC Res anti-#nu n #pi^{+} #pi^{-}"},
+  {1086, "CC Res anti-#nu n #pi^{0} #pi^{0}"},
+  {1090, "CC Res anti-#nu p #pi^{0} #pi^{0}"},
+  {1091, "CC DIS"},
+  {1092, "NC DIS"},
+  {1093, "Unused 1"},
+  {1094, "Unused 2"},
+  {1095, "CC QE Hyperon"},
+  {1096, "NC Coherent"},
+  {1097, "CC Coherent"},
+  {1098, "Electron Scattering"},
+  {1099, "IMD"},
+  {1100, "MEC 2p2h"}
+};
+
+inline std::map<int, std::string> res_codes =
+{
+  {-1, "No Resonance"},
+  { 0, "#Delta(1232)"},
+  { 1, "#Nu(1535)"},
+  { 2, "#Nu(1520)"},
+  { 3, "#Nu(1650)"},
+  { 4, "#Delta(1700)"},
+  { 5, "#Nu(1675)"},
+  { 6, "#Delta(1620)"},
+  { 7, "#Delta(1700)"},
+  { 8, "#Nu(1440)"},
+  { 9, "#Delta(1600)"},
+  {10, "#Nu(1720)"},
+  {11, "#Nu(1680)"},
+  {12, "#Delta(1910)"},
+  {13, "#Delta(1920)"},
+  {14, "#Delta(1905)"},
+  {15, "#Delta(1950)"},
+  {16, "#Nu(1710)"},
+  {17, "#Nu(1970)"}
+};
+
+inline std::map<int, std::string> mc_cats =
+{
+  {0, "NC #Delta#rightarrowN#gamma"},
+  {1, "Other Single Photon"},
+  {2, "#pi^{0} No Photons"},
+  {3, "Other NC"},
+  {4, "Other CC"},
+  {5, "Non-Neutrino"}
+};
+
 int run_analysis(const std::string& treeDir,
                  const std::string& sample, 
                  const std::string& sel,
@@ -50,7 +155,6 @@ int run_analysis(const std::string& treeDir,
     std::filesystem::create_directory("plots/"+treeDir+"/"+sample);
   
   // setup analysis tree
-  //std::string fileName = "trees/"+treeDir+"/nc_gOre_"+sample+".root";
   std::string fileName = "nc_gOre_"+sample+".root";
   std::string directoryName = "events/nominal";
   std::string selTreeName = "Nu_Topology_gOre";
@@ -90,9 +194,9 @@ int run_analysis(const std::string& treeDir,
   my_analysis_tree.add_variable("gOre_gap",               100,     0,    100,    "#gamma-candiate Distance from Vertex (cm)");
   my_analysis_tree.add_variable("total_gOre_ke",          150,     0,    150,    "Total KE in Showers (incl. subthreshold)");
   my_analysis_tree.add_variable("pion_mass",               50,     0,    200,    "Reconstructed Neutral Pion Mass Peak (MeV/c^{2}_{}");
-  my_analysis_tree.add_variable("interaction_mode",        16,    -1.5,   14.5,  "GENIE Interaction Mode");
-  my_analysis_tree.add_variable("interaction_type",       100,   999.5, 1100.5,  "GENIE Interaction Type");
-  my_analysis_tree.add_variable("res_code",                18,    -1.5,   17.5,  "Resonance Number");
+  my_analysis_tree.add_variable("interaction_mode",        15,    -1.5,   13.5,  "GENIE Interaction Mode");
+  my_analysis_tree.add_variable("interaction_type",       101,   999.5, 1100.5,  "GENIE Interaction Type");
+  my_analysis_tree.add_variable("res_code",                19,    -1.5,   17.5,  "Resonance Number");
   my_analysis_tree.add_variable("gOre_mc_category",         6,    -0.5,    5.5,  "MC Category");
 
   std::string signal_def = (deltaResSwitch) ? "NC Delta Res No Pions " + sel : "TOPOLOGICAL "+sel;
@@ -186,8 +290,8 @@ int run_analysis(const std::string& treeDir,
   }
   else
   {
-    std::cout << "//*** PID CUT ***//" << std::endl;
-    cut += " && (gOre_score > -0.388)";
+    std::cout << "//*** OPTIMIZED CUTS ***//" << std::endl;
+    cut += " && (flash_total_PE > 2720) && (gOre_directional_spread < 0.112) && (gOre_score > -0.506)";
     try_call(cut, [&my_analysis_tree, &cut]{ my_analysis_tree.report_on_cut(cut); });
   }
 
@@ -197,12 +301,64 @@ int run_analysis(const std::string& treeDir,
     auto var_plot =
       try_call("plot "+var,
         [&my_analysis_tree, &var, &cut]{ return my_analysis_tree.plot_var_sel(var, cut); });
-    std::string pdfName = "plots/"+treeDir+"/"+sample+"/"+var+pdf_suffix;
-    var_plot.canvas->SaveAs(pdfName.c_str());
     auto var_plot_sig =
      try_call("plot "+var+" signal",
        [&my_analysis_tree, &var, &cut]{ return my_analysis_tree.plot_var_sig(var, cut); });
+    std::string pdfName = "plots/"+treeDir+"/"+sample+"/"+var+pdf_suffix;
     std::string pdfName_sig = "plots/"+treeDir+"/"+sample+"/signal_"+var+pdf_suffix;
+    // some vars use alphanumeric labels
+    if (var == "interaction_type" ||
+        var == "interaction_mode" ||
+        var == "res_code"         ||
+        var == "gOre_mc_category"  )
+    {
+      // set the style
+      //TStyle* alphaStyle = new TStyle(*gStyle);
+      //alphaStyle->SetLabelSize(0.02, "X");
+      //alphaStyle->SetTextAngle(45);
+      //alphaStyle->SetTextAlign(31);
+      //alphaStyle->SetPadTickX(1);
+      std::function<std::string(double)> get_label = (var == "interaction_type") ? [](const int& code){ return (genie_inttypes.count(code) == 1) ? genie_inttypes.at(code) : ""; }
+                                                   : (var == "interaction_mode") ? [](const int& code){ return genie_modes.at(code); }
+                                                   : (var == "res_code")         ? [](const int& code){ return res_codes.at(code); }
+                                                   : (var == "gOre_mc_category") ? [](const int& code){ return mc_cats.at(code); }
+                                                   :                               [](const int& code){ return std::to_string(code); };
+      size_t nBins = var_plot.hists.front()->GetXaxis()->GetNbins();
+      for (size_t bin = 1; bin < nBins + 1; ++bin)
+      {
+        int bin_code = var_plot.hists.front()->GetXaxis()->GetBinCenter(bin);
+        std::string bin_label = get_label(bin_code);
+        for (auto& hist : var_plot.hists)
+          hist->GetXaxis()->SetBinLabel(bin, bin_label.c_str());
+        for (auto& hist : var_plot_sig.hists)
+          hist->GetXaxis()->SetBinLabel(bin, bin_label.c_str());
+      }
+      std::string title_str = (var == "interaction_type") ? "GENIE Interaction Type;;Events"
+                            : (var == "interaction_mode") ? "GENIE Interaction Mode;;Events"
+                            : (var == "res_code")         ?              "Resonance;;Events"
+                            : (var == "gOre_mc_category") ?        "Post-FSI State;;Evenets"
+                            :                                                     ";;Events";
+      var_plot.stack->SetTitle(title_str.c_str());
+      var_plot_sig.stack->SetTitle(title_str.c_str());
+      //var_plot.canvas->cd();
+      //alphaStyle->cd();
+      //var_plot_sig.canvas->cd();
+      //alphaStyle->cd();
+      if (var == "interaction_type")
+      {
+        var_plot.canvas->cd();
+        //var_plot.canvas->SetBottomMargin(0.15);
+        var_plot.stack->GetXaxis()->SetLabelSize(0.015);
+        var_plot.stack->GetXaxis()->LabelsOption("v");
+        var_plot_sig.canvas->cd();
+        //var_plot_sig.canvas->SetBottomMargin(0.15);
+        var_plot_sig.stack->GetXaxis()->SetLabelSize(0.015);
+        var_plot_sig.stack->GetXaxis()->LabelsOption("v");
+      }
+      var_plot.canvas->Update();
+      var_plot_sig.canvas->Update();
+    }
+    var_plot.canvas->SaveAs(pdfName.c_str());
     var_plot_sig.canvas->SaveAs(pdfName_sig.c_str());
   }
 
@@ -234,8 +390,7 @@ int main(int argc, char* argv[])
     die("must supply a sample to select which file is used.");
   std::string treeDir(argv[1]);
   std::string sample (argv[2]);
-  bool optimize_cuts = true;
-  ret += try_call("Run gOre Analysis", run_analysis, treeDir, sample, "gOre", "gOre", false, optimize_cuts);
-  ret += try_call("Run gOre Analysis", run_analysis, treeDir, sample, "gOre", "gOre", true,  optimize_cuts);
+  bool optimize_cuts = false;
+  ret = try_call("Run gOre Analysis", run_analysis, treeDir, sample, "gOre", "gOre", false, optimize_cuts);
   return ret;
 }
