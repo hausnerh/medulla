@@ -33,12 +33,12 @@
 /**
  * Fiducial Thresholds in cm
  **/
-#define GORE_FID_THRESH_X_POS 25
-#define GORE_FID_THRESH_X_NEG 25
-#define GORE_FID_THRESH_Y_POS 25
-#define GORE_FID_THRESH_Y_NEG 25
-#define GORE_FID_THRESH_Z_POS 50
-#define GORE_FID_THRESH_Z_NEG 30
+#define GORE_FID_THRESH_X_POS 25.0
+#define GORE_FID_THRESH_X_NEG 25.0
+#define GORE_FID_THRESH_Y_POS 25.0
+#define GORE_FID_THRESH_Y_NEG 25.0
+#define GORE_FID_THRESH_Z_POS 50.0
+#define GORE_FID_THRESH_Z_NEG 30.0
 
 #include "include/utilities.h"
 
@@ -62,6 +62,10 @@ namespace core::nc::gOre
       double energy() const
       {
         return gen_energy;
+      }
+      utilities::three_vector get_start() const
+      {
+        return start;
       }
       bool is_fiducial() const
       {
@@ -154,6 +158,7 @@ namespace core::nc::gOre
         // caf::Proxy is annoying so we can't use first
         mc_topo_particle lepton(particle_vec[0]);
         fiducial = lepton.is_fiducial();
+        vertex = lepton.get_start();
         // default assume event is contained. if anything over threshold is not, then the event isn't
         contained = true;
         for (auto const& particle : particle_vec)
@@ -195,7 +200,13 @@ namespace core::nc::gOre
       }
       void report() const
       {
-        std::cout << "~~ MC TOPOLOGY ~~" << std::endl;
+        double vtx_x = std::get<0>(vertex);
+        double vtx_y = std::get<1>(vertex);
+        double vtx_z = std::get<2>(vertex);
+        std::cout << "~~ MC TOPOLOGY ~~\n"
+                  << "~~ Vertex X: " << vtx_x << " ~~\n"
+                  << "~~ Vertex Y: " << vtx_y << " ~~\n"
+                  << "~~ Vertex Z: " << vtx_z << " ~~" << std::endl;
         for (auto const& [pdg, particles] : particles_by_pdg)
           std::cout << "  " << pdg << ": " << particles.size() << std::endl;
         std::cout << "~~ ~~ ~~ ~~ ~~ ~~" << std::endl;
@@ -238,6 +249,7 @@ namespace core::nc::gOre
       std::unordered_map<int, std::vector<mc_topo_particle>> particles_by_pdg;
       bool contained;
       bool fiducial;
+      utilities::three_vector vertex;
   };
 
   template<class T>
