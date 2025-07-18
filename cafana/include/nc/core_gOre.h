@@ -14,10 +14,10 @@
  * 50 MeV for protons
  * 25 for everything else
  **/
-#define GORE_MIN_GORE_ENERGY   25.0    // MeV
-#define GORE_MIN_MUON_ENERGY  143.425  // MeV
-#define GORE_MIN_PROTON_ENERGY 50.0    // MeV
-#define GORE_MIN_PION_ENERGY   25.0    // MeV
+#define GORE_MIN_GORE_ENERGY   10.0 // MeV
+#define GORE_MIN_MUON_ENERGY   25.0 // MeV
+#define GORE_MIN_PROTON_ENERGY 50.0 // MeV
+#define GORE_MIN_PION_ENERGY   25.0 // MeV
 
 /**
  * Wall Locations in cm

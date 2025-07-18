@@ -2,36 +2,38 @@
 #include "include/yell_try_die.h"
 #include <filesystem>
 
-inline std::vector<std::pair<std::string, std::string>> sel_cats_delta =
+inline std::vector<std::pair<std::string, nc::cut_sequence>> sel_cats_delta =
 {
-  {"Fiducial/Contained NC #Delta#rightarrowN#gamma",     "(nc_delta_res_no_pion == 1) && (category_gOre == 0)"},
-  {"Non-Fiducial/Contained NC #Delta#rightarrowN#gamma", "(nc_delta_res_no_pion == 1) && (category_gOre != 0)"},
-  {"Other True 1#gammaXp",                               "(nc_delta_res_no_pion == 0) && (category_gOre == 0)"},
-  {"1eXp",                                               "(nc_delta_res_no_pion == 0) && (category_gOre == 1)"},
-  {"Res #pi^{0}_{}",                                     "(nc_delta_res_no_pion == 0) && (category_gOre == 2)"},
-  {"Res #pi^{+}_{}/#pi^{-}_{}",                          "(nc_delta_res_no_pion == 0) && (category_gOre == 3)"},
-  {"QE",                                                 "(nc_delta_res_no_pion == 0) && (category_gOre == 4)"},
-  {"DIS",                                                "(nc_delta_res_no_pion == 0) && (category_gOre == 5)"},
-  {"Other #nu",                                          "(nc_delta_res_no_pion == 0) && (category_gOre == 6)"},
-  {"Cosmic",                                             "(nc_delta_res_no_pion == 0) && (category_gOre == 7)"}
+  {"Fiducial/Contained NC #Delta#rightarrowN#gamma",     {"nc_delta_res_no_pion == 1", "category_gOre == 0"}},
+  {"Non-Fiducial/Contained NC #Delta#rightarrowN#gamma", {"nc_delta_res_no_pion == 1", "category_gOre != 0"}},
+  {"Other Fiducial/Contained True 1#gammaXp",            {"nc_delta_res_no_pion == 0", "category_gOre == 0"}},
+  {"1eXp",                                               {"nc_delta_res_no_pion == 0", "category_gOre == 1"}},
+  {"Res #pi^{0}_{}",                                     {"nc_delta_res_no_pion == 0", "category_gOre == 2"}},
+  {"Res #pi^{+}_{}/#pi^{-}_{}",                          {"nc_delta_res_no_pion == 0", "category_gOre == 3"}},
+  {"QE",                                                 {"nc_delta_res_no_pion == 0", "category_gOre == 4"}},
+  {"DIS",                                                {"nc_delta_res_no_pion == 0", "category_gOre == 5"}},
+  {"Non-fiducial or Uncontained #nu",                    {"nc_delta_res_no_pion == 0", "category_gOre == 6"}},
+  {"Other #nu",                                          {"nc_delta_res_no_pion == 0", "category_gOre == 7"}},
+  {"Cosmic",                                             {"nc_delta_res_no_pion == 0", "category_gOre == 8"}}
 };
 
-inline std::vector<std::pair<std::string, std::string>> sel_cats_gore =
+inline std::vector<std::pair<std::string, nc::cut_sequence>> sel_cats_gore =
 {
-  {"1#gammaXp",                 "(category_gOre == 0)"},
-  {"1eXp",                      "(category_gOre == 1)"},
-  {"Res #pi^{0}_{}",            "(category_gOre == 2)"},
-  {"Res #pi^{+}_{}/#pi^{-}_{}", "(category_gOre == 3)"},
-  {"QE",                        "(category_gOre == 4)"},
-  {"DIS",                       "(category_gOre == 5)"},
-  {"Other #nu",                 "(category_gOre == 6)"},
-  {"Cosmic",                    "(category_gOre == 7)"}
+  {"1#gammaXp",                       "category_gOre == 0"},
+  {"1eXp",                            "category_gOre == 1"},
+  {"Res #pi^{0}_{}",                  "category_gOre == 2"},
+  {"Res #pi^{+}_{}/#pi^{-}_{}",       "category_gOre == 3"},
+  {"QE",                              "category_gOre == 4"},
+  {"DIS",                             "category_gOre == 5"},
+  {"Non-fiducial or Uncontained #nu", "category_gOre == 6"},
+  {"Other #nu",                       "category_gOre == 7"},
+  {"Cosmic",                          "category_gOre == 8"}
 };
 
-inline std::vector<std::pair<std::string, std::string>> sig_cats =
+inline std::vector<std::pair<std::string, nc::cut_sequence>> sig_cats =
 {
-  {"True 1#gammaXp Topology",   "(gOre_is_photon == 1)"}
-  //{"True 1eXp Topology",        "(gOre_is_electron == 1)"}
+  {"True 1#gammaXp Topology",   "gOre_is_photon == 1"}
+  //{"True 1eXp Topology",        "gOre_is_electron == 1"}
 };
 
 inline std::map<int, std::string> genie_modes =
@@ -139,8 +141,7 @@ inline std::map<int, std::string> mc_cats =
   {5, "Non-Neutrino"}
 };
 
-int run_analysis(const std::string& treeDir,
-                 const std::string& sample, 
+int run_analysis(const std::string& sample,
                  const std::string& sel,
                  const std::string& sig,
                  const bool& deltaResSwitch,
@@ -149,10 +150,8 @@ int run_analysis(const std::string& treeDir,
   // setup output dir
   if (not std::filesystem::is_directory("plots") || not std::filesystem::exists("plots"))
     std::filesystem::create_directory("plots");
-  if (not std::filesystem::is_directory("plots/"+treeDir) || not std::filesystem::exists("plots/"+treeDir))
-    std::filesystem::create_directory("plots/"+treeDir);
-  if (not std::filesystem::is_directory("plots/"+treeDir+"/"+sample) || not std::filesystem::exists("plots/"+treeDir+"/"+sample))
-    std::filesystem::create_directory("plots/"+treeDir+"/"+sample);
+  if (not std::filesystem::is_directory("plots/"+sample) || not std::filesystem::exists("plots/"+sample))
+    std::filesystem::create_directory("plots/"+sample);
   
   // setup analysis tree
   std::string fileName = "nc_gOre_"+sample+".root";
@@ -160,7 +159,7 @@ int run_analysis(const std::string& treeDir,
   std::string selTreeName = "Nu_Topology_gOre";
   std::string sigTreeName = (deltaResSwitch) ? "signalNu_FidCon_NCRes" : "signalNu_Topology_gOre";
   std::string cosTreeName = "Cos_Topology_gOre";
-  std::vector<std::pair<std::string, std::string>> sel_cats = (deltaResSwitch) ? sel_cats_delta
+  std::vector<std::pair<std::string, nc::cut_sequence>> sel_cats = (deltaResSwitch) ? sel_cats_delta
                                                                                : sel_cats_gore;
   nc::analysis_tree my_analysis_tree(fileName, directoryName, "(is_gOre == 1)",
                                      selTreeName, sigTreeName, cosTreeName,
@@ -202,29 +201,29 @@ int run_analysis(const std::string& treeDir,
   std::string signal_def = (deltaResSwitch) ? "NC Delta Res No Pions " + sel : "TOPOLOGICAL "+sel;
   std::string pdf_suffix = "_"+sample+"_sig-"+sig+"_sel-"+sel;
   pdf_suffix += (deltaResSwitch) ? "_NCDeltaRes.pdf" : ".pdf";
+  nc::cut_sequence cut;
   std::cout
     << "************************\n"
     << "* " << signal_def << " *\n"
     << "************************" << std::endl;
-  std::string cut = "";
   //*** TOPOLOGY ***//
   // should alread be implemented as part of making the selected TTree,
   // but we do this for completeness
   std::cout << "//*** TOPOLOGY ***//" << std::endl;
-  cut += "(is_gOre)";
-  try_call(cut, [&my_analysis_tree, &cut]{ my_analysis_tree.report_on_cut(cut); });
+  cut += "is_gOre";
+  try_call(cut.string(), [&my_analysis_tree, &cut]{ my_analysis_tree.report_on_cut(cut); });
   //*** FLASH CUT ***//
   std::cout << "//*** FLASH CUT ***//" << std::endl;
-  cut += " && (flash_cut)";
-  try_call(cut, [&my_analysis_tree, &cut]{ my_analysis_tree.report_on_cut(cut); });
+  cut += "flash_cut";
+  try_call(cut.string(), [&my_analysis_tree, &cut]{ my_analysis_tree.report_on_cut(cut); });
   //*** FIDUCIAL CUT ***//
   std::cout << "//*** FIDUCIAL CUT ***//" << std::endl;
-  cut += " && (fiducial_cut)";
-  try_call(cut, [&my_analysis_tree, &cut]{ my_analysis_tree.report_on_cut(cut); });
+  cut += "fiducial_cut";
+  try_call(cut.string(), [&my_analysis_tree, &cut]{ my_analysis_tree.report_on_cut(cut); });
   //*** CONTAINMENT CUT***//
   std::cout << "//*** CONTAINMENT CUT ***//" << std::endl;
-  cut += " && (containment_cut)";
-  try_call(cut, [&my_analysis_tree, &cut]{ my_analysis_tree.report_on_cut(cut); });
+  cut += "containment_cut";
+  try_call(cut.string(), [&my_analysis_tree, &cut]{ my_analysis_tree.report_on_cut(cut); });
 
   if (optimizeCuts)
   {
@@ -234,9 +233,9 @@ int run_analysis(const std::string& treeDir,
       = try_call("optimize fidutial cut (XY)",
           [&my_analysis_tree, &cut]{ return my_analysis_tree.optimize_lower_bound("wall_xy", 0, 200, cut); });
     cut = wall_xy_cut_opt.cut;
-    try_call(cut, [&my_analysis_tree, &cut]{ my_analysis_tree.report_on_cut(cut); });
-    wall_xy_cut_plot.sc.canvas->Print(("plots/"+treeDir+"/"+sample+"/wall_xy_optimized"+pdf_suffix).c_str());
-    wall_xy_cut_opt.canvas    ->Print(("plots/"+treeDir+"/"+sample+"/wall_xy_FOM"+pdf_suffix).c_str());
+    try_call(cut.string(), [&my_analysis_tree, &cut]{ my_analysis_tree.report_on_cut(cut); });
+    wall_xy_cut_plot.sc.canvas->Print(("plots/"+sample+"/wall_xy_optimized"+pdf_suffix).c_str());
+    wall_xy_cut_opt.canvas    ->Print(("plots/"+sample+"/wall_xy_FOM"+pdf_suffix).c_str());
 
     //*** OPTIMIZE WALL Z ***//
     std::cout << "//*** OPTIMIZE WALL Z ***//" << std::endl;
@@ -244,9 +243,9 @@ int run_analysis(const std::string& treeDir,
       = try_call("optimize fidutial cut (Z)",
           [&my_analysis_tree, &cut]{ return my_analysis_tree.optimize_lower_bound("wall_z", 0, 200, cut); });
     cut = wall_z_cut_opt.cut;
-    try_call(cut, [&my_analysis_tree, &cut]{ my_analysis_tree.report_on_cut(cut); });
-    wall_z_cut_plot.sc.canvas->Print(("plots/"+treeDir+"/"+sample+"/wall_z_optimized"+pdf_suffix).c_str());
-    wall_z_cut_opt.canvas    ->Print(("plots/"+treeDir+"/"+sample+"/wall_z_FOM"+pdf_suffix).c_str());
+    try_call(cut.string(), [&my_analysis_tree, &cut]{ my_analysis_tree.report_on_cut(cut); });
+    wall_z_cut_plot.sc.canvas->Print(("plots/"+sample+"/wall_z_optimized"+pdf_suffix).c_str());
+    wall_z_cut_opt.canvas    ->Print(("plots/"+sample+"/wall_z_FOM"+pdf_suffix).c_str());
 
     //*** OPTIMIZE PE CUT ***//
     std::cout << "//*** OPTIMIZE PE CUT ***//" << std::endl;
@@ -254,9 +253,9 @@ int run_analysis(const std::string& treeDir,
       = try_call("optimize photon/electron score",
           [&my_analysis_tree, &cut]{ return my_analysis_tree.optimize_lower_bound("flash_total_PE", 0, 20000, cut); });
     cut = pe_cut_opt.cut;
-    try_call(cut, [&my_analysis_tree, &cut]{ my_analysis_tree.report_on_cut(cut); });
-    pe_cut_plot.sc.canvas->Print(("plots/"+treeDir+"/"+sample+"/gOre_pe_optimized"+pdf_suffix).c_str());
-    pe_cut_opt.canvas    ->Print(("plots/"+treeDir+"/"+sample+"/gOre_pe_FOM"+pdf_suffix).c_str());
+    try_call(cut.string(), [&my_analysis_tree, &cut]{ my_analysis_tree.report_on_cut(cut); });
+    pe_cut_plot.sc.canvas->Print(("plots/"+sample+"/gOre_pe_optimized"+pdf_suffix).c_str());
+    pe_cut_opt.canvas    ->Print(("plots/"+sample+"/gOre_pe_FOM"+pdf_suffix).c_str());
 
     //*** OPTIMIZE DIRECTIONAL SPREAD CUT  ***//
     std::cout << "//*** OPTIMIZE DIRECTIONAL SPREAD CUT ***//" << std::endl;
@@ -264,9 +263,9 @@ int run_analysis(const std::string& treeDir,
       = try_call("optimize straightness",
           [&my_analysis_tree, &cut]{ return my_analysis_tree.optimize_upper_bound("gOre_directional_spread", 0, 1, cut); });
     cut = dir_cut_opt.cut;
-    try_call(cut, [&my_analysis_tree, &cut]{ my_analysis_tree.report_on_cut(cut); });
-    dir_cut_plot.sc.canvas->Print(("plots/"+treeDir+"/"+sample+"/gOre_directional_spread_optimized"+pdf_suffix).c_str());
-    dir_cut_opt.canvas    ->Print(("plots/"+treeDir+"/"+sample+"/gOre_directional_spread_FOM"+pdf_suffix).c_str());
+    try_call(cut.string(), [&my_analysis_tree, &cut]{ my_analysis_tree.report_on_cut(cut); });
+    dir_cut_plot.sc.canvas->Print(("plots/"+sample+"/gOre_directional_spread_optimized"+pdf_suffix).c_str());
+    dir_cut_opt.canvas    ->Print(("plots/"+sample+"/gOre_directional_spread_FOM"+pdf_suffix).c_str());
 
     //*** OPTIMIZE PION MASS CUT ***//
     //std::cout << "//*** OPTIMIZE PION MASS CUT ***//" << std::endl;
@@ -274,9 +273,9 @@ int run_analysis(const std::string& treeDir,
       = try_call("optimize pion mass",
           [&my_analysis_tree, &cut]{ return my_analysis_tree.optimize_lower_bound("pion_mass", 0, 900, cut); });
     cut = pi0_cut_opt.cut;
-    try_call(cut, [&my_analysis_tree, &cut]{ my_analysis_tree.report_on_cut(cut); });
-    pi0_cut_plot.sc.canvas->Print(("plots/"+treeDir+"/"+sample+"/pion_mass_optimized"+pdf_suffix).c_str());
-    pi0_cut_opt.canvas    ->Print(("plots/"+treeDir+"/"+sample+"/pion_mass_FOM"+pdf_suffix).c_str());
+    try_call(cut.string(), [&my_analysis_tree, &cut]{ my_analysis_tree.report_on_cut(cut); });
+    pi0_cut_plot.sc.canvas->Print(("plots/"+sample+"/pion_mass_optimized"+pdf_suffix).c_str());
+    pi0_cut_opt.canvas    ->Print(("plots/"+sample+"/pion_mass_FOM"+pdf_suffix).c_str());
 
     //*** OPTIMIZE PID CUT ***//
     std::cout << "//*** OPTIMIZE PID CUT ***//" << std::endl;
@@ -284,15 +283,17 @@ int run_analysis(const std::string& treeDir,
       = try_call("optimize photon/electron score",
           [&my_analysis_tree, &cut]{ return my_analysis_tree.optimize_lower_bound("gOre_score", -1, 1, cut); });
     cut = pid_cut_opt.cut;
-    try_call(cut, [&my_analysis_tree, &cut]{ my_analysis_tree.report_on_cut(cut); });
-    pid_cut_plot.sc.canvas->Print(("plots/"+treeDir+"/"+sample+"/gOre_pid_optimized"+pdf_suffix).c_str());
-    pid_cut_opt.canvas    ->Print(("plots/"+treeDir+"/"+sample+"/gOre_pid_FOM"+pdf_suffix).c_str());
+    try_call(cut.string(), [&my_analysis_tree, &cut]{ my_analysis_tree.report_on_cut(cut); });
+    pid_cut_plot.sc.canvas->Print(("plots/"+sample+"/gOre_pid_optimized"+pdf_suffix).c_str());
+    pid_cut_opt.canvas    ->Print(("plots/"+sample+"/gOre_pid_FOM"+pdf_suffix).c_str());
   }
   else
   {
     std::cout << "//*** OPTIMIZED CUTS ***//" << std::endl;
-    cut += " && (flash_total_PE > 2720) && (gOre_directional_spread < 0.112) && (gOre_score > -0.506)";
-    try_call(cut, [&my_analysis_tree, &cut]{ my_analysis_tree.report_on_cut(cut); });
+    cut += "flash_total_PE > 2720";
+    cut += "gOre_directional_spread < 0.112";
+    cut += "gOre_score > -0.506";
+    try_call(cut.string(), [&my_analysis_tree, &cut]{ my_analysis_tree.report_on_cut(cut); });
   }
 
   //*** Plot Vars ***//
@@ -304,20 +305,14 @@ int run_analysis(const std::string& treeDir,
     auto var_plot_sig =
      try_call("plot "+var+" signal",
        [&my_analysis_tree, &var, &cut]{ return my_analysis_tree.plot_var_sig(var, cut); });
-    std::string pdfName = "plots/"+treeDir+"/"+sample+"/"+var+pdf_suffix;
-    std::string pdfName_sig = "plots/"+treeDir+"/"+sample+"/signal_"+var+pdf_suffix;
+    std::string pdfName = "plots/"+sample+"/"+var+pdf_suffix;
+    std::string pdfName_sig = "plots/"+sample+"/signal_"+var+pdf_suffix;
     // some vars use alphanumeric labels
     if (var == "interaction_type" ||
         var == "interaction_mode" ||
         var == "res_code"         ||
         var == "gOre_mc_category"  )
     {
-      // set the style
-      //TStyle* alphaStyle = new TStyle(*gStyle);
-      //alphaStyle->SetLabelSize(0.02, "X");
-      //alphaStyle->SetTextAngle(45);
-      //alphaStyle->SetTextAlign(31);
-      //alphaStyle->SetPadTickX(1);
       std::function<std::string(double)> get_label = (var == "interaction_type") ? [](const int& code){ return (genie_inttypes.count(code) == 1) ? genie_inttypes.at(code) : ""; }
                                                    : (var == "interaction_mode") ? [](const int& code){ return genie_modes.at(code); }
                                                    : (var == "res_code")         ? [](const int& code){ return res_codes.at(code); }
@@ -340,18 +335,12 @@ int run_analysis(const std::string& treeDir,
                             :                                                     ";;Events";
       var_plot.stack->SetTitle(title_str.c_str());
       var_plot_sig.stack->SetTitle(title_str.c_str());
-      //var_plot.canvas->cd();
-      //alphaStyle->cd();
-      //var_plot_sig.canvas->cd();
-      //alphaStyle->cd();
       if (var == "interaction_type")
       {
         var_plot.canvas->cd();
-        //var_plot.canvas->SetBottomMargin(0.15);
         var_plot.stack->GetXaxis()->SetLabelSize(0.015);
         var_plot.stack->GetXaxis()->LabelsOption("v");
         var_plot_sig.canvas->cd();
-        //var_plot_sig.canvas->SetBottomMargin(0.15);
         var_plot_sig.stack->GetXaxis()->SetLabelSize(0.015);
         var_plot_sig.stack->GetXaxis()->LabelsOption("v");
       }
@@ -363,8 +352,8 @@ int run_analysis(const std::string& treeDir,
   }
 
   // specifically check the pion mass in the 1 shower case and the multi-shower case
-  std::string cut_1_shower = cut + " && (n_gOre_showers == 1)";
-  std::string cut_n_shower = cut + " && (n_gOre_showers > 1)";
+  nc::cut_sequence cut_1_shower = cut.with_addition("n_gOre_showers == 1");
+  nc::cut_sequence cut_n_shower = cut.with_addition("n_gOre_showers > 1");
   auto plot_1_shower =
     try_call("plot pion mass for 1 shower",
       [&my_analysis_tree, &cut_1_shower]{ return my_analysis_tree.plot_var_sel("pion_mass", cut_1_shower); }); 
@@ -373,8 +362,8 @@ int run_analysis(const std::string& treeDir,
       [&my_analysis_tree, &cut_n_shower]{ return my_analysis_tree.plot_var_sel("pion_mass", cut_n_shower); });
   plot_1_shower.stack->SetTitle("1 Shower");
   plot_n_shower.stack->SetTitle("N>1 Showers");
-  std::string pdfName_1_shower = "plots/"+treeDir+"/"+sample+"/pion_mass_1_shower"+pdf_suffix;
-  std::string pdfName_n_shower = "plots/"+treeDir+"/"+sample+"/pion_mass_n_shower"+pdf_suffix;
+  std::string pdfName_1_shower = "plots/"+sample+"/pion_mass_1_shower"+pdf_suffix;
+  std::string pdfName_n_shower = "plots/"+sample+"/pion_mass_n_shower"+pdf_suffix;
   plot_1_shower.canvas->SaveAs(pdfName_1_shower.c_str());
   plot_n_shower.canvas->SaveAs(pdfName_n_shower.c_str());
 
@@ -388,9 +377,8 @@ int main(int argc, char* argv[])
   int ret = 0;
   if (argc == 0)
     die("must supply a sample to select which file is used.");
-  std::string treeDir(argv[1]);
-  std::string sample (argv[2]);
+  std::string sample (argv[1]);
   bool optimize_cuts = false;
-  ret = try_call("Run gOre Analysis", run_analysis, treeDir, sample, "gOre", "gOre", false, optimize_cuts);
+  ret = try_call("Run gOre Analysis", run_analysis, sample, "gOre", "gOre", false, optimize_cuts);
   return ret;
 }

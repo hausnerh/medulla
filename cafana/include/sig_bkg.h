@@ -30,6 +30,92 @@
 
 namespace nc
 {
+  class cut_sequence
+  {
+    public:
+      cut_sequence() {}
+      cut_sequence(const std::vector<std::string>& cut_list) : cuts(cut_list) { cut_as_string = string(); }
+      cut_sequence(std::initializer_list<std::string> init) : cuts(init) { cut_as_string = string(); }
+      cut_sequence(const std::string& initial_cut)
+      {
+        cuts.push_back(initial_cut);
+        cut_as_string = string();
+      }
+      cut_sequence(const char* initial_cut)
+      {
+        cuts.push_back(initial_cut);
+        cut_as_string = string();
+      }
+      void add_cut(const std::string& cut)
+      {
+        cuts.push_back(cut);
+        cut_as_string = string();
+      }
+      void add_conditional_cut(const std::string& cut_if, const std::string& cut_then)
+      {
+        // conditionals (P -> Q) are equivalent to (!P or Q)
+        std::string cut = "(!(" + cut_if +")) || (" + cut_then+ ")";
+        add_cut(cut);
+      }
+      void add_sequence(const cut_sequence& new_seq)
+      {
+        if (new_seq.size() == 0)
+          return;
+        for (size_t idx = 0; idx < new_seq.size(); ++idx)
+          add_cut(new_seq.get_cut(idx));
+      }
+      size_t size() const
+      {
+        return cuts.size();
+      }
+      std::string get_cut(const size_t& index) const
+      {
+        return cuts.at(index);
+      }
+      std::string string() const
+      {
+        std::string full_cut = "";
+        for (size_t idx = 0; idx < cuts.size(); ++idx)
+        {
+          full_cut += "(" + cuts.at(idx) + ")";
+          if (idx != cuts.size() - 1)
+            full_cut += " && ";
+        }
+        return full_cut;
+      }
+      const char* c_str() const
+      {
+        return cut_as_string.c_str();
+      }
+      cut_sequence with_addition(const cut_sequence& additional_cut) const
+      {
+        cut_sequence new_cut(cuts);
+        new_cut.add_sequence(additional_cut);
+        return new_cut;
+      }
+      friend cut_sequence& operator+=(cut_sequence& lhs, const cut_sequence& rhs);
+    private:
+      std::vector<std::string> cuts;
+      std::string cut_as_string;
+  };
+  cut_sequence& operator+=(cut_sequence& lhs, const cut_sequence& rhs)
+  {
+    lhs.add_sequence(rhs);
+    return lhs;
+  }
+  cut_sequence negate_cut(const cut_sequence& old_cut) 
+  {
+    // de morgan's law
+    std::string neg_str = "";
+    for (size_t idx = 0; idx < old_cut.size(); ++idx)
+    {
+      neg_str += "(!(" + old_cut.get_cut(idx) + "))";
+      if (idx != old_cut.size() - 1)
+        neg_str += " || ";
+    }
+    return neg_str;
+  }
+
   struct stack_canvas
   {
     std::shared_ptr<TCanvas> canvas;
@@ -66,7 +152,7 @@ namespace nc
     std::shared_ptr<TGraph> efficiency_graph;
     std::shared_ptr<TGraph> fom_graph;
     std::shared_ptr<TLine> line;
-    std::string cut;
+    cut_sequence cut;
     double limit;
     double fom;
     bool is_upper_bound; // false -> lower bound
@@ -77,12 +163,12 @@ namespace nc
     public:
       analysis_tree(const std::string& inFileName,
                     const std::string& directory,
-                    const std::string& selection_cut,
+                    const cut_sequence& selection_cut,
                     const std::string& sel_tree,
                     const std::string& sig_tree,
                     const std::string& cos_tree,
-                    const std::vector<std::pair<std::string, std::string>> sel_cats,
-                    const std::vector<std::pair<std::string, std::string>> sig_cats) : inFile(TFile::Open(inFileName.c_str(), "READ"))
+                    const std::vector<std::pair<std::string, cut_sequence>> sel_cats,
+                    const std::vector<std::pair<std::string, cut_sequence>> sig_cats) : inFile(TFile::Open(inFileName.c_str(), "READ"))
       {
         // Error Checks
         if ((inFile.get() == nullptr) || inFile->IsZombie())
@@ -107,7 +193,7 @@ namespace nc
         colors.push_back(new TColor(0.85, 0.85, 0.85)); // Gray (but darker)
 
         // Memory Handling
-        std::string tmpName = "temp_TTrees-"+sel_tree+"-"+sig_tree+"-"+cos_tree+"_Cuts-"+sel_cats.front().second+"-"+sig_cats.front().second+".root";
+        std::string tmpName = "temp_TTrees-"+sel_tree+"-"+sig_tree+"-"+cos_tree+"_Cuts-"+sel_cats.front().second.string()+"-"+sig_cats.front().second.string()+".root";
         memFile = std::make_unique<TMemFile>(tmpName.c_str(), "RECREATE");
         memFile->cd();
 
@@ -116,8 +202,8 @@ namespace nc
         std::string selection_tree_name = directory + "/" + sel_tree;
         std::string signal_tree_name    = directory + "/" + sig_tree;
         std::string cosmic_tree_name    = directory + "/" + cos_tree;
-        std::string signal_cut    = sel_cats.front().second;
-        std::string bkg_cut       = get_bkg_cut(signal_cut); 
+        cut_sequence signal_cut    = sel_cats.front().second;
+        cut_sequence bkg_cut       = negate_cut(signal_cut); 
         TTree* tmpSignalTree = inFile->Get<TTree>(signal_tree_name.c_str());
         signalTree = std::unique_ptr<TTree>(tmpSignalTree->CopyTree(signal_cut.c_str()));
         signalTree->SetDirectory(memFile.get());
@@ -165,13 +251,7 @@ namespace nc
         return vars;
       }
 
-      std::string get_bkg_cut(const std::string& signal_cut) const
-      {
-        std::string bkg_cut = "(! ("+signal_cut+"))";
-        return bkg_cut;
-      }
-
-      std::tuple<unsigned int, unsigned int, double, double> cut_e_p(const std::string& cut) const
+      std::tuple<unsigned int, unsigned int, double, double> cut_e_p(const cut_sequence& cut) const
       {
         unsigned int selected_signal      = selectedSignalTree->GetEntries(cut.c_str());
         unsigned int selected_background  = nuBackgroundTree  ->GetEntries(cut.c_str());
@@ -181,7 +261,7 @@ namespace nc
         return std::make_tuple(selected_signal, selected_background, efficiency, purity);
       }
 
-      void report_on_cut(const std::string& cut) const
+      void report_on_cut(const cut_sequence& cut) const
       {
         auto [selected_signal, selected_background, efficiency, purity] = cut_e_p(cut);
         std::vector<unsigned int> bkg_cat_counts;
@@ -189,7 +269,7 @@ namespace nc
         std::ostringstream cat_report;
         for (size_t cat = 0; cat < nCats; ++cat)
         {
-          std::string cat_cut = "("+cut+") && ("+sel_cat_cuts.at(cat)+")";
+          cut_sequence cat_cut = cut.with_addition(sel_cat_cuts.at(cat));
           bkg_cat_counts.push_back(nuBackgroundTree->GetEntries(cat_cut.c_str()));
           if (cat == nCats - 1)
             bkg_cat_counts.back() += cosmicTree->GetEntries(cut.c_str());
@@ -199,7 +279,7 @@ namespace nc
         }
         std::cout
           << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~" << '\n' 
-          << cut                                                     << '\n'
+          << cut.string()                                            << '\n'
           << "  Total Signal: "               << total_signal        << '\n'
           << "  Selected Signal Events: "     << selected_signal     << '\n'
           << "  Selected Background Events: " << selected_background << '\n'
@@ -209,7 +289,7 @@ namespace nc
           << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~" << std::endl;
       }
 
-      stack_canvas plot_var_sel(const std::string& var, const std::string& cut) const
+      stack_canvas plot_var_sel(const std::string& var, const cut_sequence& cut) const
       {
         stack_canvas sc;
         sc.canvas = std::make_shared<TCanvas>(var.c_str(), var.c_str(), 1618, 1000);
@@ -226,7 +306,7 @@ namespace nc
         for (size_t cat = 0; cat < nCats; ++cat)
         {
           std::string histName = "nu_bkg_" + std::to_string(cat);
-          std::string cut_cat = cut + " && " + sel_cat_cuts.at(cat);
+          cut_sequence cut_cat = cut.with_addition(sel_cat_cuts.at(cat));
           std::shared_ptr<TH1F> tmp_hist = std::make_shared<TH1F>(histName.c_str(), "", bins, lw, up);
           nuBackgroundTree->Draw((var+">>"+histName).c_str(), cut_cat.c_str(), "goff");
           tmp_hist->SetDirectory(nullptr);
@@ -259,7 +339,7 @@ namespace nc
         return sc;
       }
 
-      stack_canvas plot_var_sig(const std::string& var, const std::string& cut) const
+      stack_canvas plot_var_sig(const std::string& var, const cut_sequence& cut) const
       {
         stack_canvas sc;
         sc.canvas = std::make_shared<TCanvas>(var.c_str(), var.c_str(), 1618, 1000);
@@ -271,7 +351,7 @@ namespace nc
         for (size_t cat = 0; cat < nCats; ++cat)
         {
           std::string histName = "sel_sig_" + std::to_string(cat);
-          std::string cut_cat = cut + " && " + sig_cat_cuts.at(cat);
+          cut_sequence cut_cat = cut.with_addition(sig_cat_cuts.at(cat));
           std::shared_ptr<TH1F> tmp_hist = std::make_shared<TH1F>(histName.c_str(), "", bins, lw, up);
           signalTree->Draw((var+">>"+histName).c_str(), cut_cat.c_str(), "goff");
           tmp_hist->SetFillColor(colors.at(nCats + cat)->GetNumber());
@@ -284,7 +364,7 @@ namespace nc
         for (size_t cat = 0; cat < nCats; ++cat)
         {
           std::string histName = "unsel_sig_" + std::to_string(cat);
-          std::string cut_cat = "(! ("+cut+")) && " + sig_cat_cuts.at(cat);
+          cut_sequence cut_cat = negate_cut(cut).with_addition(sig_cat_cuts.at(cat));
           std::shared_ptr<TH1F> tmp_hist = std::make_shared<TH1F>(histName.c_str(), "", bins, lw, up);
           signalTree->Draw((var+">>"+histName).c_str(), cut_cat.c_str(), "goff");
           tmp_hist->SetFillColor(colors.at(2*nCats + cat)->GetNumber());
@@ -328,7 +408,7 @@ namespace nc
 
       std::tuple<optimization, limit_canvas> optimize_lower_bound(const std::string& var,
                                                                   const double& lw, const double& up,
-                                                                  const std::string& old_cut) const
+                                                                  const cut_sequence& old_cut) const
       {
         optimization opt;
         limit_canvas lc = plot_var_sel(var, old_cut);
@@ -349,13 +429,12 @@ namespace nc
         unsigned int nSteps = 1000;
         double step = (up - lw) / nSteps;
         opt.fom = std::numeric_limits<double>::lowest();
-        opt.cut = "";
         opt.limit = std::numeric_limits<double>::lowest();
         for (double limit = lw; limit < up; limit += step)
         {
           std::ostringstream limStrm;
           limStrm << std::setprecision(10) << limit;
-          std::string cut = old_cut + " && (" + var + " > " + limStrm.str() + ")";
+          cut_sequence cut = old_cut.with_addition(var + " > " + limStrm.str());
           auto [selected_signal, selected_background, efficiency, purity] = cut_e_p(cut);
           double fom = get_fom(selected_signal, selected_background, efficiency, purity);
           opt.purity_graph->AddPoint(limit, purity);
@@ -434,7 +513,7 @@ namespace nc
 
       std::tuple<optimization, limit_canvas> optimize_upper_bound(const std::string& var,
                                                                   const double& lw, const double& up,
-                                                                  const std::string& old_cut) const
+                                                                  const cut_sequence& old_cut) const
       {
         optimization opt;
         limit_canvas lc = plot_var_sel(var, old_cut);
@@ -455,13 +534,12 @@ namespace nc
         unsigned int nSteps = 1000;
         double step = (up - lw) / nSteps;
         opt.fom = std::numeric_limits<double>::lowest();
-        opt.cut = "";
         opt.limit = std::numeric_limits<double>::lowest();
         for (double limit = lw; limit < up; limit += step)
         {
           std::ostringstream limStrm;
           limStrm << std::setprecision(10) << limit;
-          std::string cut = old_cut + " && (" + var + " < " + limStrm.str() + ")";
+          cut_sequence cut = old_cut.with_addition(var + " < " + limStrm.str());
           auto [selected_signal, selected_background, efficiency, purity] = cut_e_p(cut);
           double fom = get_fom(selected_signal, selected_background, efficiency, purity);
           opt.purity_graph->AddPoint(limit, purity);
@@ -547,9 +625,9 @@ namespace nc
       std::unique_ptr<TTree> cosmicTree;
       unsigned int total_signal;
       std::vector<std::string> sel_cat_labels;
-      std::vector<std::string> sel_cat_cuts;
       std::vector<std::string> sig_cat_labels;
-      std::vector<std::string> sig_cat_cuts;
+      std::vector<cut_sequence> sel_cat_cuts;
+      std::vector<cut_sequence> sig_cat_cuts;
       std::vector<std::string> vars;
       std::unordered_map<std::string, std::tuple<unsigned int, double, double>> var_to_range;
       std::unordered_map<std::string, std::string> var_to_title;

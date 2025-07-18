@@ -424,12 +424,13 @@ namespace vars::nc::gOre
    * 3: Res Pi+/Pi-
    * 4: QE
    * 5: DIS
-   * 6: Other Neutrino
-   * 7: Non-Neutrino
+   * 6: Non-fiducial/uncontained Neutrino
+   * 7: Other Neutrino
+   * 8: Non-Neutrino
    **/
   double gOre_category(const caf::SRInteractionTruthDLPProxy& obj)
   {
-    double cat(7);
+    double cat(8);
     int64_t type = obj.interaction_type;
     int64_t mode = obj.interaction_mode;
     bool is_ResPi0 = (type == caf::kResCCNuNeutronPi0)   ||
@@ -450,32 +451,35 @@ namespace vars::nc::gOre
                          (type == caf::kResNCNuBarNeutronPiMinus) ||
                          (type == caf::kResCCNuDelta2PlusPiMinus) ||
                          (type == caf::kResCCNuBarDelta0PiMinus)   ;
-    if      (cuts::neutrino(obj)                 &&
-             cuts::fiducial_containment_cut(obj) &&
-             cuts::nc::gOre::gOre_is_photon(obj)  )
+    if      (cuts::neutrino(obj)                   &&
+             cuts::fiducial_containment_cut(obj)   &&
+             cuts::nc::gOre::gOre_is_photon(obj)    )
       cat = 0;
-    else if (cuts::neutrino(obj)                 &&
-             cuts::fiducial_containment_cut(obj) &&
-             cuts::nc::gOre::gOre_is_electron(obj))
+    else if (cuts::neutrino(obj)                   &&
+             cuts::fiducial_containment_cut(obj)   &&
+             cuts::nc::gOre::gOre_is_electron(obj  ))
       cat = 1;
-    else if (cuts::neutrino(obj)                 &&
-             cuts::fiducial_containment_cut(obj) &&
-             is_ResPi0                            )
+    else if (cuts::neutrino(obj)                   &&
+             cuts::fiducial_containment_cut(obj)   &&
+             is_ResPi0                              )
       cat = 2;
-    else if (cuts::neutrino(obj)                 &&
-             cuts::fiducial_containment_cut(obj) &&
-             (is_ResPiPlus || is_ResPiMinus)      )
+    else if (cuts::neutrino(obj)                   &&
+             cuts::fiducial_containment_cut(obj)   &&
+             (is_ResPiPlus || is_ResPiMinus)        )
       cat = 3;
-    else if (cuts::neutrino(obj)                 &&
-             cuts::fiducial_containment_cut(obj) &&
-             (mode == caf::kQE)                  )
+    else if (cuts::neutrino(obj)                   &&
+             cuts::fiducial_containment_cut(obj)   &&
+             (mode == caf::kQE)                     )
       cat = 4;
-    else if (cuts::neutrino(obj)                 &&
-             cuts::fiducial_containment_cut(obj) &&
-             (mode == caf::kDIS)                 )
+    else if (cuts::neutrino(obj)                   &&
+             cuts::fiducial_containment_cut(obj)   &&
+             (mode == caf::kDIS)                    )
       cat = 5;
-    else if (cuts::neutrino(obj))
+    else if (cuts::neutrino(obj)                   &&
+             not cuts::fiducial_containment_cut(obj))
       cat = 6;
+    else if (cuts::neutrino(obj))
+      cat = 7;
     return cat;
   }
 
