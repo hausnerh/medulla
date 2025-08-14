@@ -1,8 +1,8 @@
-#include <iostream>
-#include <functional>
-
 #ifndef YELL_TRY_DIE_H
 #define YELL_TRY_DIE_H
+
+#include <iostream>
+#include <functional>
 
 void yell(const std::string& message)
 {

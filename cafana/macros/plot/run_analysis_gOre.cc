@@ -1,8 +1,11 @@
-#include "include/sig_bkg.h"
-#include "include/yell_try_die.h"
+#include "TError.h"
+
 #include <filesystem>
 
-inline std::vector<std::pair<std::string, nc::cut_sequence>> sel_cats_delta =
+#include "include/analysisTools/analysis_tree.h"
+#include "include/yell_try_die.h"
+
+inline std::vector<std::pair<std::string, ana::tools::cut_sequence>> sel_cats_delta =
 {
   {"Fiducial/Contained NC #Delta#rightarrowN#gamma",     {"nc_delta_res_no_pion == 1", "category_gOre == 0"}},
   {"Non-Fiducial/Contained NC #Delta#rightarrowN#gamma", {"nc_delta_res_no_pion == 1", "category_gOre != 0"}},
@@ -17,7 +20,7 @@ inline std::vector<std::pair<std::string, nc::cut_sequence>> sel_cats_delta =
   {"Cosmic",                                             {"nc_delta_res_no_pion == 0", "category_gOre == 8"}}
 };
 
-inline std::vector<std::pair<std::string, nc::cut_sequence>> sel_cats_gore =
+inline std::vector<std::pair<std::string, ana::tools::cut_sequence>> sel_cats_gore =
 {
   {"1#gammaXp",                       "category_gOre == 0"},
   {"1eXp",                            "category_gOre == 1"},
@@ -30,10 +33,9 @@ inline std::vector<std::pair<std::string, nc::cut_sequence>> sel_cats_gore =
   {"Cosmic",                          "category_gOre == 8"}
 };
 
-inline std::vector<std::pair<std::string, nc::cut_sequence>> sig_cats =
+inline std::vector<std::pair<std::string, ana::tools::cut_sequence>> sig_cats =
 {
   {"True 1#gammaXp Topology",   "gOre_is_photon == 1"}
-  //{"True 1eXp Topology",        "gOre_is_electron == 1"}
 };
 
 inline std::map<int, std::string> genie_modes =
@@ -141,6 +143,62 @@ inline std::map<int, std::string> mc_cats =
   {5, "Non-Neutrino"}
 };
 
+inline std::vector<std::tuple<std::string, bool, double, double>> vars_to_optimize =
+{
+  {"wall_xy",                 false,  0,   200},
+  {"wall_z",                  false,  0,   200},
+  {"flash_total_PE",          false,  0, 20000},
+  {"gOre_directional_spread", true,   0,     1},
+  {"pion_mass",               false,  0,   900},
+  {"gOre_score",              false, -1,     1}
+};
+
+std::tuple<ana::tools::cut_sequence, ana::tools::cut_sequence> optimize_threshold(ana::tools::analysis_tree& the_analysis_tree, // NOT CONST TO UPDATE SIGNAL DEFS
+                                                                                  const ana::tools::cut_sequence& old_cut,
+                                                                                  const ana::tools::cut_sequence& old_truth_cut,
+                                                                                  const std::string& var,
+                                                                                  const std::string& truth_var,
+                                                                                  const double& lw_end, const double up_end,
+                                                                                  const std::string& sample, const std::string& pdf_suffix)
+{
+  std::string report = "Optiminze " + var + " Threshold";
+  std::cout << report << std::endl;
+  auto [cut_opt, cut_plot]
+    = try_call(report,
+        [&the_analysis_tree, &old_cut, &old_truth_cut, &var, &truth_var, &lw_end, &up_end]
+        {
+          return the_analysis_tree.optimize_threshold(var, truth_var, lw_end, up_end, old_cut, old_truth_cut);
+        });
+  ana::tools::cut_sequence cut = cut_opt.cut;
+  ana::tools::cut_sequence truth_cut = cut_opt.truth_cut;
+  try_call(cut.string(), [&the_analysis_tree, &cut]{ the_analysis_tree.report_on_cut(cut); });
+  cut_plot.sc.Print("plots/"+sample+"/"+var+"_optimized"+pdf_suffix);
+  cut_opt.Print("plots/"+sample+"/"+var+"_FOM"+pdf_suffix);
+  return std::tie(cut, truth_cut);
+}
+
+ana::tools::cut_sequence optimize_cut(const ana::tools::analysis_tree& the_analysis_tree,
+                                      const ana::tools::cut_sequence& old_cut,
+                                      const std::string& var, const bool& upper,
+                                      const double& lw_end, const double up_end,
+                                      const std::string& sample, const std::string& pdf_suffix)
+{
+  std::string report = (upper) ? "Optimize Upper Bound on " + var :
+                                 "Optimize Lower Bound on " + var;
+  std::cout << report << std::endl;
+  auto [cut_opt, cut_plot]
+    = try_call(report,
+        [&the_analysis_tree, &old_cut, &var, &upper, &lw_end, &up_end]
+        {
+          return the_analysis_tree.optimize_bound(var, lw_end, up_end, old_cut, upper);
+        });
+  ana::tools::cut_sequence cut = cut_opt.cut;
+  try_call(cut.string(), [&the_analysis_tree, &cut]{ the_analysis_tree.report_on_cut(cut); });
+  cut_plot.sc.Print("plots/"+sample+"/"+var+"_optimized"+pdf_suffix);
+  cut_opt.Print("plots/"+sample+"/"+var+"_FOM"+pdf_suffix);
+  return cut;
+}
+
 int run_analysis(const std::string& sample,
                  const std::string& sel,
                  const std::string& sig,
@@ -159,11 +217,11 @@ int run_analysis(const std::string& sample,
   std::string selTreeName = "Nu_Topology_gOre";
   std::string sigTreeName = (deltaResSwitch) ? "signalNu_FidCon_NCRes" : "signalNu_Topology_gOre";
   std::string cosTreeName = "Cos_Topology_gOre";
-  std::vector<std::pair<std::string, nc::cut_sequence>> sel_cats = (deltaResSwitch) ? sel_cats_delta
-                                                                               : sel_cats_gore;
-  nc::analysis_tree my_analysis_tree(fileName, directoryName, "(is_gOre == 1)",
-                                     selTreeName, sigTreeName, cosTreeName,
-                                     sel_cats, sig_cats);
+  std::vector<std::pair<std::string, ana::tools::cut_sequence>> sel_cats = (deltaResSwitch) ? sel_cats_delta
+                                                                                    : sel_cats_gore;
+  ana::tools::analysis_tree my_analysis_tree(fileName, directoryName, "(is_gOre == 1)",
+                                             selTreeName, sigTreeName, cosTreeName,
+                                             sel_cats, sig_cats);
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~VARIABLE~~~~~~~~~~~~~~BINS~~~~MIN~~~~~MAX~~~~~TITLE
   my_analysis_tree.add_variable("flash_total_PE",         100,     0, 100000,    "Total Flash PE");
   my_analysis_tree.add_variable("reco_edep",               15,     0,      1.5,  "Reconstructed E^{ }_{Dep} (GeV)");
@@ -201,7 +259,8 @@ int run_analysis(const std::string& sample,
   std::string signal_def = (deltaResSwitch) ? "NC Delta Res No Pions " + sel : "TOPOLOGICAL "+sel;
   std::string pdf_suffix = "_"+sample+"_sig-"+sig+"_sel-"+sel;
   pdf_suffix += (deltaResSwitch) ? "_NCDeltaRes.pdf" : ".pdf";
-  nc::cut_sequence cut;
+  ana::tools::cut_sequence cut;
+  ana::tools::cut_sequence truth_cut;
   std::cout
     << "************************\n"
     << "* " << signal_def << " *\n"
@@ -212,6 +271,12 @@ int run_analysis(const std::string& sample,
   std::cout << "//*** TOPOLOGY ***//" << std::endl;
   cut += "is_gOre";
   try_call(cut.string(), [&my_analysis_tree, &cut]{ my_analysis_tree.report_on_cut(cut); });
+  ////*** OPTIMIZE Thresholds ***/
+  //// pion first, then muon
+  //std::tie(cut, truth_cut) = optimize_threshold(my_analysis_tree, cut, truth_cut, "min_pion_ke", "true_min_pion_ke", 0, 1000, sample, pdf_suffix);
+  //try_call(cut.string(), [&my_analysis_tree, &cut]{ my_analysis_tree.report_on_cut(cut); });
+  //std::tie(cut, truth_cut) = optimize_threshold(my_analysis_tree, cut, truth_cut, "min_muon_ke", "true_min_muon_ke", 0, 1000, sample, pdf_suffix);
+  //try_call(cut.string(), [&my_analysis_tree, &cut]{ my_analysis_tree.report_on_cut(cut); });
   //*** FLASH CUT ***//
   std::cout << "//*** FLASH CUT ***//" << std::endl;
   cut += "flash_cut";
@@ -227,65 +292,8 @@ int run_analysis(const std::string& sample,
 
   if (optimizeCuts)
   {
-    //*** OPTIMIZE WALL XY ***//
-    std::cout << "//*** OPTIMIZE WALL XY ***//" << std::endl;
-    auto [wall_xy_cut_opt, wall_xy_cut_plot]
-      = try_call("optimize fidutial cut (XY)",
-          [&my_analysis_tree, &cut]{ return my_analysis_tree.optimize_lower_bound("wall_xy", 0, 200, cut); });
-    cut = wall_xy_cut_opt.cut;
-    try_call(cut.string(), [&my_analysis_tree, &cut]{ my_analysis_tree.report_on_cut(cut); });
-    wall_xy_cut_plot.sc.canvas->Print(("plots/"+sample+"/wall_xy_optimized"+pdf_suffix).c_str());
-    wall_xy_cut_opt.canvas    ->Print(("plots/"+sample+"/wall_xy_FOM"+pdf_suffix).c_str());
-
-    //*** OPTIMIZE WALL Z ***//
-    std::cout << "//*** OPTIMIZE WALL Z ***//" << std::endl;
-    auto [wall_z_cut_opt, wall_z_cut_plot]
-      = try_call("optimize fidutial cut (Z)",
-          [&my_analysis_tree, &cut]{ return my_analysis_tree.optimize_lower_bound("wall_z", 0, 200, cut); });
-    cut = wall_z_cut_opt.cut;
-    try_call(cut.string(), [&my_analysis_tree, &cut]{ my_analysis_tree.report_on_cut(cut); });
-    wall_z_cut_plot.sc.canvas->Print(("plots/"+sample+"/wall_z_optimized"+pdf_suffix).c_str());
-    wall_z_cut_opt.canvas    ->Print(("plots/"+sample+"/wall_z_FOM"+pdf_suffix).c_str());
-
-    //*** OPTIMIZE PE CUT ***//
-    std::cout << "//*** OPTIMIZE PE CUT ***//" << std::endl;
-    auto [pe_cut_opt, pe_cut_plot]
-      = try_call("optimize photon/electron score",
-          [&my_analysis_tree, &cut]{ return my_analysis_tree.optimize_lower_bound("flash_total_PE", 0, 20000, cut); });
-    cut = pe_cut_opt.cut;
-    try_call(cut.string(), [&my_analysis_tree, &cut]{ my_analysis_tree.report_on_cut(cut); });
-    pe_cut_plot.sc.canvas->Print(("plots/"+sample+"/gOre_pe_optimized"+pdf_suffix).c_str());
-    pe_cut_opt.canvas    ->Print(("plots/"+sample+"/gOre_pe_FOM"+pdf_suffix).c_str());
-
-    //*** OPTIMIZE DIRECTIONAL SPREAD CUT  ***//
-    std::cout << "//*** OPTIMIZE DIRECTIONAL SPREAD CUT ***//" << std::endl;
-    auto [dir_cut_opt, dir_cut_plot]
-      = try_call("optimize straightness",
-          [&my_analysis_tree, &cut]{ return my_analysis_tree.optimize_upper_bound("gOre_directional_spread", 0, 1, cut); });
-    cut = dir_cut_opt.cut;
-    try_call(cut.string(), [&my_analysis_tree, &cut]{ my_analysis_tree.report_on_cut(cut); });
-    dir_cut_plot.sc.canvas->Print(("plots/"+sample+"/gOre_directional_spread_optimized"+pdf_suffix).c_str());
-    dir_cut_opt.canvas    ->Print(("plots/"+sample+"/gOre_directional_spread_FOM"+pdf_suffix).c_str());
-
-    //*** OPTIMIZE PION MASS CUT ***//
-    //std::cout << "//*** OPTIMIZE PION MASS CUT ***//" << std::endl;
-    auto [pi0_cut_opt, pi0_cut_plot]
-      = try_call("optimize pion mass",
-          [&my_analysis_tree, &cut]{ return my_analysis_tree.optimize_lower_bound("pion_mass", 0, 900, cut); });
-    cut = pi0_cut_opt.cut;
-    try_call(cut.string(), [&my_analysis_tree, &cut]{ my_analysis_tree.report_on_cut(cut); });
-    pi0_cut_plot.sc.canvas->Print(("plots/"+sample+"/pion_mass_optimized"+pdf_suffix).c_str());
-    pi0_cut_opt.canvas    ->Print(("plots/"+sample+"/pion_mass_FOM"+pdf_suffix).c_str());
-
-    //*** OPTIMIZE PID CUT ***//
-    std::cout << "//*** OPTIMIZE PID CUT ***//" << std::endl;
-    auto [pid_cut_opt, pid_cut_plot]
-      = try_call("optimize photon/electron score",
-          [&my_analysis_tree, &cut]{ return my_analysis_tree.optimize_lower_bound("gOre_score", -1, 1, cut); });
-    cut = pid_cut_opt.cut;
-    try_call(cut.string(), [&my_analysis_tree, &cut]{ my_analysis_tree.report_on_cut(cut); });
-    pid_cut_plot.sc.canvas->Print(("plots/"+sample+"/gOre_pid_optimized"+pdf_suffix).c_str());
-    pid_cut_opt.canvas    ->Print(("plots/"+sample+"/gOre_pid_FOM"+pdf_suffix).c_str());
+    for (auto const& [var, upper, lw_end, up_end] : vars_to_optimize)
+      cut = optimize_cut(my_analysis_tree, cut, var, upper, lw_end, up_end, sample, pdf_suffix);
   }
   else
   {
@@ -352,8 +360,8 @@ int run_analysis(const std::string& sample,
   }
 
   // specifically check the pion mass in the 1 shower case and the multi-shower case
-  nc::cut_sequence cut_1_shower = cut.with_addition("n_gOre_showers == 1");
-  nc::cut_sequence cut_n_shower = cut.with_addition("n_gOre_showers > 1");
+  ana::tools::cut_sequence cut_1_shower = cut.with_addition("n_gOre_showers == 1");
+  ana::tools::cut_sequence cut_n_shower = cut.with_addition("n_gOre_showers > 1");
   auto plot_1_shower =
     try_call("plot pion mass for 1 shower",
       [&my_analysis_tree, &cut_1_shower]{ return my_analysis_tree.plot_var_sel("pion_mass", cut_1_shower); }); 
