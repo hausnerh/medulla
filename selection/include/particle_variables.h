@@ -34,6 +34,19 @@
 namespace pvars
 {
     /**
+     * @brief Enumeration for particle primary classification
+     */
+    enum Particle_t
+    {
+        kPhoton   =  0,
+        kElectron =  1,
+        kMuon     =  2,
+        kPion     =  3,
+        kProton   =  4,
+        kUnknown  = -1
+    }
+
+    /**
      * @brief Variable for the particle's primary classification.
      * @details This variable returns the primary classification of the particle.
      * The primary classification is determined upstream in the SPINE
@@ -144,19 +157,19 @@ namespace pvars
         {
             switch(int(pvars::pid(p)))
             {
-                case 0:
+                case kPhoton:
                     mass = 0;
                     break;
-                case 1:
+                case kElectron:
                     mass = ELECTRON_MASS;
                     break;
-                case 2:
+                case kMuon:
                     mass = MUON_MASS;
                     break;
-                case 3:
+                case kPion:
                     mass = PION_MASS;
                     break;
-                case 4:
+                case kProton:
                     mass = PROTON_MASS;
                     break;
                 default:
