@@ -32,6 +32,18 @@ namespace utilities
     typedef std::tuple<double, double, double> three_vector;
 
     /**
+     * @brief Convert a caf::Proxy<float[3]> to a three_vector;
+     * @details caf::Proxy is an annoying type to deal with sometimes.
+     * Here we define a conversion between the two.
+     * @param proxyArr the caf::Proxy<float[3]> to convert
+     * @return the three_vector made of the caf::Proxy's three entries
+     */
+    three_vector to_three_vector(const caf::Proxy<float[3]>& proxyArr)
+    {
+      return std::make_tuple(proxyArr[0], proxyArr[1], proxyArr[2]);
+    }
+
+    /**
      * @brief Calculates the dot product of two three-vectors.
      * @details The dot product of two three-vectors is calculated as the sum
      * of the products of the corresponding components of the two vectors.
