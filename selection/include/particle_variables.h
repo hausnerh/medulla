@@ -44,7 +44,7 @@ namespace pvars
         kPion     =  3,
         kProton   =  4,
         kUnknown  = -1
-    }
+    };
 
     /**
      * @brief Variable for the particle's primary classification.
