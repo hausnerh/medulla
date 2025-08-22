@@ -838,5 +838,32 @@ namespace pvars
         return p.primary_scores[0];
     }
     REGISTER_VAR_SCOPE(RegistrationScope::RecoParticle, secondary_softmax, secondary_softmax);
+
+    /**
+     * @brief Variable for the softmax score for a given Particle_t
+     * @details index the particle pid array by the Particle_t enum
+     * while checking if the Particle_t is out of range
+     * @param p the particle to apply the variable on.
+     * @param p_type the Particle_t you want the softmax score for
+     * @return the Particle_t softmax score of the particle.
+     **/
+    double particle_softmax(const caf::SRParticleDLPProxy& p, const Particle_t& p_type)
+    {
+      return (p_type == kUnknown) ? PLACEHOLDERVALUE : static_cast<double>(p.pid_scores[p_type]);
+    }
+
+    /**
+     * @brief Return a vector of the softmax scores for the reconstructed particle
+     * @param p the particle to apply the variable on
+     * @return the vector of softmax scores
+     */
+    std::vector<double> particle_softmax_vec(const caf::SRParticleDLPProxy& p)
+    {
+      return {particle_softmax(p, kPhoton  ),
+              particle_softmax(p, kElectron),
+              particle_softmax(p, kMuon    ),
+              particle_softmax(p, kPion    ),
+              particle_softmax(p, kProton  )};
+    }
 }
 #endif // PARTICLE_VARIABLES_H
