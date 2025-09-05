@@ -386,120 +386,48 @@ namespace vars::nc::gOre
     }
   REGISTER_VAR_SCOPE(RegistrationScope::MCTruth, baryon_res_code, baryon_res_code);
 
-  ///**
-  // * @brief categorize by interaction type/mode
-  // * @details All categories before 6 are fiducial/contained
-  // * 0: signal 1gXp
-  // * 1: background 1eXp
-  // * 2: Res Pi0
-  // * 3: Res Pi+/Pi-
-  // * 4: QE
-  // * 5: DIS
-  // * 6: Non-fiducial/uncontained Neutrino
-  // * 7: Other Neutrino
-  // * 8: Non-Neutrino
-  // **/
-  //double gOre_category(const caf::SRInteractionTruthDLPProxy& obj)
-  //{
-  //  double cat(8);
-  //  int64_t type = obj.interaction_type;
-  //  int64_t mode = obj.interaction_mode;
-  //  bool is_ResPi0 = (type == caf::kResCCNuNeutronPi0)   ||
-  //                   (type == caf::kResNCNuProtonPi0)    ||
-  //                   (type == caf::kResNCNuNeutronPi0)   ||
-  //                   (type == caf::kResCCNuBarProtonPi0) ||
-  //                   (type == caf::kResNCNuBarProtonPi0) ||
-  //                   (type == caf::kResNCNuBarNeutronPi0) ;
-  //  bool is_ResPiPlus = (type == caf::kResCCNuProtonPiPlus)      ||
-  //                      (type == caf::kResCCNuNeutronPiPlus)     ||
-  //                      (type == caf::kResNCNuProtonPiPlus)      ||
-  //                      (type == caf::kResNCNuBarProtonPiPlus)   ||
-  //                      (type == caf::kResCCNuDeltaPlusPiPlus)   ||
-  //                      (type == caf::kResCCNuBarDeltaMinusPiPlus);
-  //  bool is_ResPiMinus = (type == caf::kResNCNuNeutronPiMinus)    ||
-  //                       (type == caf::kResCCNuBarNeutronPiMinus) ||
-  //                       (type == caf::kResCCNuBarProtonPiMinus)  ||
-  //                       (type == caf::kResNCNuBarNeutronPiMinus) ||
-  //                       (type == caf::kResCCNuDelta2PlusPiMinus) ||
-  //                       (type == caf::kResCCNuBarDelta0PiMinus)   ;
-  //  if      (cuts::neutrino(obj)                   &&
-  //           cuts::fiducial_cut(obj)               &&
-  //           cuts::containment_cut(obj)            &&
-  //           cuts::nc::gOre::gOre_is_photon(obj)    )
-  //    cat = 0;
-  //  else if (cuts::neutrino(obj)                   &&
-  //           cuts::fiducial_cut(obj)               &&
-  //           cuts::containment_cut(obj)            &&
-  //           cuts::nc::gOre::gOre_is_electron(obj  ))
-  //    cat = 1;
-  //  else if (cuts::neutrino(obj)                   &&
-  //           cuts::fiducial_cut(obj)               &&
-  //           cuts::containment_cut(obj)            &&
-  //           is_ResPi0                              )
-  //    cat = 2;
-  //  else if (cuts::neutrino(obj)                   &&
-  //           cuts::fiducial_cut(obj)               &&
-  //           cuts::containment_cut(obj)            &&
-  //           (is_ResPiPlus || is_ResPiMinus)        )
-  //    cat = 3;
-  //  else if (cuts::neutrino(obj)                   &&
-  //           cuts::fiducial_cut(obj)               &&
-  //           cuts::containment_cut(obj)            &&
-  //           (mode == caf::kQE)                     )
-  //    cat = 4;
-  //  else if (cuts::neutrino(obj)                   &&
-  //           cuts::fiducial_cut(obj)               &&
-  //           cuts::containment_cut(obj)            &&
-  //           (mode == caf::kDIS)                    )
-  //    cat = 5;
-  //  else if (cuts::neutrino(obj)                   &&
-  //           (not cuts::fiducial_cut(obj) ||
-  //            not cuts::containment_cut(obj))       )
-  //    cat = 6;
-  //  else if (cuts::neutrino(obj))
-  //    cat = 7;
-  //  return cat;
-  //}
 
-  ///**
-  // * @brief categorize for MC Truth
-  // * @details The fiducialization is being a pain, so focus on FSI topology and mode/interaction tyoe
-  // * 0: NC ∆->Nγ
-  // * 1: NC Other Single Photon
-  // * 2: NC π0 No Photon
-  // * 3: Other NC
-  // * 4: CC
-  // * 5: Non-neutrino
-  // **/
-  //double gOre_mc_category(const caf::Proxy<caf::SRTrueInteraction>& obj)
-  //{
-  //  double cat(5);
-  //  bool isnc = obj.isnc;
-  //  caf::genie_interaction_mode_ genie_mode = obj.genie_mode;
-  //  caf::genie_interaction_type_ genie_inttype = obj.genie_inttype;
-  //  int resnum = obj.resnum;
-  //  // post-FSI primary particles
-  //  core::nc::gOre::mc_topology topology(obj.prim);
-  //  // is NC ∆ res
-  //  bool is_nc_delta_res = isnc && (resnum == 0) && (genie_inttype == 1000);
-  //  // single photon topology (1γ and maybe some nucleons)
-  //  bool is_single_photon_topology = topology.single_photon() && topology.only_photons_and_nucleons();
-  //  // has π0 no photons
-  //  bool has_pi0_0g = topology.has_pi0() && not topology.has(22);
-  //  // is a neutrino interaction
-  //  bool is_nu = obj.index != -1;
-  //  if (is_nc_delta_res && is_single_photon_topology)
-  //    cat = 0;
-  //  else if (isnc && is_single_photon_topology)
-  //    cat = 1;
-  //  else if (isnc && has_pi0_0g)
-  //    cat = 2;
-  //  else if (isnc)
-  //    cat = 3;
-  //  else if (is_nu)
-  //    cat = 4;
-  //  return cat;
-  //}
+  /**
+   * @brief categorize for MC Truth
+   * @details The fiducialization is being a pain, so focus on FSI topology and mode/interaction tyoe
+   * 0: NC ∆->Nγ
+   * 1: NC Other Single Photon
+   * 2: NC π0 No Photon
+   * 3: Other NC
+   * 4: CC
+   * 5: Non-neutrino
+   **/
+  template <class T>
+    double gOre_mc_category(const T& obj)
+    {
+      double cat(5);
+      bool isnc = obj.isnc;
+      caf::genie_interaction_mode_ genie_mode = obj.genie_mode;
+      caf::genie_interaction_type_ genie_inttype = obj.genie_inttype;
+      int resnum = obj.resnum;
+      // post-FSI primary particles
+      core::nc::gOre::mc_topology topology(obj.prim);
+      // is NC ∆ res
+      bool is_nc_delta_res = isnc && (resnum == 0) && (genie_inttype == 1000);
+      // single photon topology (1γ and maybe some nucleons)
+      bool is_single_photon_topology = topology.single_photon() && topology.only_photons_and_nucleons();
+      // has π0 no photons
+      bool has_pi0_0g = topology.has_pi0() && not topology.has(22);
+      // is a neutrino interaction
+      bool is_nu = obj.index != -1;
+      if (is_nc_delta_res && is_single_photon_topology)
+        cat = 0;
+      else if (isnc && is_single_photon_topology)
+        cat = 1;
+      else if (isnc && has_pi0_0g)
+        cat = 2;
+      else if (isnc)
+        cat = 3;
+      else if (is_nu)
+        cat = 4;
+      return cat;
+    }
+  REGISTER_VAR_SCOPE(RegistrationScope::MCTruth, gOre_mc_category, gOre_mc_category);
 } //end vars::nc::gOre namespace
 
 #endif

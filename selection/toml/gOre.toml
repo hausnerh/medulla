@@ -76,6 +76,7 @@ branch = [
     { name = "interaction_type",         type = "mctruth" },
     { name = "neutrino_energy",          type = "mctruth" },
     { name = "baryon_res_code",          type = "mctruth" },
+    { name = "gOre_mc_category",         type = "mctruth" },
     # True
     { name = "category",                 type = "true"    },
     { name = "neutrino_id",              type = "true"    },
@@ -120,10 +121,10 @@ name = "signal"
 sim_only = true
 mode = "true"
 cut = [
-    { name = "fiducial_cut",         type = "true" },
-    { name = "containment_cut",      type = "true" },
-    { name = "neutrino",             type = "true" },
-    { name = "primary_gOre_photon",  type = "true" },
+    { name = "fiducial_cut",    type = "true" },
+    { name = "containment_cut", type = "true" },
+    { name = "neutrino",        type = "true" },
+    { name = "gOre_is_photon",  type = "true" },
 ]
 branch = [
     # MC Truth
@@ -134,6 +135,7 @@ branch = [
     { name = "interaction_type",         type = "mctruth" },
     { name = "neutrino_energy",          type = "mctruth" },
     { name = "baryon_res_code",          type = "mctruth" },
+    { name = "gOre_mc_category",         type = "mctruth" },
     # True
     { name = "category",                 type = "true"    },
     { name = "neutrino_id",              type = "true"    },
