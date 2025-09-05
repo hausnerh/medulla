@@ -164,6 +164,53 @@ namespace cuts::nc::gOre
   } 
   REGISTER_CUT_SCOPE(RegistrationScope::True, is_fid_con_nc_nu_res, is_fid_con_nc_nu_res);
 
+  /**
+   * @brief Check if the gOre is a photon produced from a decay
+   * @details In the case the particle is primary the ancestor pdg code is the same as that of the particle in question
+   * @param obj the interaction (MC only)
+   * @return true if the object has a single photon and the photon was a decay product
+   **/
+  template<class T>
+  bool decay_gOre_photon(const T& obj)
+  {
+    core::nc::gOre::True_Interaction interaction(obj);
+    return interaction.is_valid &&
+           interaction.photon_or_electron->pdg_code == 22 &&
+           interaction.photon_or_electron->ancestor_pdg_code != 22;
+  }
+  REGISTER_CUT_SCOPE(RegistrationScope::True, decay_gOre_photon, decay_gOre_photon);
+
+  /**
+   * @brief Check if the gOre is a primary photon (eg not from a π0 decay)
+   * @details In the case the particle is primary the ancestor pdg code is the same as that of the particle in question
+   * @param obj the interaction (MC only)
+   * @return true if the object has a single photon and the photon was a primary
+   **/
+  template<class T>
+  bool primary_gOre_photon(const T& obj)
+  {
+    core::nc::gOre::True_Interaction interaction(obj);
+    return interaction.is_valid &&
+           interaction.photon_or_electron->pdg_code == 22 &&
+           interaction.photon_or_electron->ancestor_pdg_code == 22;
+  }
+  REGISTER_CUT_SCOPE(RegistrationScope::True, primary_gOre_photon, primary_gOre_photon);
+
+  template<class T>
+  bool debug(const T& obj)
+  {
+    core::nc::gOre::True_Interaction interaction(obj);
+    if (not interaction.is_valid)
+      return false;
+    int64_t ancestor_pdg_code = interaction.photon_or_electron->ancestor_pdg_code;
+    int64_t parent_pdg_code = interaction.photon_or_electron->parent_pdg_code;
+    std::cout << "***\n"
+              << "Ancestor " << ancestor_pdg_code << '\n'
+              << "Parent " << ancestor_pdg_code << std::endl;
+    return true;
+  }
+  REGISTER_CUT_SCOPE(RegistrationScope::True, debug, debug);
+
   //*** MC CUTS***//
   /**
    * @brief is the interaction a true NC Δ res event?
