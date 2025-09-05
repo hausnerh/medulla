@@ -76,9 +76,10 @@ branch = [
     { name = "interaction_type",         type = "mctruth" },
     { name = "neutrino_energy",          type = "mctruth" },
     { name = "baryon_res_code",          type = "mctruth" },
-    { name = "gOre_mc_category",         type = "mctruth" },
+    { name = "mc_category",              type = "mctruth" },
     # True
     { name = "category",                 type = "true"    },
+    { name = "gOre_category",            type = "true"    },
     { name = "neutrino_id",              type = "true"    },
     { name = "visible_energy",           type = "true"    },
     { name = "n_protons",                type = "true"    },
@@ -135,9 +136,10 @@ branch = [
     { name = "interaction_type",         type = "mctruth" },
     { name = "neutrino_energy",          type = "mctruth" },
     { name = "baryon_res_code",          type = "mctruth" },
-    { name = "gOre_mc_category",         type = "mctruth" },
+    { name = "mc_category",              type = "mctruth" },
     # True
     { name = "category",                 type = "true"    },
+    { name = "gOre_category",            type = "true"    },
     { name = "neutrino_id",              type = "true"    },
     { name = "visible_energy",           type = "true"    },
     { name = "n_protons",                type = "true"    },

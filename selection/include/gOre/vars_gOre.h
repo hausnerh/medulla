@@ -13,6 +13,27 @@
 namespace vars::nc::gOre
 {
   /**
+   * @brief categorize the gOre into primary photon, secondary photon, or electron
+   * @details check the ancestor pdg to determine if it is a primary (identical pdg to the gOre),
+   * from some decay (the ancestor pdg will be the origin), or is an electron
+   * @param obj the interaction of interest (MC only)
+   * @return 0 for primary photon, 1 for secondary photon, 2 for electron, -1 for invalid
+   **/
+  template <class T>
+    double gOre_category(const T& obj)
+    {
+      core::nc::gOre::Interaction<T> interaction(obj);
+      if (not interaction.is_valid)
+        return -1.;
+      if (interaction.photon_or_electron->pdg_code != 22)
+        return 2;
+      if (interaction.photon_or_electron->ancestor_pdg_code != 22)
+        return 1;
+      return 0;
+    }
+  REGISTER_VAR_SCOPE(RegistrationScope::True, gOre_category, gOre_category);
+
+  /**
    * @brief how many protons are in the interaction?
    * @param obj the interaction of interest (data or MC)
    * @return the number of protons as a double
@@ -398,7 +419,7 @@ namespace vars::nc::gOre
    * 5: Non-neutrino
    **/
   template <class T>
-    double gOre_mc_category(const T& obj)
+    double mc_category(const T& obj)
     {
       double cat(5);
       bool isnc = obj.isnc;
@@ -427,7 +448,7 @@ namespace vars::nc::gOre
         cat = 4;
       return cat;
     }
-  REGISTER_VAR_SCOPE(RegistrationScope::MCTruth, gOre_mc_category, gOre_mc_category);
+  REGISTER_VAR_SCOPE(RegistrationScope::MCTruth, mc_category, mc_category);
 } //end vars::nc::gOre namespace
 
 #endif
