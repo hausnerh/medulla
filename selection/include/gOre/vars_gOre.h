@@ -13,6 +13,18 @@
 namespace vars::nc::gOre
 {
   /**
+   * @brief return if it passes the gOre topology cut
+   * @param obj the interaction of interest (reco or MC)
+   * @return 1 for passing, 0 for failing
+   **/
+  template <class T>
+    double is_gOre(const T& obj)
+    {
+      return cuts::nc::gOre::gOre_topology(obj);
+    }
+  REGISTER_VAR_SCOPE(RegistrationScope::Both, is_gOre, is_gOre);
+
+  /**
    * @brief categorize the gOre into primary photon, secondary photon, or electron
    * @details check the ancestor pdg to determine if it is a primary (identical pdg to the gOre),
    * from some decay (the ancestor pdg will be the origin), or is an electron

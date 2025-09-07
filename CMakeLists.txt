@@ -17,6 +17,7 @@ add_subdirectory(shared)
 # Subprojects
 add_subdirectory(selection)
 add_subdirectory(systematics)
+add_subdirectory(analysisTools)
 
 # Docs (optional)
 option(BUILD_DOCS "Build documentation" OFF)

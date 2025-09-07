@@ -115,6 +115,14 @@ namespace vars
     REGISTER_VAR_SCOPE(RegistrationScope::Both, fiducial, fiducial);
 
     /**
+     * @brief Variable for the flash cut status of the interaction.
+     * @details The flash status is determined by ensure the flash is within the beam window.
+     */
+    template<class T>
+    double flash(const T & obj) {return cuts::flash_cut(obj); }
+    REGISTER_VAR_SCOPE(RegistrationScope::Both, flash, flash);
+
+    /**
      * @brief Variable for total visible energy of interaction.
      * @details This function calculates the total visible energy of the
      * interaction by summing the energy of all particles that are identified
