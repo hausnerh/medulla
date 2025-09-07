@@ -49,8 +49,16 @@ namespace ana::tools
     colors.push_back(new TColor(0.80, 0.40, 0.00)); // Vermillion
     colors.push_back(new TColor(0.80, 0.60, 0.70)); // Reddish Purple
     colors.push_back(new TColor(0.60, 0.50, 0.80)); // An Extra Purple (not from OG pallet)
-    colors.push_back(new TColor(0.45, 0.45, 0.45)); // Gray (just gray)
-    colors.push_back(new TColor(0.85, 0.85, 0.85)); // Gray (but darker)
+    // pad colors with grays
+    for (double gry = 0.10; gry < 0.55; gry += 0.10)
+    {
+      // alternate to maximize contrast
+      colors.push_back(new TColor(0.05 + gry, 0.05 + gry, 0.05 + gry));
+      colors.push_back(new TColor(1.05 - gry, 1.05 - gry, 1.05 - gry));
+    }
+    //colors.push_back(new TColor(0.25, 0.25, 0.25)); // Gray (light gray)
+    //colors.push_back(new TColor(0.45, 0.45, 0.45)); // Gray (just gray)
+    //colors.push_back(new TColor(0.85, 0.85, 0.85)); // Gray (but darker)
 
     // Memory Handling
     std::string tmpName = "temp_TTrees-"+sel_tree+"-"+sig_tree+"_Cuts-"+sel_cats.front().second.string()+"-"+sig_cats.front().second.string()+".root";

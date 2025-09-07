@@ -131,7 +131,7 @@ inline std::vector<std::tuple<std::string, bool, double, double>> vars_to_optimi
 {
   {"reco_xy_wall_dist",            false,  0,   200},
   {"reco_z_wall_dist",             false,  0,   200},
-  {"reco_flash_total_PE",          false,  0, 20000},
+  {"reco_flash_total_pe",          false,  0, 20000},
   {"reco_gOre_directional_spread", true,   0,     1},
   {"reco_pion_mass",               false,  0,   900},
   {"reco_gOre_score",              false, -1,     1}
@@ -204,7 +204,7 @@ int run_analysis(const std::string& fileName,
                                              selTreeName, sigTreeName,
                                              sel_cats, sig_cats);
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~VARIABLE~~~~~~~~~~~~~~~~~~~BINS~~~~MIN~~~~~MAX~~~~~TITLE
-  my_analysis_tree.add_variable("reco_flash_total_PE",         100,     0, 100000,    "Total Flash PE");
+  my_analysis_tree.add_variable("reco_flash_total_pe",         100,     0, 100000,    "Total Flash PE");
   my_analysis_tree.add_variable("reco_gOre_score",              50,    -1,      1,    "#gamma-candiate PID Score");
   my_analysis_tree.add_variable("reco_n_protons",                6,     0,      6,    "Protons above Threshold");
   my_analysis_tree.add_variable("true_vertex_x",                50,  -400,    400,    "True Vertex X (cm)");
@@ -233,7 +233,7 @@ int run_analysis(const std::string& fileName,
   my_analysis_tree.add_variable("true_interaction_type",       101,   999.5, 1100.5,  "GENIE Interaction Type");
   my_analysis_tree.add_variable("true_res_code",                19,    -1.5,   17.5,  "Resonance Number");
 
-  std::string pdf_suffix = "_"+sample+"_sig-"+sig+"_sel-"+sel;
+  std::string pdf_suffix = ".pdf";
   ana::tools::cut_sequence cut;
   ana::tools::cut_sequence truth_cut;
   std::cout
@@ -273,7 +273,7 @@ int run_analysis(const std::string& fileName,
   else
   {
     std::cout << "//*** OPTIMIZED CUTS ***//" << std::endl;
-    cut += "reco_flash_total_PE > 2720";
+    cut += "reco_flash_total_pe > 2720";
     cut += "reco_gOre_directional_spread < 0.112";
     cut += "reco_gOre_score > -0.506";
     try_call(cut.string(), [&my_analysis_tree, &cut]{ my_analysis_tree.report_on_cut(cut); });
