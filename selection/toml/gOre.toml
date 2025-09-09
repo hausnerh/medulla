@@ -4,7 +4,7 @@ output = "gOre"
 [[category]] # 0 : Neutrino, fiducial, contained, single photon (primary)
 cuts = [
     { name = "neutrino"            },
-    { name = "fiducial_cut"        },
+    { name = "gOre_fiducial_cut"   },
     { name = "containment_cut"     },
     { name = "primary_gOre_photon" },
 ]
@@ -12,23 +12,23 @@ cuts = [
 [[category]] # 1 : Neutrino, fiducial, contained, single photon (non-primary, eg π0 decay)
 cuts = [
     { name = "neutrino"          },
-    { name = "fiducial_cut"      },
+    { name = "gOre_fiducial_cut" },
     { name = "containment_cut"   },
     { name = "decay_gOre_photon" },
 ]
 
 [[category]] # 2 : Neutrino, fiducial, contained, single electron
 cuts = [
-    { name = "neutrino"         },
-    { name = "fiducial_cut"     },
-    { name = "containment_cut"  },
-    { name = "gOre_is_electron" },
+    { name = "neutrino"          },
+    { name = "gOre_fiducial_cut" },
+    { name = "containment_cut"   },
+    { name = "gOre_is_electron"  },
 ]
 
 [[category]] # 3 : Neutrino, fiducial, contained, more than one gOre above threshold
 cuts = [
     { name = "neutrino"           },
-    { name = "fiducial_cut"       },
+    { name = "gOre_fiducial_cut"  },
     { name = "containment_cut"    },
     { name = "more_than_one_gOre" },
 ]
@@ -36,7 +36,7 @@ cuts = [
 [[category]] # 4 : Neutrino, fiducial, contained, true muon above threshold
 cuts = [
     { name = "neutrino"           },
-    { name = "fiducial_cut"       },
+    { name = "gOre_fiducial_cut"  },
     { name = "containment_cut"    },
     { name = "muon_abv_thresh"    },
 ]
@@ -44,7 +44,7 @@ cuts = [
 [[category]] # 5 : Neutrino, fiducial, contained, true pion above threshold
 cuts = [
     { name = "neutrino"           },
-    { name = "fiducial_cut"       },
+    { name = "gOre_fiducial_cut"  },
     { name = "containment_cut"    },
     { name = "pion_abv_thresh"    },
 ]
@@ -52,22 +52,22 @@ cuts = [
 [[category]] # 6 : Neutrino, fiducial, contained, other topological failure
 cuts = [
     { name = "neutrino"           },
-    { name = "fiducial_cut"       },
+    { name = "gOre_fiducial_cut"  },
     { name = "containment_cut"    },
 ]
 
 
 [[category]] # 7 : Neutrino, fiducial, uncontained
 cuts = [
-    { name = "neutrino"         },
-    { name = "fiducial_cut"     },
-    { name = "!containment_cut" },
+    { name = "neutrino"          },
+    { name = "gOre_fiducial_cut" },
+    { name = "!containment_cut"  },
 ]
 
 [[category]] # 8 : Neutrino, non-fiducial
 cuts = [
-    { name = "neutrino"      },
-    { name = "!fiducial_cut" },
+    { name = "neutrino"           },
+    { name = "!gOre_fiducial_cut" },
 ]
 
 [[category]] # 9 : Cosmic
