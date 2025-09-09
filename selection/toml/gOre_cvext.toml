@@ -1,5 +1,5 @@
 [general]
-output = "gOre"
+output = "gOre_cvext"
 
 [[category]] # 0 : Neutrino, fiducial, contained, single photon (primary)
 cuts = [
@@ -77,7 +77,7 @@ cuts = [
 
 [[sample]]
 name = "simulation"
-path = "/pnfs/icarus/persistent/users/mueller/production/simulation/nominal/*.flat.root"
+path = "/pnfs/icarus/persistent/users/mueller/production/simulation/cvext/*.flat.root"
 ismc = true
 
 [[tree]]

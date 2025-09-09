@@ -14,9 +14,9 @@
  * 50 MeV for protons
  * 25 for everything else
  **/
-#define GORE_MIN_GORE_ENERGY   25.0 // MeV
-#define GORE_MIN_MUON_ENERGY  143.425 // MeV
-#define GORE_MIN_PROTON_ENERGY 50.0 // MeV
+#define GORE_MIN_GORE_ENERGY   10.0 // MeV
+#define GORE_MIN_MUON_ENERGY   25.0 // MeV
+#define GORE_MIN_PROTON_ENERGY 25.0 // MeV
 #define GORE_MIN_PION_ENERGY   25.0 // MeV
 
 /**
@@ -32,13 +32,14 @@
 
 /**
  * Fiducial Thresholds in cm
+ * Nominally 25 cm for X/Y walls, 50 cm from +Z and 30 cm from -Z
  **/
-#define GORE_FID_THRESH_X_POS 25.0
-#define GORE_FID_THRESH_X_NEG 25.0
-#define GORE_FID_THRESH_Y_POS 25.0
-#define GORE_FID_THRESH_Y_NEG 25.0
+#define GORE_FID_THRESH_X_POS 50.0
+#define GORE_FID_THRESH_X_NEG 50.0
+#define GORE_FID_THRESH_Y_POS 50.0
+#define GORE_FID_THRESH_Y_NEG 50.0
 #define GORE_FID_THRESH_Z_POS 50.0
-#define GORE_FID_THRESH_Z_NEG 30.0
+#define GORE_FID_THRESH_Z_NEG 50.0
 
 #include "include/selectors.h" // TODO: see if the selectors could help out here
 #include "include/utilities.h"
@@ -417,14 +418,11 @@ namespace core::nc::gOre
       /** @brief basic Interaction constructor **/
       Interaction(const T& object) : obj(object)
       {
-        bool found_gOre(false);
         bool found_Other(false);
         min_muon_ke = std::numeric_limits<double>::max();
         min_pion_ke = std::numeric_limits<double>::max();
         subleading_gore_ke = std::numeric_limits<double>::lowest();
         double leading_gore_ke = std::numeric_limits<double>::lowest();
-        nShowers = 0;
-        total_gore_ke = 0;
         utilities::three_vector    leading_p;
         utilities::three_vector subleading_p;
         for (auto& particle : obj.particles)
@@ -472,26 +470,10 @@ namespace core::nc::gOre
                 protons.push_back(&particle);
                 break;
               case pvars::kPhoton:
-                if (found_gOre)
-                {
-                  found_Other = true;
-                }
-                else
-                {
-                  photon_or_electron = &particle;
-                  found_gOre = true;
-                }
+                gOres.push_back(&particle);
                 break;
               case pvars::kElectron:
-                if (found_gOre)
-                {
-                  found_Other = true;
-                }
-                else
-                {
-                  photon_or_electron = &particle;
-                  found_gOre = true;
-                }
+                gOres.push_back(&particle);
                 break;
               default:
                 found_Other = true;
@@ -499,35 +481,49 @@ namespace core::nc::gOre
             }
           }
         }
-        is_valid = (found_gOre) && (not found_Other);
-        nProtons = protons.size();
+        std::sort(protons.begin(), protons.end(), [](PT* a, PT* b){ return pvars::ke(*a) > pvars::ke(*b); });
+        std::sort(gOres.begin(), gOres.end(), [](PT* a, PT* b){ return pvars::ke(*a) > pvars::ke(*b); });
+        is_valid = (gOres.size() == 1) && (not found_Other);
         min_muon_ke = (min_muon_ke == std::numeric_limits<double>::max()) ? 0. : min_muon_ke;
         min_pion_ke = (min_pion_ke == std::numeric_limits<double>::max()) ? 0. : min_pion_ke;
-        if (is_valid && pvars::ke(*photon_or_electron) < subleading_gore_ke)
+        if (is_valid && pvars::ke(*primary_gOre()) < subleading_gore_ke)
         {
-          std::string msg = "Primary gOre KE is less than subleading gOre KE!!!\n  Primary gOre KE: " + std::to_string(pvars::ke(*photon_or_electron)) + "\n  Leading gOre KE: " + std::to_string(leading_gore_ke) + " (should be the same as above)\n  subleading gOre KE: " + std::to_string(subleading_gore_ke);
+          std::string msg = "Primary gOre KE is less than subleading gOre KE!!!\n  Primary gOre KE: " + std::to_string(pvars::ke(*primary_gOre())) + "\n  Leading gOre KE: " + std::to_string(leading_gore_ke) + " (should be the same as above)\n  subleading gOre KE: " + std::to_string(subleading_gore_ke);
           throw std::runtime_error(msg);
         }
         pion_costh = std::numeric_limits<double>::max();
-        if (is_valid && nShowers > 1)
+        if (gOres.size() > 0 && nShowers > 1)
         {
-          utilities::three_vector gOre_1_p = utilities::to_three_vector(photon_or_electron->momentum);
+          utilities::three_vector gOre_1_p = utilities::to_three_vector(primary_gOre()->momentum);
           utilities::three_vector gOre_2_p = subleading_p;
           pion_costh = utilities::dot_product(gOre_1_p, gOre_2_p) / (utilities::magnitude(gOre_1_p) * utilities::magnitude(gOre_2_p));
         }
       }
+      PT* primary_gOre()
+      {
+        if (gOres.size() > 0)
+          return gOres.at(0);
+        return nullptr;
+      }
+      size_t ngOres()
+      {
+        return gOres.size();
+      }
+      size_t nProtons()
+      {
+        return protons.size();
+      }
       const T& obj;              ///< The wrapped interaction
-      PT* photon_or_electron;    ///< The pointer to the photon or electron if it is a single photon/electron topology
-      std::vector<PT*> protons;  ///< The protons in the interaction
+      std::vector<PT*> gOres;    ///< The photons & electrons in the final state signal, sorted by descending KE
+      std::vector<PT*> protons;  ///< The protons in the final state signal, sorted by descending KE
       double min_muon_ke;        ///< lowest muon KE below threshold
       double min_pion_ke;        ///< lowest pion KE below threshold
       double subleading_gore_ke; ///< what is the KE of the subleading gOre candidate?
       double pion_costh;         ///< if there is a subleading gOre candidate, what is the cosine of the angle between it and the primary?
       double total_gore_ke;      ///< what is the sum of KE for all gOre showers (above and below theshold)?
       bool is_valid;             ///< are there no pions or muons above threshold?
-      size_t nProtons;           ///< how many protons are there?
+      size_t nShowers;           ///< How many showers are there (including sub-threshold)
       size_t nProtons_subthresh; ///< how many protons are there below threshold?
-      size_t nShowers;           ///< how many gOre showers are there (should be at least 1 above theshold)
     };
 
   typedef Interaction<caf::SRInteractionDLPProxy>      Reco_Interaction; ///< handy typedef for reco interactions

@@ -387,7 +387,7 @@ namespace ana::tools
       ana::tools::cut_sequence cut_cat = cut.with_addition(sig_cat_cuts.at(cat));
       std::shared_ptr<TH1F> tmp_hist = std::make_shared<TH1F>(histName.c_str(), "", bins, lw, up);
       signalTree->Draw((var+">>"+histName).c_str(), cut_cat.c_str(), "goff");
-      tmp_hist->SetFillColor(colors.at(nCats + cat)->GetNumber());
+      tmp_hist->SetFillColor(colors.at(1 + cat)->GetNumber());
       tmp_hist->SetLineColor(kBlack);
       tmp_hist->SetDirectory(nullptr);
       sc.hists.push_back(tmp_hist);
@@ -672,6 +672,245 @@ namespace ana::tools
   {
     return (is_upper_bound) ? optimize_upper_bound(var, lw, up, old_cut)
                             : optimize_lower_bound(var, lw, up, old_cut);
+  }
+
+  /**
+  /**
+   * @brief Optimize a cut which is a lower bound on a given variable under some condition
+   * @details Requires the range over which to optimize as well as the selection to build on.
+   * Bound is only apply when the condition is satisfied
+   */
+  std::tuple<ana::tools::opt_canvas, ana::tools::limit_canvas> analysis_tree::optimize_conditional_lower_bound(const std::string& condition,
+                                                                                                               const std::string& var,
+                                                                                                               const double& lw, const double& up,
+                                                                                                               const ana::tools::cut_sequence& old_cut) const
+  {
+    ana::tools::opt_canvas opt;
+    ana::tools::limit_canvas lc = plot_var_sel(var, old_cut);
+    opt.canvas = std::make_shared<TCanvas>((var+"_lower_bound_when_"+condition).c_str(),
+                                           (var+"_lower_bound_when_"+condition).c_str(), 1618, 1000);
+    opt.canvas->cd();
+    opt.canvas->SetBit(kCanDelete, false);
+    opt.purity_graph = std::make_shared<TGraph>();
+    opt.purity_graph->SetBit(kCanDelete, false);
+    opt.efficiency_graph = std::make_shared<TGraph>();
+    opt.efficiency_graph->SetBit(kCanDelete, false);
+    opt.fom_graph = std::make_shared<TGraph>();
+    opt.fom_graph->SetBit(kCanDelete, false);
+    opt.purity_efficiency_fom = std::make_shared<TMultiGraph>((var+"_lower_bound_when_"+condition+"_epf").c_str(),
+                                                              (var+"_lower_bound_when_"+condition+"_epf").c_str());
+    opt.purity_efficiency_fom->SetBit(kCanDelete, false);
+    opt.is_upper_bound = false;
+    unsigned int nSteps = 1000;
+    double step = (up - lw) / nSteps;
+    opt.fom = std::numeric_limits<double>::lowest();
+    opt.limit = std::numeric_limits<double>::lowest();
+    for (double limit = lw; limit < up; limit += step)
+    {
+      std::ostringstream limStrm;
+      limStrm << std::setprecision(10) << limit;
+      ana::tools::cut_sequence cut = old_cut;
+      cut.add_conditional_cut(condition, var + " > " + limStrm.str());
+      auto [selected_signal, selected_background, efficiency, purity] = cut_e_p(cut);
+      double fom = get_fom(selected_signal, selected_background, efficiency, purity);
+      opt.purity_graph->AddPoint(limit, purity);
+      opt.efficiency_graph->AddPoint(limit, efficiency);
+      opt.fom_graph->AddPoint(limit, fom);
+      if (opt.fom < fom)
+      {
+        opt.fom = fom;
+        opt.cut = cut;
+        opt.limit = limit;
+      }
+    }
+    for (size_t idx = 0; idx < opt.fom_graph->GetN(); ++idx)
+    {
+      double fom, bound;
+      opt.fom_graph->GetPoint(idx, bound, fom);
+      opt.fom_graph->SetPoint(idx, bound, fom / std::ceil(opt.fom));
+    }
+    opt.purity_graph->SetLineColor(colors.at(1)->GetNumber());
+    opt.efficiency_graph->SetLineColor(colors.at(2)->GetNumber());
+    opt.fom_graph->SetLineColor(colors.at(3)->GetNumber());
+    opt.legend = std::make_shared<TLegend>(0.6, 0.6, 0.8, 0.8);
+    opt.legend->SetBit(kCanDelete, false);
+    opt.legend->SetFillStyle(0);
+    opt.legend->AddEntry(opt.purity_graph.get(), "Purity", "l");
+    opt.legend->AddEntry(opt.efficiency_graph.get(), "Efficiency", "l");
+    opt.legend->AddEntry(opt.fom_graph.get(), "Figure of Merit", "l");
+    opt.purity_efficiency_fom->Add(opt.purity_graph.get());
+    opt.purity_efficiency_fom->Add(opt.efficiency_graph.get());
+    opt.purity_efficiency_fom->Add(opt.fom_graph.get());
+    opt.purity_efficiency_fom->GetXaxis()->SetTitle(("Lower Bound on " + var_to_title.at(var) + " When " + condition).c_str());
+    opt.purity_efficiency_fom->GetYaxis()->SetTitle("Purity, Efficiency");
+    opt.purity_efficiency_fom->Draw("al");
+    opt.purity_efficiency_fom->GetHistogram()->GetXaxis()->SetRangeUser(lw, up);
+    opt.purity_efficiency_fom->SetMinimum(0);
+    opt.purity_efficiency_fom->SetMaximum(1);
+    opt.canvas->Update();
+    opt.line = std::make_shared<TLine>(opt.limit, 0, opt.limit, 1);
+    opt.line->SetBit(kCanDelete, false);
+    opt.line->SetLineColor(kRed);
+    opt.line->SetLineStyle(kDashed);
+    opt.legend->Draw("same");
+    opt.line->Draw("same");
+    double bin_height = 0;
+    double arrow_length = 0;
+    for (TObject* obj : *static_cast<TList*>(lc.stack->GetHists()))
+    {
+      TH1* hist = static_cast<TH1*>(obj);
+      int bin = hist->FindBin(opt.limit);
+      bin_height += hist->GetBinContent(bin);
+      if (arrow_length == 0)
+        arrow_length = 5*(hist->GetXaxis()->GetTickLength());
+    }
+    lc.arrow = std::make_shared<TArrow>(opt.limit, bin_height,
+                                        opt.limit + arrow_length, bin_height, 0.05, "|->");
+    lc.arrow->SetBit(kCanDelete, false);
+    lc.arrow->SetLineColor(kRed);
+    lc.arrow->SetLineWidth(2);
+    lc.arrow->SetLineStyle(kDashed);
+    opt.gaxis = std::make_shared<TGaxis>(up, 0, up, 1, 0, std::ceil(opt.fom), 510, "+L");
+    opt.gaxis->SetBit(kCanDelete, false);
+    opt.gaxis->SetTitle("Figure of Merit");
+    opt.gaxis->SetTitleSize(opt.purity_efficiency_fom->GetHistogram()->GetYaxis()->GetTitleSize());
+    opt.gaxis->SetTitleOffset(0.8);
+    opt.gaxis->SetTitleFont(opt.purity_efficiency_fom->GetHistogram()->GetYaxis()->GetTitleFont());
+    opt.gaxis->SetLabelSize(opt.purity_efficiency_fom->GetHistogram()->GetYaxis()->GetLabelSize());
+    opt.gaxis->SetLabelOffset(opt.purity_efficiency_fom->GetHistogram()->GetYaxis()->GetLabelOffset());
+    opt.gaxis->SetLabelFont(opt.purity_efficiency_fom->GetHistogram()->GetYaxis()->GetLabelFont());
+    opt.gaxis->SetTickLength(opt.purity_efficiency_fom->GetHistogram()->GetYaxis()->GetTickLength());
+    opt.gaxis->SetNdivisions(opt.purity_efficiency_fom->GetHistogram()->GetYaxis()->GetNdivisions());
+    opt.gaxis->Draw();
+    lc.canvas->cd();
+    lc.arrow->Draw();
+    return std::make_tuple(opt, lc);
+  }
+
+  /**
+  /**
+   * @brief Optimize a cut which is an upper bound on a given variable under some condition
+   * @details Requires the range over which to optimize as well as the selection to build on.
+   * Bound is only apply when the condition is satisfied
+   */
+  std::tuple<ana::tools::opt_canvas, ana::tools::limit_canvas> analysis_tree::optimize_conditional_upper_bound(const std::string& condition,
+                                                                                                               const std::string& var,
+                                                                                                               const double& lw, const double& up,
+                                                                                                               const ana::tools::cut_sequence& old_cut) const
+  {
+    ana::tools::opt_canvas opt;
+    ana::tools::limit_canvas lc = plot_var_sel(var, old_cut);
+    opt.canvas = std::make_shared<TCanvas>((var+"_upper_bound_when_"+condition).c_str(),
+                                           (var+"_upper_bound_when_"+condition).c_str(), 1618, 1000);
+    opt.canvas->cd();
+    opt.canvas->SetBit(kCanDelete, false);
+    opt.purity_graph = std::make_shared<TGraph>();
+    opt.purity_graph->SetBit(kCanDelete, false);
+    opt.efficiency_graph = std::make_shared<TGraph>();
+    opt.efficiency_graph->SetBit(kCanDelete, false);
+    opt.fom_graph = std::make_shared<TGraph>();
+    opt.fom_graph->SetBit(kCanDelete, false);
+    opt.purity_efficiency_fom = std::make_shared<TMultiGraph>((var+"_upper_bound_when_"+condition+"_epf").c_str(),
+                                                              (var+"_upper_bound_when_"+condition+"_epf").c_str());
+    opt.purity_efficiency_fom->SetBit(kCanDelete, false);
+    opt.is_upper_bound = false;
+    unsigned int nSteps = 1000;
+    double step = (up - lw) / nSteps;
+    opt.fom = std::numeric_limits<double>::lowest();
+    opt.limit = std::numeric_limits<double>::lowest();
+    for (double limit = lw; limit < up; limit += step)
+    {
+      std::ostringstream limStrm;
+      limStrm << std::setprecision(10) << limit;
+      ana::tools::cut_sequence cut = old_cut;
+      cut.add_conditional_cut(condition, var + " < " + limStrm.str());
+      auto [selected_signal, selected_background, efficiency, purity] = cut_e_p(cut);
+      double fom = get_fom(selected_signal, selected_background, efficiency, purity);
+      opt.purity_graph->AddPoint(limit, purity);
+      opt.efficiency_graph->AddPoint(limit, efficiency);
+      opt.fom_graph->AddPoint(limit, fom);
+      if (opt.fom < fom)
+      {
+        opt.fom = fom;
+        opt.cut = cut;
+        opt.limit = limit;
+      }
+    }
+    for (size_t idx = 0; idx < opt.fom_graph->GetN(); ++idx)
+    {
+      double fom, bound;
+      opt.fom_graph->GetPoint(idx, bound, fom);
+      opt.fom_graph->SetPoint(idx, bound, fom / std::ceil(opt.fom));
+    }
+    opt.purity_graph->SetLineColor(colors.at(1)->GetNumber());
+    opt.efficiency_graph->SetLineColor(colors.at(2)->GetNumber());
+    opt.fom_graph->SetLineColor(colors.at(3)->GetNumber());
+    opt.legend = std::make_shared<TLegend>(0.6, 0.6, 0.8, 0.8);
+    opt.legend->SetBit(kCanDelete, false);
+    opt.legend->SetFillStyle(0);
+    opt.legend->AddEntry(opt.purity_graph.get(), "Purity", "l");
+    opt.legend->AddEntry(opt.efficiency_graph.get(), "Efficiency", "l");
+    opt.legend->AddEntry(opt.fom_graph.get(), "Figure of Merit", "l");
+    opt.purity_efficiency_fom->Add(opt.purity_graph.get());
+    opt.purity_efficiency_fom->Add(opt.efficiency_graph.get());
+    opt.purity_efficiency_fom->Add(opt.fom_graph.get());
+    opt.purity_efficiency_fom->GetXaxis()->SetTitle(("Upper Bound on " + var_to_title.at(var) + " When " + condition).c_str());
+    opt.purity_efficiency_fom->GetYaxis()->SetTitle("Purity, Efficiency");
+    opt.purity_efficiency_fom->Draw("al");
+    opt.purity_efficiency_fom->GetHistogram()->GetXaxis()->SetRangeUser(lw, up);
+    opt.purity_efficiency_fom->SetMinimum(0);
+    opt.purity_efficiency_fom->SetMaximum(1);
+    opt.canvas->Update();
+    opt.line = std::make_shared<TLine>(opt.limit, 0, opt.limit, 1);
+    opt.line->SetBit(kCanDelete, false);
+    opt.line->SetLineColor(kRed);
+    opt.line->SetLineStyle(kDashed);
+    opt.legend->Draw("same");
+    opt.line->Draw("same");
+    double bin_height = 0;
+    double arrow_length = 0;
+    for (TObject* obj : *static_cast<TList*>(lc.stack->GetHists()))
+    {
+      TH1* hist = static_cast<TH1*>(obj);
+      int bin = hist->FindBin(opt.limit);
+      bin_height += hist->GetBinContent(bin);
+      if (arrow_length == 0)
+        arrow_length = 5*(hist->GetXaxis()->GetTickLength());
+    }
+    lc.arrow = std::make_shared<TArrow>(opt.limit, bin_height,
+                                        opt.limit + arrow_length, bin_height, 0.05, "|->");
+    lc.arrow->SetBit(kCanDelete, false);
+    lc.arrow->SetLineColor(kRed);
+    lc.arrow->SetLineWidth(2);
+    lc.arrow->SetLineStyle(kDashed);
+    opt.gaxis = std::make_shared<TGaxis>(up, 0, up, 1, 0, std::ceil(opt.fom), 510, "+L");
+    opt.gaxis->SetBit(kCanDelete, false);
+    opt.gaxis->SetTitle("Figure of Merit");
+    opt.gaxis->SetTitleSize(opt.purity_efficiency_fom->GetHistogram()->GetYaxis()->GetTitleSize());
+    opt.gaxis->SetTitleOffset(0.8);
+    opt.gaxis->SetTitleFont(opt.purity_efficiency_fom->GetHistogram()->GetYaxis()->GetTitleFont());
+    opt.gaxis->SetLabelSize(opt.purity_efficiency_fom->GetHistogram()->GetYaxis()->GetLabelSize());
+    opt.gaxis->SetLabelOffset(opt.purity_efficiency_fom->GetHistogram()->GetYaxis()->GetLabelOffset());
+    opt.gaxis->SetLabelFont(opt.purity_efficiency_fom->GetHistogram()->GetYaxis()->GetLabelFont());
+    opt.gaxis->SetTickLength(opt.purity_efficiency_fom->GetHistogram()->GetYaxis()->GetTickLength());
+    opt.gaxis->SetNdivisions(opt.purity_efficiency_fom->GetHistogram()->GetYaxis()->GetNdivisions());
+    opt.gaxis->Draw();
+    lc.canvas->cd();
+    lc.arrow->Draw();
+    return std::make_tuple(opt, lc);
+  }
+
+  /*
+   * @brief Optimize either an upper or lower bound with a condition to apply the bound
+   */
+  std::tuple<ana::tools::opt_canvas, ana::tools::limit_canvas> analysis_tree::optimize_conditional_bound(const std::string& condition,
+                                                                                                         const std::string& var,
+                                                                                                         const double& lw, const double& up,
+                                                                                                         const ana::tools::cut_sequence& old_cut,
+                                                                                                         const bool& is_upper_bound) const
+  {
+    return (is_upper_bound) ? optimize_conditional_upper_bound(condition, var, lw, up, old_cut)
+                            : optimize_conditional_lower_bound(condition, var, lw, up, old_cut);
   }
   
 }// end ana::tools namespace

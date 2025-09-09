@@ -36,12 +36,51 @@ namespace cuts::nc::gOre
     }
   REGISTER_CUT_SCOPE(RegistrationScope::Both, gOre_topology, gOre_topology); 
 
+  /**
+   * @brief Does the gOre shower fall in our energy range of interest?
+   * @details ∆(1232) resonance peak means the photon's energy in an Nγ decay
+   * should be (M∆^2 - MN^2)/(2M∆) in the rest frame, approx 258 MeV (neutron vs proton matters little).
+   * There is some spread around this value due to, eg, nuclear motion but it's a good target. Give a +/- 150 MeV spread
+   * @tparam T the type of interaction (true or reco)
+   * @param obj the interaction in question 
+   * @return if the kinetic energy of the shower is in the range of 258 +/- 150 MeV
+   **/
+  template<class T>
+    bool gOre_target_KE(const T& obj)
+    {
+      core::nc::gOre::Interaction<T> interaction(obj);
+      double gOre_KE = interaction.primary_gOre()->ke;
+      return (108 < gOre_KE) && (gOre_KE < 408);
+    }
+  REGISTER_CUT_SCOPE(RegistrationScope::Both, gOre_target_KE, gOre_target_KE);
+
+  /**
+   * @brief Does the interaction fall in our stricter fiducial requirements
+   * @details The allow distance between the vertex and each detector wall.
+   * These limits are defiend in core_gOre.h
+   * @tparam T the type of interaction (true or reco)
+   * @param obj the interaction in question 
+   * @return true if the vertex is inside our fiducial volume
+   **/
+  template<class T>
+    bool gOre_fiducial_cut(const T& obj)
+    {
+      auto [vtx_x, vtx_y, vtx_z] = utilities::to_three_vector(obj.vertex);
+      return (GORE_WALL_X_POS - vtx_x > GORE_FID_THRESH_X_POS) &&
+             (vtx_x - GORE_WALL_X_NEG > GORE_FID_THRESH_X_NEG) &&
+             (GORE_WALL_Y_POS - vtx_y > GORE_FID_THRESH_Y_POS) &&
+             (vtx_y - GORE_WALL_Y_NEG > GORE_FID_THRESH_Y_NEG) &&
+             (GORE_WALL_Z_POS - vtx_z > GORE_FID_THRESH_Z_POS) &&
+             (vtx_z - GORE_WALL_Z_NEG > GORE_FID_THRESH_Z_NEG) ;
+    }
+  REGISTER_CUT_SCOPE(RegistrationScope::Both, gOre_fiducial_cut, gOre_fiducial_cut);
+
   /** @brief gOre_topology & no protons **/
   template<class T>
     bool gOre_0p(const T& obj)
     {
       core::nc::gOre::Interaction<T> interaction(obj);
-      return (interaction.is_valid) && (interaction.nProtons == 0);
+      return (interaction.is_valid) && (interaction.nProtons() == 0);
     }
   REGISTER_CUT_SCOPE(RegistrationScope::Both, gOre_0p, gOre_0p); 
 
@@ -50,7 +89,7 @@ namespace cuts::nc::gOre
     bool gOre_1p(const T& obj)
     {
       core::nc::gOre::Interaction<T> interaction(obj);
-      return (interaction.is_valid) && (interaction.nProtons == 1);
+      return (interaction.is_valid) && (interaction.nProtons() == 1);
     }
   REGISTER_CUT_SCOPE(RegistrationScope::Both, gOre_1p, gOre_1p);
 
@@ -59,7 +98,7 @@ namespace cuts::nc::gOre
     bool gOre_Np(const T& obj)
     {
       core::nc::gOre::Interaction<T> interaction(obj);
-      return (interaction.is_valid) && (interaction.nProtons > 0);
+      return (interaction.is_valid) && (interaction.nProtons() > 0);
     }
   REGISTER_CUT_SCOPE(RegistrationScope::Both, gOre_Np, gOre_Np); 
 
@@ -129,7 +168,7 @@ namespace cuts::nc::gOre
   bool gOre_is_photon(const T& obj)
   {
     core::nc::gOre::True_Interaction interaction(obj);
-    return interaction.is_valid && (pvars::pid(*interaction.photon_or_electron) == pvars::kPhoton);
+    return interaction.is_valid && (pvars::pid(*interaction.primary_gOre()) == pvars::kPhoton);
   }
   REGISTER_CUT_SCOPE(RegistrationScope::True, gOre_is_photon, gOre_is_photon);
 
@@ -138,9 +177,42 @@ namespace cuts::nc::gOre
   bool gOre_is_electron(const T& obj)
   {
     core::nc::gOre::True_Interaction interaction(obj);
-    return interaction.is_valid && (pvars::pid(*interaction.photon_or_electron) == pvars::kElectron);
+    return interaction.is_valid && (pvars::pid(*interaction.primary_gOre()) == pvars::kElectron);
   }
   REGISTER_CUT_SCOPE(RegistrationScope::True, gOre_is_electron, gOre_is_electron);
+
+  /** @brief has muon above threshold **/
+  template<class T>
+  bool muon_abv_thresh(const T& obj)
+  {
+    return (core::nc::gOre::count_primaries(obj).at(pvars::kMuon) > 0);
+  }
+  REGISTER_CUT_SCOPE(RegistrationScope::True, muon_abv_thresh, muon_abv_thresh);
+
+  /** @brief has pion above threshold **/
+  template<class T>
+  bool pion_abv_thresh(const T& obj)
+  {
+    return (core::nc::gOre::count_primaries(obj).at(pvars::kMuon) > 0);
+  }
+  REGISTER_CUT_SCOPE(RegistrationScope::True, pion_abv_thresh, pion_abv_thresh);
+
+  /** @brief has electron above threshold **/
+  template<class T>
+  bool electron_abv_thresh(const T& obj)
+  {
+    return (core::nc::gOre::count_primaries(obj).at(pvars::kElectron) > 0);
+  }
+  REGISTER_CUT_SCOPE(RegistrationScope::True, electron_abv_thresh, electron_abv_thresh);
+
+  /** @brief more than one shower above threshold**/
+  template<class T>
+  bool more_than_one_gOre(const T& obj)
+  {
+    core::nc::gOre::True_Interaction interaction(obj);
+    return (interaction.ngOres() > 1);
+  }
+  REGISTER_CUT_SCOPE(RegistrationScope::True, more_than_one_gOre, more_than_one_gOre);
 
   /** @brief true fiducial contained single shower event **/
   template<class T>
@@ -175,8 +247,8 @@ namespace cuts::nc::gOre
   {
     core::nc::gOre::True_Interaction interaction(obj);
     return interaction.is_valid &&
-           interaction.photon_or_electron->pdg_code == 22 &&
-           interaction.photon_or_electron->ancestor_pdg_code != 22;
+           interaction.primary_gOre()->pdg_code == 22 &&
+           interaction.primary_gOre()->ancestor_pdg_code != 22;
   }
   REGISTER_CUT_SCOPE(RegistrationScope::True, decay_gOre_photon, decay_gOre_photon);
 
@@ -191,8 +263,8 @@ namespace cuts::nc::gOre
   {
     core::nc::gOre::True_Interaction interaction(obj);
     return interaction.is_valid &&
-           interaction.photon_or_electron->pdg_code == 22 &&
-           interaction.photon_or_electron->ancestor_pdg_code == 22;
+           interaction.primary_gOre()->pdg_code == 22 &&
+           interaction.primary_gOre()->ancestor_pdg_code == 22;
   }
   REGISTER_CUT_SCOPE(RegistrationScope::True, primary_gOre_photon, primary_gOre_photon);
 
@@ -202,8 +274,8 @@ namespace cuts::nc::gOre
     core::nc::gOre::True_Interaction interaction(obj);
     if (not interaction.is_valid)
       return false;
-    int64_t ancestor_pdg_code = interaction.photon_or_electron->ancestor_pdg_code;
-    int64_t parent_pdg_code = interaction.photon_or_electron->parent_pdg_code;
+    int64_t ancestor_pdg_code = interaction.primary_gOre()->ancestor_pdg_code;
+    int64_t parent_pdg_code = interaction.primary_gOre()->parent_pdg_code;
     std::cout << "***\n"
               << "Ancestor " << ancestor_pdg_code << '\n'
               << "Parent " << ancestor_pdg_code << std::endl;

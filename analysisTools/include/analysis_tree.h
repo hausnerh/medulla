@@ -77,6 +77,19 @@ namespace ana::tools
                                                                                   const double& lw, const double& up,
                                                                                   const ana::tools::cut_sequence& old_cut,
                                                                                   const bool& is_upper_bound) const; 
+      std::tuple<ana::tools::opt_canvas, ana::tools::limit_canvas> optimize_conditional_lower_bound(const std::string& condition,
+                                                                                                    const std::string& var,
+                                                                                                    const double& lw, const double& up,
+                                                                                                    const ana::tools::cut_sequence& old_cut) const;
+      std::tuple<ana::tools::opt_canvas, ana::tools::limit_canvas> optimize_conditional_upper_bound(const std::string& condition,
+                                                                                                    const std::string& var,
+                                                                                                    const double& lw, const double& up,
+                                                                                                    const ana::tools::cut_sequence& old_cut) const;
+      std::tuple<ana::tools::opt_canvas, ana::tools::limit_canvas> optimize_conditional_bound(const std::string& condition,
+                                                                                              const std::string& var,
+                                                                                              const double& lw, const double& up,
+                                                                                              const ana::tools::cut_sequence& old_cut,
+                                                                                              const bool& is_upper_bound) const;
 
     private:
       std::unique_ptr<TMemFile> memFile;

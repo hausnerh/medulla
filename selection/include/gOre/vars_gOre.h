@@ -37,9 +37,9 @@ namespace vars::nc::gOre
       core::nc::gOre::Interaction<T> interaction(obj);
       if (not interaction.is_valid)
         return -1.;
-      if (interaction.photon_or_electron->pdg_code != 22)
+      if (interaction.primary_gOre()->pdg_code != 22)
         return 2;
-      if (interaction.photon_or_electron->ancestor_pdg_code != 22)
+      if (interaction.primary_gOre()->ancestor_pdg_code != 22)
         return 1;
       return 0;
     }
@@ -56,7 +56,7 @@ namespace vars::nc::gOre
       core::nc::gOre::Interaction<T> interaction(obj);
       if (not interaction.is_valid)
         return std::numeric_limits<double>::quiet_NaN();
-      return static_cast<double>(interaction.nProtons);
+      return static_cast<double>(interaction.nProtons());
     }
   REGISTER_VAR_SCOPE(RegistrationScope::Both, n_protons, n_protons);
 
@@ -131,7 +131,7 @@ namespace vars::nc::gOre
       core::nc::gOre::Interaction<T> interaction(obj);
       if (not interaction.is_valid)
         return std::numeric_limits<double>::quiet_NaN();
-      return interaction.photon_or_electron->ke;
+      return interaction.primary_gOre()->ke;
     }
   REGISTER_VAR_SCOPE(RegistrationScope::Both, gOre_ke, gOre_ke);
 
@@ -162,7 +162,7 @@ namespace vars::nc::gOre
       core::nc::gOre::Interaction<T> interaction(obj);
       if (not interaction.is_valid)
         return std::numeric_limits<double>::quiet_NaN();
-      return static_cast<double>(interaction.photon_or_electron->axial_spread);
+      return static_cast<double>(interaction.primary_gOre()->axial_spread);
     }
   REGISTER_VAR_SCOPE(RegistrationScope::Reco, gOre_axial_spread, gOre_axial_spread);
 
@@ -176,7 +176,7 @@ namespace vars::nc::gOre
       core::nc::gOre::Interaction<T> interaction(obj);
       if (not interaction.is_valid)
         return std::numeric_limits<double>::quiet_NaN();
-      return static_cast<double>(interaction.photon_or_electron->directional_spread);
+      return static_cast<double>(interaction.primary_gOre()->directional_spread);
     }
   REGISTER_VAR_SCOPE(RegistrationScope::Reco, gOre_directional_spread, gOre_directional_spread);
 
@@ -190,7 +190,7 @@ namespace vars::nc::gOre
       core::nc::gOre::Interaction<T> interaction(obj);
       if (not interaction.is_valid)
         return std::numeric_limits<double>::quiet_NaN();
-      return static_cast<double>(interaction.photon_or_electron->length);
+      return static_cast<double>(interaction.primary_gOre()->length);
     }
   REGISTER_VAR_SCOPE(RegistrationScope::Both, gOre_length, gOre_length);
 
@@ -203,7 +203,7 @@ namespace vars::nc::gOre
       core::nc::gOre::Interaction<T> interaction(obj);
       if (not interaction.is_valid)
         return std::numeric_limits<double>::quiet_NaN();
-      return static_cast<double>(interaction.photon_or_electron->p);
+      return static_cast<double>(interaction.primary_gOre()->p);
     }
   REGISTER_VAR_SCOPE(RegistrationScope::Both, gOre_momentum, gOre_momentum);
 
@@ -216,7 +216,7 @@ namespace vars::nc::gOre
       core::nc::gOre::Interaction<T> interaction(obj);
       if (not interaction.is_valid)
         return std::numeric_limits<double>::quiet_NaN();
-      return pvars::dpT(*interaction.photon_or_electron);
+      return pvars::dpT(*interaction.primary_gOre());
     }
   REGISTER_VAR_SCOPE(RegistrationScope::Both, gOre_dpT, gOre_dpT);
 
@@ -229,7 +229,7 @@ namespace vars::nc::gOre
       core::nc::gOre::Interaction<T> interaction(obj);
       if (not interaction.is_valid)
         return std::numeric_limits<double>::quiet_NaN();
-      return interaction.photon_or_electron->start_dedx;
+      return interaction.primary_gOre()->start_dedx;
     }
   REGISTER_VAR_SCOPE(RegistrationScope::Reco, gOre_start_dedx, gOre_start_dedx);
 
@@ -242,7 +242,7 @@ namespace vars::nc::gOre
       core::nc::gOre::Interaction<T> interaction(obj);
       if (not interaction.is_valid)
         return std::numeric_limits<double>::quiet_NaN();
-      return interaction.photon_or_electron->start_straightness;
+      return interaction.primary_gOre()->start_straightness;
     }
   REGISTER_VAR_SCOPE(RegistrationScope::Reco, gOre_straightness, gOre_straightness);
 
@@ -256,7 +256,7 @@ namespace vars::nc::gOre
       if (not interaction.is_valid)
         return std::numeric_limits<double>::quiet_NaN();
       utilities::three_vector interaction_vtx = utilities::to_three_vector(obj.vertex);
-      utilities::three_vector gOre_vtx = utilities::to_three_vector(interaction.photon_or_electron->start_point);
+      utilities::three_vector gOre_vtx = utilities::to_three_vector(interaction.primary_gOre()->start_point);
       return utilities::magnitude(utilities::subtract(gOre_vtx, interaction_vtx));
     }
   REGISTER_VAR_SCOPE(RegistrationScope::Both, gOre_gap, gOre_gap);
@@ -271,7 +271,7 @@ namespace vars::nc::gOre
       core::nc::gOre::Interaction<T> interaction(obj);
       if (not interaction.is_valid)
         return std::numeric_limits<double>::quiet_NaN();
-      std::vector<double> softmax_vec = pvars::particle_softmax_vec(*interaction.photon_or_electron);
+      std::vector<double> softmax_vec = pvars::particle_softmax_vec(*interaction.primary_gOre());
       return softmax_vec[pvars::kPhoton] - softmax_vec[pvars::kElectron];
     }
   REGISTER_VAR_SCOPE(RegistrationScope::Reco, gOre_score, gOre_score);
@@ -285,7 +285,7 @@ namespace vars::nc::gOre
       core::nc::gOre::Interaction<T> interaction(obj);
       if (not interaction.is_valid)
         return std::numeric_limits<double>::quiet_NaN();
-      return pvars::polar_angle(*interaction.photon_or_electron);
+      return pvars::polar_angle(*interaction.primary_gOre());
     }
   REGISTER_VAR_SCOPE(RegistrationScope::Both, gOre_polar_angle, gOre_polar_angle);
 
@@ -298,7 +298,7 @@ namespace vars::nc::gOre
       core::nc::gOre::Interaction<T> interaction(obj);
       if (not interaction.is_valid)
         return std::numeric_limits<double>::quiet_NaN();
-      return pvars::azimuthal_angle(*interaction.photon_or_electron);
+      return pvars::azimuthal_angle(*interaction.primary_gOre());
     }
   REGISTER_VAR_SCOPE(RegistrationScope::Both, gOre_azimuthal_angle, gOre_azimuthal_angle);
 
@@ -382,7 +382,7 @@ namespace vars::nc::gOre
       if (not interaction.is_valid || interaction.nShowers < 2)
         return std::numeric_limits<double>::quiet_NaN();
       // there must be a subleading shower. Use it for the pion mass estimate.
-      return std::sqrt(2.*interaction.photon_or_electron->ke*interaction.subleading_gore_ke*(1.-interaction.pion_costh));
+      return std::sqrt(2.*interaction.primary_gOre()->ke*interaction.subleading_gore_ke*(1.-interaction.pion_costh));
     }
   REGISTER_VAR_SCOPE(RegistrationScope::Both, pion_mass, pion_mass);
 
@@ -425,7 +425,7 @@ namespace vars::nc::gOre
    * @details The fiducialization is being a pain, so focus on FSI topology and mode/interaction tyoe
    * 0: NC ∆->Nγ
    * 1: NC Other Single Photon
-   * 2: NC π0 No Photon
+   * 2: NC π0 No Primary Photon
    * 3: Other NC
    * 4: CC
    * 5: Non-neutrino
