@@ -142,8 +142,8 @@ inline std::map<int, std::string> mc_cats =
 
 inline std::vector<std::tuple<std::string, bool, double, double>> vars_to_optimize =
 {
-  {"reco_xy_wall_dist",            false,  0,   200},
-  {"reco_z_wall_dist",             false,  0,   200},
+  //{"reco_xy_wall_dist",            false,  0,   200},
+  //{"reco_z_wall_dist",             false,  0,   200},
   {"reco_flash_total_pe",          false,  0, 20000},
   {"reco_gOre_directional_spread", true,   0,     1}
 };
@@ -306,7 +306,9 @@ int run_analysis(const std::string& fileName,
   try_call(cut.string(), [&my_analysis_tree, &cut]{ my_analysis_tree.report_on_cut(cut); });
   //*** FIDUCIAL CUT ***//
   std::cout << "//*** FIDUCIAL CUT ***//" << std::endl;
-  cut += "reco_fiducial";
+  //cut += "reco_fiducial";
+  cut += "reco_xy_wall_dist > 50";
+  cut += "reco_z_wall_dist > 50";
   try_call(cut.string(), [&my_analysis_tree, &cut]{ my_analysis_tree.report_on_cut(cut); });
   //*** CONTAINMENT CUT***//
   std::cout << "//*** CONTAINMENT CUT ***//" << std::endl;
