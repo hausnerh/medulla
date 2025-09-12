@@ -9,6 +9,7 @@
 #define VARS_GORE_H
 
 #include "include/gOre/cuts_gOre.h"
+#include "include/gOre/event_cuts_gOre.h"
 
 namespace vars::nc::gOre
 {
@@ -44,6 +45,44 @@ namespace vars::nc::gOre
       return 0;
     }
   REGISTER_VAR_SCOPE(RegistrationScope::True, gOre_category, gOre_category);
+
+  /**
+   * @brief the ancestor pdg code for the gOre
+   * @details what particle from the original FS produced this shower? If it is the same as the particle in question it was a primary
+   * @param obj the interaction of interest (MC only)
+   * @return the pdg code of the ancestor, (NaN if invalid)
+   **/
+  template <class T>
+    double gOre_ancestor(const T& obj)
+    {
+      core::nc::gOre::Interaction<T> interaction(obj);
+      if (not interaction.is_valid)
+        return std::numeric_limits<double>::quiet_NaN();
+      return interaction.primary_gOre()->ancestor_pdg_code;
+    }
+  REGISTER_VAR_SCOPE(RegistrationScope::True, gOre_ancestor, gOre_ancestor);
+
+  /**
+   * @brief which volumes have flash matches?
+   * @return 0 for East only, 1 for West only, 2 for both, -1 for neither
+   **/
+  template <class T>
+    double flash_volumes(const T& obj)
+    {
+      bool west(false);
+      bool east(false);
+      for (auto const& flsh : obj.flash_volume_ids)
+      {
+        if (flsh == 0)
+          east = true;
+        if (flsh == 1)
+          west = true;
+      }
+      // interpreting west & east as bits, construct out return value
+      int vol = ((west<<1) | east) - 1;
+      return vol;
+    }
+  REGISTER_VAR_SCOPE(RegistrationScope::Both, flash_volumes, flash_volumes);
 
   /**
    * @brief how many protons are in the interaction?

@@ -123,6 +123,8 @@ branch = [
     { name = "total_gOre_KE",            type = "true"    },
     { name = "n_gOre_showers",           type = "true"    },
     { name = "pion_mass",                type = "true"    },
+    { name = "gOre_ancestor",            type = "true"    },
+    { name = "debug",                    type = "true"    },
     # Reco
     { name = "is_gOre",                  type = "reco"    },
     { name = "fiducial",                 type = "reco"    },
@@ -197,6 +199,8 @@ branch = [
     { name = "total_gOre_KE",            type = "true"    },
     { name = "n_gOre_showers",           type = "true"    },
     { name = "pion_mass",                type = "true"    },
+    { name = "gOre_ancestor",            type = "true"    },
+    { name = "debug",                    type = "true"    },
     # Reco
     { name = "is_gOre",                  type = "reco"    },
     { name = "fiducial",                 type = "reco"    },

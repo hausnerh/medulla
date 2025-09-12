@@ -144,6 +144,7 @@ inline std::vector<std::tuple<std::string, bool, double, double>> vars_to_optimi
 {
   //{"reco_xy_wall_dist",            false,  0,   200},
   //{"reco_z_wall_dist",             false,  0,   200},
+  {"reco_gOre_start_dedx",         false,  0,     5},
   {"reco_flash_total_pe",          false,  0, 20000},
   {"reco_gOre_directional_spread", true,   0,     1}
 };
@@ -314,10 +315,10 @@ int run_analysis(const std::string& fileName,
   std::cout << "//*** CONTAINMENT CUT ***//" << std::endl;
   cut += "reco_containment";
   try_call(cut.string(), [&my_analysis_tree, &cut]{ my_analysis_tree.report_on_cut(cut); });
-  //*** PROTON VTX GAP ***//
-  std::cout << "//*** PROTON VTX GAP ***//" << std::endl;
-  cut.add_conditional_cut("reco_n_protons > 0", "reco_gOre_gap > 5");
-  try_call(cut.string(), [&my_analysis_tree, &cut]{ my_analysis_tree.report_on_cut(cut); }); 
+  ////*** PROTON VTX GAP ***//
+  //std::cout << "//*** PROTON VTX GAP ***//" << std::endl;
+  //cut.add_conditional_cut("reco_n_protons > 0", "reco_gOre_gap > 5");
+  //try_call(cut.string(), [&my_analysis_tree, &cut]{ my_analysis_tree.report_on_cut(cut); }); 
 
   if (optimizeCuts)
   {

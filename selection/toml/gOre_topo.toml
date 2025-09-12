@@ -1,0 +1,486 @@
+[general]
+output = "gOre_topo"
+fsthresh = [
+  "@gOre_threshold",
+  "@gOre_threshold",
+  "@muon_threshold",
+  "@pion_threshold",
+  "@proton_threshold",
+]
+
+[parameters]
+gOre_threshold = 10 # MeV
+muon_threshold = 25 # MeV
+pion_threshold = 25 # MeV
+proton_threshold = 50 # MeV
+flash_low_t = -0.5 # µs
+flash_high_t = 1.6 # µs
+fiducial_xdist_pos = 50 # cm
+fiducial_xdist_neg = 50 # cm
+fiducial_ydist_pos = 50 # cm
+fiducial_ydist_neg = 50 # cm
+fiducial_zdist_pos = 50 # cm
+fiducial_zdist_neg = 50 # cm
+pion_mass_threshold = 0.5 # fraction of π0 mass
+
+[[category]] # contained, fiducial, single photon
+cuts = [
+  { name = "neutrino"                                                 },
+  { name = "containment_cut"                                          },
+  { name = "fiducial_cut"                                             },
+  { name = "single_photon",        parameters = [ "@gOre_threshold" ] },
+  { name = "no_electrons",         parameters = [ "@gOre_threshold" ] },
+  { name = "no_muons",             parameters = [ "@muon_threshold" ] },
+  { name = "no_charged_pions",     parameters = [ "@pion_threshold" ] },
+]
+
+[[category]] # single photon
+cuts = [
+  { name = "neutrino"                                                 },
+  { name = "single_photon",        parameters = [ "@gOre_threshold" ] },
+  { name = "no_electrons",         parameters = [ "@gOre_threshold" ] },
+  { name = "no_muons",             parameters = [ "@muon_threshold" ] },
+  { name = "no_charged_pions",     parameters = [ "@pion_threshold" ] },
+]
+
+[[category]] # contained, fiducial, single electron
+cuts = [
+  { name = "neutrino"                                                 },
+  { name = "containment_cut"                                          },
+  { name = "fiducial_cut"                                             },
+  { name = "single_electron",      parameters = [ "@gOre_threshold" ] },
+  { name = "no_photons",           parameters = [ "@gOre_threshold" ] },
+  { name = "no_muons",             parameters = [ "@muon_threshold" ] },
+  { name = "no_charged_pions",     parameters = [ "@pion_threshold" ] },
+]
+
+[[category]] # single electron
+cuts = [
+  { name = "neutrino"                                                 },
+  { name = "single_electron",      parameters = [ "@gOre_threshold" ] },
+  { name = "no_photons",           parameters = [ "@gOre_threshold" ] },
+  { name = "no_muons",             parameters = [ "@muon_threshold" ] },
+  { name = "no_charged_pions",     parameters = [ "@pion_threshold" ] },
+]
+
+[[category]] # contained, fiducial, dual photon
+cuts = [
+  { name = "neutrino"                                                 },
+  { name = "containment_cut"                                          },
+  { name = "fiducial_cut"                                             },
+  { name = "dual_photon",          parameters = [ "@gOre_threshold" ] },
+  { name = "no_electrons",         parameters = [ "@gOre_threshold" ] },
+  { name = "no_muons",             parameters = [ "@muon_threshold" ] },
+  { name = "no_charged_pions",     parameters = [ "@pion_threshold" ] },
+]
+
+[[category]] # dual photon
+cuts = [
+  { name = "neutrino"                                                 },
+  { name = "dual_photon",          parameters = [ "@gOre_threshold" ] },
+  { name = "no_electrons",         parameters = [ "@gOre_threshold" ] },
+  { name = "no_muons",             parameters = [ "@muon_threshold" ] },
+  { name = "no_charged_pions",     parameters = [ "@pion_threshold" ] },
+]
+
+[[category]] # NC
+cuts = [
+  { name = "neutrino" },
+  { name = "!iscc"    },
+]
+
+[[category]] # CC
+cuts = [
+  { name = "neutrino" },
+  { name = "iscc"     },
+]
+
+[[category]] # cosmic
+cuts = [
+  { name = "!neutrino" },
+]
+
+[[sample]]
+name = "simulation"
+path = "/pnfs/icarus/persistent/users/mueller/production/simulation/nominal/*.flat.root"
+ismc = true
+
+[[tree]] # selection (1γXp) w/ veto
+name = "selected_veto"
+sim_only = false
+mode = "reco"
+cut = [
+    { name = "fiducial_cut",      type = "reco"                                     },
+    { name = "containment_cut",   type = "reco"                                     },
+    { name = "valid_flashmatch",  type = "reco"                                     },
+    { name = "single_photon",     type = "reco", parameters = [ "@gOre_threshold" ] },
+    { name = "no_electrons",      type = "reco", parameters = [ "@gOre_threshold" ] },
+    { name = "no_muons",          type = "reco", parameters = [ "@muon_threshold" ] },
+    { name = "no_charged_pions",  type = "reco", parameters = [ "@pion_threshold" ] },
+    { name = "pion_mass_veto",    type = "event", decrements_exposure = false, parameters = [ "@pion_mass_threshold" ]},
+]
+branch = [
+    # Event
+    #{ name = "nreco",                    type = "event"   },
+    # MC Truth
+    { name = "baseline",                 type = "mctruth" },
+    { name = "cc",                       type = "mctruth" },
+    { name = "pdg",                      type = "mctruth" },
+    { name = "interaction_mode",         type = "mctruth" },
+    { name = "interaction_type",         type = "mctruth" },
+    { name = "neutrino_energy",          type = "mctruth" },
+    { name = "baryon_res_code",          type = "mctruth" },
+    { name = "mc_category",              type = "mctruth" },
+    # True
+    { name = "category",                 type = "true"    },
+    { name = "gOre_category",            type = "true"    },
+    { name = "neutrino_id",              type = "true"    },
+    { name = "visible_energy",           type = "true"    },
+    { name = "gOre_ancestor",            type = "true"    },
+    # Reco
+    { name = "is_gOre",                  type = "reco"    },
+    { name = "fiducial",                 type = "reco"    },
+    { name = "containment",              type = "reco"    },
+    { name = "flash",                    type = "reco"    },
+    { name = "flash_time",               type = "reco"    },
+    { name = "flash_total_pe",           type = "reco"    },
+    { name = "gOre_axial_spread",        type = "reco"    },
+    { name = "gOre_directional_spread",  type = "reco"    },
+    { name = "gOre_start_dedx",          type = "reco"    },
+    { name = "gOre_straightness",        type = "reco"    },
+    { name = "gOre_score",               type = "reco"    },
+    { name = "n_gOre_showers",           type = "reco"    },
+    # Both (True & Reco)
+    { name = "n_protons",                type = "both"    },
+    { name = "gOre_ke",                  type = "both"    },
+    { name = "subleading_gOre_ke",       type = "both"    },
+    { name = "min_muon_ke",              type = "both"    },
+    { name = "min_pion_ke",              type = "both"    },
+    { name = "gOre_dpT",                 type = "both"    },
+    { name = "gOre_gap",                 type = "both"    },
+    { name = "gOre_polar_angle",         type = "both"    },
+    { name = "gOre_azimuthal_angle",     type = "both"    },
+    { name = "vertex_x",                 type = "both"    },
+    { name = "vertex_y",                 type = "both"    },
+    { name = "vertex_z",                 type = "both"    },
+    { name = "xy_wall_dist",             type = "both"    },
+    { name = "z_wall_dist",              type = "both"    },
+    { name = "total_gOre_KE",            type = "both"    },
+    { name = "pion_mass",                type = "both"    },
+]
+
+[[tree]] # selection (1γXp)
+name = "selected"
+sim_only = false
+mode = "reco"
+cut = [
+    { name = "fiducial_cut",      type = "reco"                                     },
+    { name = "containment_cut",   type = "reco"                                     },
+    { name = "valid_flashmatch",  type = "reco"                                     },
+    { name = "single_photon",     type = "reco", parameters = [ "@gOre_threshold" ] },
+    { name = "no_electrons",      type = "reco", parameters = [ "@gOre_threshold" ] },
+    { name = "no_muons",          type = "reco", parameters = [ "@muon_threshold" ] },
+    { name = "no_charged_pions",  type = "reco", parameters = [ "@pion_threshold" ] },
+]
+branch = [
+    # Event
+    #{ name = "nreco",                    type = "event"   },
+    # MC Truth
+    { name = "baseline",                 type = "mctruth" },
+    { name = "cc",                       type = "mctruth" },
+    { name = "pdg",                      type = "mctruth" },
+    { name = "interaction_mode",         type = "mctruth" },
+    { name = "interaction_type",         type = "mctruth" },
+    { name = "neutrino_energy",          type = "mctruth" },
+    { name = "baryon_res_code",          type = "mctruth" },
+    { name = "mc_category",              type = "mctruth" },
+    # True
+    { name = "category",                 type = "true"    },
+    { name = "gOre_category",            type = "true"    },
+    { name = "neutrino_id",              type = "true"    },
+    { name = "visible_energy",           type = "true"    },
+    { name = "gOre_ancestor",            type = "true"    },
+    # Reco
+    { name = "is_gOre",                  type = "reco"    },
+    { name = "fiducial",                 type = "reco"    },
+    { name = "containment",              type = "reco"    },
+    { name = "flash",                    type = "reco"    },
+    { name = "flash_time",               type = "reco"    },
+    { name = "flash_total_pe",           type = "reco"    },
+    { name = "gOre_axial_spread",        type = "reco"    },
+    { name = "gOre_directional_spread",  type = "reco"    },
+    { name = "gOre_start_dedx",          type = "reco"    },
+    { name = "gOre_straightness",        type = "reco"    },
+    { name = "gOre_score",               type = "reco"    },
+    { name = "n_gOre_showers",           type = "reco"    },
+    # Both (True & Reco)
+    { name = "n_protons",                type = "both"    },
+    { name = "gOre_ke",                  type = "both"    },
+    { name = "subleading_gOre_ke",       type = "both"    },
+    { name = "min_muon_ke",              type = "both"    },
+    { name = "min_pion_ke",              type = "both"    },
+    { name = "gOre_dpT",                 type = "both"    },
+    { name = "gOre_gap",                 type = "both"    },
+    { name = "gOre_polar_angle",         type = "both"    },
+    { name = "gOre_azimuthal_angle",     type = "both"    },
+    { name = "vertex_x",                 type = "both"    },
+    { name = "vertex_y",                 type = "both"    },
+    { name = "vertex_z",                 type = "both"    },
+    { name = "xy_wall_dist",             type = "both"    },
+    { name = "z_wall_dist",              type = "both"    },
+    { name = "total_gOre_KE",            type = "both"    },
+    { name = "pion_mass",                type = "both"    },
+]
+
+[[tree]] # selection (2γXp)
+name = "selected_dual_photon"
+sim_only = false
+mode = "reco"
+cut = [
+    { name = "fiducial_cut",      type = "reco"                                     },
+    { name = "containment_cut",   type = "reco"                                     },
+    { name = "valid_flashmatch",  type = "reco"                                     },
+    { name = "dual_photon",       type = "reco", parameters = [ "@gOre_threshold" ] },
+    { name = "no_electrons",      type = "reco", parameters = [ "@gOre_threshold" ] },
+    { name = "no_muons",          type = "reco", parameters = [ "@muon_threshold" ] },
+    { name = "no_charged_pions",  type = "reco", parameters = [ "@pion_threshold" ] },
+]
+branch = [
+    # Event
+    #{ name = "nreco",                    type = "event"   },
+    # MC Truth
+    { name = "baseline",                 type = "mctruth" },
+    { name = "cc",                       type = "mctruth" },
+    { name = "pdg",                      type = "mctruth" },
+    { name = "interaction_mode",         type = "mctruth" },
+    { name = "interaction_type",         type = "mctruth" },
+    { name = "neutrino_energy",          type = "mctruth" },
+    { name = "baryon_res_code",          type = "mctruth" },
+    { name = "mc_category",              type = "mctruth" },
+    # True
+    { name = "category",                 type = "true"    },
+    { name = "gOre_category",            type = "true"    },
+    { name = "neutrino_id",              type = "true"    },
+    { name = "visible_energy",           type = "true"    },
+    { name = "gOre_ancestor",            type = "true"    },
+    # Reco
+    { name = "is_gOre",                  type = "reco"    },
+    { name = "fiducial",                 type = "reco"    },
+    { name = "containment",              type = "reco"    },
+    { name = "flash",                    type = "reco"    },
+    { name = "flash_time",               type = "reco"    },
+    { name = "flash_total_pe",           type = "reco"    },
+    { name = "gOre_axial_spread",        type = "reco"    },
+    { name = "gOre_directional_spread",  type = "reco"    },
+    { name = "gOre_start_dedx",          type = "reco"    },
+    { name = "gOre_straightness",        type = "reco"    },
+    { name = "gOre_score",               type = "reco"    },
+    { name = "n_gOre_showers",           type = "reco"    },
+    # Both (True & Reco)
+    { name = "n_protons",                type = "both"    },
+    { name = "gOre_ke",                  type = "both"    },
+    { name = "subleading_gOre_ke",       type = "both"    },
+    { name = "min_muon_ke",              type = "both"    },
+    { name = "min_pion_ke",              type = "both"    },
+    { name = "gOre_dpT",                 type = "both"    },
+    { name = "gOre_gap",                 type = "both"    },
+    { name = "gOre_polar_angle",         type = "both"    },
+    { name = "gOre_azimuthal_angle",     type = "both"    },
+    { name = "vertex_x",                 type = "both"    },
+    { name = "vertex_y",                 type = "both"    },
+    { name = "vertex_z",                 type = "both"    },
+    { name = "xy_wall_dist",             type = "both"    },
+    { name = "z_wall_dist",              type = "both"    },
+    { name = "total_gOre_KE",            type = "both"    },
+    { name = "pion_mass",                type = "both"    },
+]
+
+[[tree]] # signal (1γXp topology)
+name = "signal_topo"
+sim_only = true
+mode = "true"
+cut = [
+    { name = "fiducial_cut",          type = "true"                                     },
+    { name = "containment_cut",       type = "true"                                     },
+    { name = "single_photon",         type = "true", parameters = [ "@gOre_threshold" ] },
+    { name = "no_electrons",          type = "true", parameters = [ "@gOre_threshold" ] },
+    { name = "no_muons",              type = "true", parameters = [ "@muon_threshold" ] },
+    { name = "no_charged_pions",      type = "true", parameters = [ "@pion_threshold" ] },
+    { name = "trigger_emulation_cut", type = "event", decrements_exposure = false       },
+]
+branch = [
+    # Event
+    #{ name = "nreco",                    type = "event"   },
+    # MC Truth
+    { name = "baseline",                 type = "mctruth" },
+    { name = "cc",                       type = "mctruth" },
+    { name = "pdg",                      type = "mctruth" },
+    { name = "interaction_mode",         type = "mctruth" },
+    { name = "interaction_type",         type = "mctruth" },
+    { name = "neutrino_energy",          type = "mctruth" },
+    { name = "baryon_res_code",          type = "mctruth" },
+    { name = "mc_category",              type = "mctruth" },
+    # True
+    { name = "category",                 type = "true"    },
+    { name = "gOre_category",            type = "true"    },
+    { name = "neutrino_id",              type = "true"    },
+    { name = "visible_energy",           type = "true"    },
+    { name = "gOre_ancestor",            type = "true"    },
+    # Reco
+    { name = "is_gOre",                  type = "reco"    },
+    { name = "fiducial",                 type = "reco"    },
+    { name = "containment",              type = "reco"    },
+    { name = "flash",                    type = "reco"    },
+    { name = "flash_time",               type = "reco"    },
+    { name = "flash_total_pe",           type = "reco"    },
+    { name = "gOre_axial_spread",        type = "reco"    },
+    { name = "gOre_directional_spread",  type = "reco"    },
+    { name = "gOre_start_dedx",          type = "reco"    },
+    { name = "gOre_straightness",        type = "reco"    },
+    { name = "gOre_score",               type = "reco"    },
+    { name = "n_gOre_showers",           type = "reco"    },
+    # Both (True & Reco)
+    { name = "n_protons",                type = "both"    },
+    { name = "gOre_ke",                  type = "both"    },
+    { name = "subleading_gOre_ke",       type = "both"    },
+    { name = "min_muon_ke",              type = "both"    },
+    { name = "min_pion_ke",              type = "both"    },
+    { name = "gOre_dpT",                 type = "both"    },
+    { name = "gOre_gap",                 type = "both"    },
+    { name = "gOre_polar_angle",         type = "both"    },
+    { name = "gOre_azimuthal_angle",     type = "both"    },
+    { name = "vertex_x",                 type = "both"    },
+    { name = "vertex_y",                 type = "both"    },
+    { name = "vertex_z",                 type = "both"    },
+    { name = "xy_wall_dist",             type = "both"    },
+    { name = "z_wall_dist",              type = "both"    },
+    { name = "total_gOre_KE",            type = "both"    },
+    { name = "pion_mass",                type = "both"    },
+]
+
+[[tree]] # signal (NC ∆->Nγ)
+name = "signal_nc_delta_res_Ng"
+sim_only = true
+mode = "true"
+cut = [
+    { name = "fiducial_cut",                type = "true"                                     },
+    { name = "containment_cut",             type = "true"                                     },
+    { name = "single_photon",               type = "true", parameters = [ "@gOre_threshold" ] },
+    { name = "no_electrons",                type = "true", parameters = [ "@gOre_threshold" ] },
+    { name = "no_muons",                    type = "true", parameters = [ "@muon_threshold" ] },
+    { name = "no_charged_pions",            type = "true", parameters = [ "@pion_threshold" ] },
+    { name = "trigger_emulation_cut",       type = "event", decrements_exposure = false       },
+    { name = "has_nc_delta_ng_interaction", type = "event", decrements_exposure = false       },
+]
+branch = [
+    # Event
+    #{ name = "nreco",                    type = "event"   },
+    # MC Truth
+    { name = "baseline",                 type = "mctruth" },
+    { name = "cc",                       type = "mctruth" },
+    { name = "pdg",                      type = "mctruth" },
+    { name = "interaction_mode",         type = "mctruth" },
+    { name = "interaction_type",         type = "mctruth" },
+    { name = "neutrino_energy",          type = "mctruth" },
+    { name = "baryon_res_code",          type = "mctruth" },
+    { name = "mc_category",              type = "mctruth" },
+    # True
+    { name = "category",                 type = "true"    },
+    { name = "gOre_category",            type = "true"    },
+    { name = "neutrino_id",              type = "true"    },
+    { name = "visible_energy",           type = "true"    },
+    { name = "gOre_ancestor",            type = "true"    },
+    # Reco
+    { name = "is_gOre",                  type = "reco"    },
+    { name = "fiducial",                 type = "reco"    },
+    { name = "containment",              type = "reco"    },
+    { name = "flash",                    type = "reco"    },
+    { name = "flash_time",               type = "reco"    },
+    { name = "flash_total_pe",           type = "reco"    },
+    { name = "gOre_axial_spread",        type = "reco"    },
+    { name = "gOre_directional_spread",  type = "reco"    },
+    { name = "gOre_start_dedx",          type = "reco"    },
+    { name = "gOre_straightness",        type = "reco"    },
+    { name = "gOre_score",               type = "reco"    },
+    { name = "n_gOre_showers",           type = "reco"    },
+    # Both (True & Reco)
+    { name = "n_protons",                type = "both"    },
+    { name = "gOre_ke",                  type = "both"    },
+    { name = "subleading_gOre_ke",       type = "both"    },
+    { name = "min_muon_ke",              type = "both"    },
+    { name = "min_pion_ke",              type = "both"    },
+    { name = "gOre_dpT",                 type = "both"    },
+    { name = "gOre_gap",                 type = "both"    },
+    { name = "gOre_polar_angle",         type = "both"    },
+    { name = "gOre_azimuthal_angle",     type = "both"    },
+    { name = "vertex_x",                 type = "both"    },
+    { name = "vertex_y",                 type = "both"    },
+    { name = "vertex_z",                 type = "both"    },
+    { name = "xy_wall_dist",             type = "both"    },
+    { name = "z_wall_dist",              type = "both"    },
+    { name = "total_gOre_KE",            type = "both"    },
+    { name = "pion_mass",                type = "both"    },
+]
+
+[[tree]] # signal (2γXp)
+name = "signal_dual_photon"
+sim_only = true
+mode = "true"
+cut = [
+    { name = "fiducial_cut",          type = "true"                                     },
+    { name = "containment_cut",       type = "true"                                     },
+    { name = "dual_photon",           type = "true", parameters = [ "@gOre_threshold" ] },
+    { name = "no_electrons",          type = "true", parameters = [ "@gOre_threshold" ] },
+    { name = "no_muons",              type = "true", parameters = [ "@muon_threshold" ] },
+    { name = "no_charged_pions",      type = "true", parameters = [ "@pion_threshold" ] },
+    { name = "trigger_emulation_cut", type = "event", decrements_exposure = false       },
+]
+branch = [
+    # Event
+    #{ name = "nreco",                    type = "event"   },
+    # MC Truth
+    { name = "baseline",                 type = "mctruth" },
+    { name = "cc",                       type = "mctruth" },
+    { name = "pdg",                      type = "mctruth" },
+    { name = "interaction_mode",         type = "mctruth" },
+    { name = "interaction_type",         type = "mctruth" },
+    { name = "neutrino_energy",          type = "mctruth" },
+    { name = "baryon_res_code",          type = "mctruth" },
+    { name = "mc_category",              type = "mctruth" },
+    # True
+    { name = "category",                 type = "true"    },
+    { name = "gOre_category",            type = "true"    },
+    { name = "neutrino_id",              type = "true"    },
+    { name = "visible_energy",           type = "true"    },
+    { name = "gOre_ancestor",            type = "true"    },
+    # Reco
+    { name = "is_gOre",                  type = "reco"    },
+    { name = "fiducial",                 type = "reco"    },
+    { name = "containment",              type = "reco"    },
+    { name = "flash",                    type = "reco"    },
+    { name = "flash_time",               type = "reco"    },
+    { name = "flash_total_pe",           type = "reco"    },
+    { name = "gOre_axial_spread",        type = "reco"    },
+    { name = "gOre_directional_spread",  type = "reco"    },
+    { name = "gOre_start_dedx",          type = "reco"    },
+    { name = "gOre_straightness",        type = "reco"    },
+    { name = "gOre_score",               type = "reco"    },
+    { name = "n_gOre_showers",           type = "reco"    },
+    # Both (True & Reco)
+    { name = "n_protons",                type = "both"    },
+    { name = "gOre_ke",                  type = "both"    },
+    { name = "subleading_gOre_ke",       type = "both"    },
+    { name = "min_muon_ke",              type = "both"    },
+    { name = "min_pion_ke",              type = "both"    },
+    { name = "gOre_dpT",                 type = "both"    },
+    { name = "gOre_gap",                 type = "both"    },
+    { name = "gOre_polar_angle",         type = "both"    },
+    { name = "gOre_azimuthal_angle",     type = "both"    },
+    { name = "vertex_x",                 type = "both"    },
+    { name = "vertex_y",                 type = "both"    },
+    { name = "vertex_z",                 type = "both"    },
+    { name = "xy_wall_dist",             type = "both"    },
+    { name = "z_wall_dist",              type = "both"    },
+    { name = "total_gOre_KE",            type = "both"    },
+    { name = "pion_mass",                type = "both"    },
+]

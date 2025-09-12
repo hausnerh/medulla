@@ -274,11 +274,57 @@ namespace cuts::nc::gOre
     core::nc::gOre::True_Interaction interaction(obj);
     if (not interaction.is_valid)
       return false;
+    int64_t          pdg_code = interaction.primary_gOre()->pdg_code; 
     int64_t ancestor_pdg_code = interaction.primary_gOre()->ancestor_pdg_code;
-    int64_t parent_pdg_code = interaction.primary_gOre()->parent_pdg_code;
-    std::cout << "***\n"
-              << "Ancestor " << ancestor_pdg_code << '\n'
-              << "Parent " << ancestor_pdg_code << std::endl;
+    int64_t interaction_mode = obj.interaction_mode;
+    if (ancestor_pdg_code == 22 && pdg_code == 22 && interaction_mode == caf::kRes)
+    {
+      std::cout << "Primary photon! SRInteractionTruthDLP Info:"                << '\n'
+                << "  bjorken_x: "               << obj.bjorken_x               << '\n'
+                << "  cathode_offset: "          << obj.cathode_offset          << '\n'
+                << "  current_type: "            << obj.current_type            << '\n'
+                << "  depositions_adapt_q_sum: " << obj.depositions_adapt_q_sum << '\n'
+                << "  depositions_adapt_sum: "   << obj.depositions_adapt_sum   << '\n'
+                << "  depositions_g4_sum: "      << obj.depositions_g4_sum      << '\n'
+                << "  depositions_q_sum: "       << obj.depositions_q_sum       << '\n'
+                << "  depositions_sum: "         << obj.depositions_sum         << '\n'
+                << "  distance_travel: "         << obj.distance_travel         << '\n'
+                << "  energy_init: "             << obj.energy_init             << '\n'
+                << "  energy_transfer: "         << obj.energy_transfer         << '\n'
+                << "  flash_hypo_pe: "           << obj.flash_hypo_pe           << '\n'
+                << "  flash_total_pe: "          << obj.flash_total_pe          << '\n'
+                << "  hadronic_invariant_mass: " << obj.hadronic_invariant_mass << '\n'
+                << "  id: "                      << obj.id                      << '\n'
+                << "  inelasticity: "            << obj.inelasticity            << '\n'
+                << "  interaction_id: "          << obj.interaction_id          << '\n'
+                << "  interaction_mode: "        << obj.interaction_mode        << '\n'
+                << "  interaction_type: "        << obj.interaction_type        << '\n'
+                << "  is_cathode_crosser: "      << obj.is_cathode_crosser      << '\n'
+                << "  is_contained: "            << obj.is_contained            << '\n'
+                << "  is_fiducial: "             << obj.is_fiducial             << '\n'
+                << "  is_flash_matched: "        << obj.is_flash_matched        << '\n'
+                << "  is_matched: "              << obj.is_matched              << '\n'
+                << "  is_truth: "                << obj.is_truth                << '\n'
+                << "  lepton_p: "                << obj.lepton_p                << '\n'
+                << "  lepton_pdg_code: "         << obj.lepton_pdg_code         << '\n'
+                << "  lepton_track_id: "         << obj.lepton_track_id         << '\n'
+                << "  mct_index: "               << obj.mct_index               << '\n'
+                << "  momentum_transfer: "       << obj.momentum_transfer       << '\n'
+                << "  momentum_transfer_mag: "   << obj.momentum_transfer_mag   << '\n'
+                << "  nu_id: "                   << obj.nu_id                   << '\n'
+                << "  nucleon: "                 << obj.nucleon                 << '\n'
+                << "  num_particles: "           << obj.num_particles           << '\n'
+                << "  num_primary_particles: "   << obj.num_primary_particles   << '\n'
+                << "  orig_id: "                 << obj.orig_id                 << '\n'
+                << "  pdg_code: "                << obj.pdg_code                << '\n'
+                << "  quark: "                   << obj.quark                   << '\n'
+                << "  size: "                    << obj.size                    << '\n'
+                << "  size_adapt: "              << obj.size_adapt              << '\n'
+                << "  size_g4: "                 << obj.size_g4                 << '\n'
+                << "  target: "                  << obj.target                  << '\n'
+                << "  theta: "                   << obj.theta                   << '\n'
+                << "  track_id: "                << obj.track_id                << std::endl;
+    }
     return true;
   }
   REGISTER_CUT_SCOPE(RegistrationScope::True, debug, debug);
