@@ -1,0 +1,198 @@
+[general]
+output = "gOre_pion_veto"
+
+[parameters]
+gOre_threshold = 10 # MeV
+muon_threshold = 25 # MeV
+pion_threshold = 25 # MeV
+proton_threshold = 50 # MeV
+
+[[category]] # 0: contained, fiducial, single photon
+cuts = [
+  { name = "neutrino"                                                 },
+  { name = "containment_cut"                                          },
+  { name = "fiducial_cut"                                             },
+  { name = "single_photon",        parameters = [ "@gOre_threshold" ] },
+  { name = "no_electrons",         parameters = [ "@gOre_threshold" ] },
+  { name = "no_muons",             parameters = [ "@muon_threshold" ] },
+  { name = "no_charged_pions",     parameters = [ "@pion_threshold" ] },
+]
+
+[[category]] # 1: single photon
+cuts = [
+  { name = "neutrino"                                                 },
+  { name = "single_photon",        parameters = [ "@gOre_threshold" ] },
+  { name = "no_electrons",         parameters = [ "@gOre_threshold" ] },
+  { name = "no_muons",             parameters = [ "@muon_threshold" ] },
+  { name = "no_charged_pions",     parameters = [ "@pion_threshold" ] },
+]
+
+[[category]] # 2: contained, fiducial, single electron
+cuts = [
+  { name = "neutrino"                                                 },
+  { name = "containment_cut"                                          },
+  { name = "fiducial_cut"                                             },
+  { name = "single_electron",      parameters = [ "@gOre_threshold" ] },
+  { name = "no_photons",           parameters = [ "@gOre_threshold" ] },
+  { name = "no_muons",             parameters = [ "@muon_threshold" ] },
+  { name = "no_charged_pions",     parameters = [ "@pion_threshold" ] },
+]
+
+[[category]] # 3: single electron
+cuts = [
+  { name = "neutrino"                                                 },
+  { name = "single_electron",      parameters = [ "@gOre_threshold" ] },
+  { name = "no_photons",           parameters = [ "@gOre_threshold" ] },
+  { name = "no_muons",             parameters = [ "@muon_threshold" ] },
+  { name = "no_charged_pions",     parameters = [ "@pion_threshold" ] },
+]
+
+[[category]] # 4: contained, fiducial, dual photon
+cuts = [
+  { name = "neutrino"                                                 },
+  { name = "containment_cut"                                          },
+  { name = "fiducial_cut"                                             },
+  { name = "dual_photon",          parameters = [ "@gOre_threshold" ] },
+  { name = "no_electrons",         parameters = [ "@gOre_threshold" ] },
+  { name = "no_muons",             parameters = [ "@muon_threshold" ] },
+  { name = "no_charged_pions",     parameters = [ "@pion_threshold" ] },
+]
+
+[[category]] # 5: dual photon
+cuts = [
+  { name = "neutrino"                                                 },
+  { name = "dual_photon",          parameters = [ "@gOre_threshold" ] },
+  { name = "no_electrons",         parameters = [ "@gOre_threshold" ] },
+  { name = "no_muons",             parameters = [ "@muon_threshold" ] },
+  { name = "no_charged_pions",     parameters = [ "@pion_threshold" ] },
+]
+
+[[category]] # 6: NC
+cuts = [
+  { name = "neutrino" },
+  { name = "!iscc"    },
+]
+
+[[category]] # 7: CC
+cuts = [
+  { name = "neutrino" },
+  { name = "iscc"     },
+]
+
+[[category]] # 8: cosmic
+cuts = [
+  { name = "!neutrino" },
+]
+
+[[sample]]
+name = "simulation"
+path = "/pnfs/icarus/persistent/users/mueller/production/simulation/cvext/*.flat.root"
+ismc = true
+
+[[tree]] # no veto
+name = "selected_veto_00"
+sim_only = false
+mode = "reco"
+cut = [
+    { name = "fiducial_cut",      type = "reco"                                     },
+    { name = "containment_cut",   type = "reco"                                     },
+    { name = "valid_flashmatch",  type = "reco"                                     },
+    { name = "single_photon",     type = "reco", parameters = [ "@gOre_threshold" ] },
+    { name = "no_electrons",      type = "reco", parameters = [ "@gOre_threshold" ] },
+    { name = "no_muons",          type = "reco", parameters = [ "@muon_threshold" ] },
+    { name = "no_charged_pions",  type = "reco", parameters = [ "@pion_threshold" ] },
+]
+branch = [
+  { name = "mc_category",              type = "mctruth" },
+]
+
+[[tree]] #  5% π0 mass peak resolution veto
+name = "selected_veto_05"
+sim_only = false
+mode = "reco"
+cut = [
+    { name = "fiducial_cut",      type = "reco"                                     },
+    { name = "containment_cut",   type = "reco"                                     },
+    { name = "valid_flashmatch",  type = "reco"                                     },
+    { name = "single_photon",     type = "reco", parameters = [ "@gOre_threshold" ] },
+    { name = "no_electrons",      type = "reco", parameters = [ "@gOre_threshold" ] },
+    { name = "no_muons",          type = "reco", parameters = [ "@muon_threshold" ] },
+    { name = "no_charged_pions",  type = "reco", parameters = [ "@pion_threshold" ] },
+    { name = "pion_mass_veto",    type = "event", decrements_exposure = false, parameters = [ 0.05 ]},
+]
+branch = [
+  { name = "mc_category",              type = "mctruth" },
+]
+
+[[tree]] # 10% π0 mass peak resolution veto
+name = "selected_vetoi_10"
+sim_only = false
+mode = "reco"
+cut = [
+    { name = "fiducial_cut",      type = "reco"                                     },
+    { name = "containment_cut",   type = "reco"                                     },
+    { name = "valid_flashmatch",  type = "reco"                                     },
+    { name = "single_photon",     type = "reco", parameters = [ "@gOre_threshold" ] },
+    { name = "no_electrons",      type = "reco", parameters = [ "@gOre_threshold" ] },
+    { name = "no_muons",          type = "reco", parameters = [ "@muon_threshold" ] },
+    { name = "no_charged_pions",  type = "reco", parameters = [ "@pion_threshold" ] },
+    { name = "pion_mass_veto",    type = "event", decrements_exposure = false, parameters = [ 0.10 ]},
+]
+branch = [
+  { name = "mc_category",              type = "mctruth" },
+]
+
+[[tree]] # 15% π0 mass peak resolution veto
+name = "selected_veto_15"
+sim_only = false
+mode = "reco"
+cut = [
+    { name = "fiducial_cut",      type = "reco"                                     },
+    { name = "containment_cut",   type = "reco"                                     },
+    { name = "valid_flashmatch",  type = "reco"                                     },
+    { name = "single_photon",     type = "reco", parameters = [ "@gOre_threshold" ] },
+    { name = "no_electrons",      type = "reco", parameters = [ "@gOre_threshold" ] },
+    { name = "no_muons",          type = "reco", parameters = [ "@muon_threshold" ] },
+    { name = "no_charged_pions",  type = "reco", parameters = [ "@pion_threshold" ] },
+    { name = "pion_mass_veto",    type = "event", decrements_exposure = false, parameters = [ 0.15 ]},
+]
+branch = [
+  { name = "mc_category",              type = "mctruth" },
+]
+
+[[tree]] # 20% π0 mass peak resolution veto
+name = "selected_veto_20"
+sim_only = false
+mode = "reco"
+cut = [
+    { name = "fiducial_cut",      type = "reco"                                     },
+    { name = "containment_cut",   type = "reco"                                     },
+    { name = "valid_flashmatch",  type = "reco"                                     },
+    { name = "single_photon",     type = "reco", parameters = [ "@gOre_threshold" ] },
+    { name = "no_electrons",      type = "reco", parameters = [ "@gOre_threshold" ] },
+    { name = "no_muons",          type = "reco", parameters = [ "@muon_threshold" ] },
+    { name = "no_charged_pions",  type = "reco", parameters = [ "@pion_threshold" ] },
+    { name = "pion_mass_veto",    type = "event", decrements_exposure = false, parameters = [ 0.20 ]},
+]
+branch = [
+  { name = "mc_category",              type = "mctruth" },
+]
+
+[[tree]] # 25% π0 mass peak resolution veto
+name = "selected_veto_25"
+sim_only = false
+mode = "reco"
+cut = [
+    { name = "fiducial_cut",      type = "reco"                                     },
+    { name = "containment_cut",   type = "reco"                                     },
+    { name = "valid_flashmatch",  type = "reco"                                     },
+    { name = "single_photon",     type = "reco", parameters = [ "@gOre_threshold" ] },
+    { name = "no_electrons",      type = "reco", parameters = [ "@gOre_threshold" ] },
+    { name = "no_muons",          type = "reco", parameters = [ "@muon_threshold" ] },
+    { name = "no_charged_pions",  type = "reco", parameters = [ "@pion_threshold" ] },
+    { name = "pion_mass_veto",    type = "event", decrements_exposure = false, parameters = [ 0.25 ]},
+]
+branch = [
+  { name = "mc_category",              type = "mctruth" },
+]
+:w
