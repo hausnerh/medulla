@@ -34,6 +34,15 @@
 std::shared_ptr<VarFn<RParticleType>> pvars::primfn = std::make_shared<VarFn<RParticleType>>(pvars::default_primary_classification<RParticleType>);
 std::shared_ptr<VarFn<RParticleType>> pvars::pidfn = std::make_shared<VarFn<RParticleType>>(pvars::default_pid<RParticleType>);
 
+/**
+ * @brief Set a function pointer for a variable function.
+ * @details This function sets a function pointer for a variable function of
+ * type T. It is intended to be used to set scoring function to the user-
+ * defined function registered in the framework.
+ * @tparam T The type of the variable function.
+ * @param fcn A shared pointer to the variable function to be set.
+ * @param name The name of the variable function to be set.
+ */
 template<typename T>
 void set_fcn(std::shared_ptr<VarFn<T>> & fcn, const std::string & name)
 {
@@ -45,6 +54,18 @@ void set_fcn(std::shared_ptr<VarFn<T>> & fcn, const std::string & name)
     fcn = std::make_shared<VarFn<T>>(var_fn);
 }
 
+/**
+ * @brief An error handler for ROOT errors related to XRootD authentication.
+ * @details This function is a custom error handler for ROOT errors. It checks
+ * for specific error messages related to XRootD authentication and throws
+ * a runtime error with a more user-friendly message if such errors are
+ * detected. If the error level is greater than kWarning, it will also
+ * call the default error handler to handle other errors.
+ * @param level The error level (e.g., kError, kWarning).
+ * @param abort Whether to abort the program on error.
+ * @param location The location of the error (file and line number).
+ * @param message The error message.
+ */
 void error_handler(int level, bool abort, const char * location, const char * message)
 {
     if(level > kWarning)
@@ -81,6 +102,16 @@ int main(int argc, char * argv[])
     {
         // Load the configuration file
         config.set_config(argv[1]);
+
+        // Construct the "final_state_signal" particle-level cut function.
+        if(config.has_field("general.fsthresh"))
+        {
+            // Retrieve the threshold for final state signal particles.
+            std::vector<double> fsthresh = config.get_double_vector("general.fsthresh");
+
+            // Set the global vector for final state signal thresholds.
+            pcuts::final_state_signal_thresholds = fsthresh;
+        }
 
         // Construct the category function.
         if(config.has_field("category"))

@@ -598,8 +598,24 @@ namespace pvars
     REGISTER_VAR_SCOPE(RegistrationScope::BothParticle, end_dir_z, end_dir_z);
 
     /**
+     * @brief Variable for the magnitude of the particle momentum.
+     * @details The momentum is calculated upstream in the SPINE reconstruction
+     * using the kinetic energy and mass of the particle.
+     * @tparam T the type of particle (true or reco).
+     * @param p the particle to apply the variable on.
+     * @return the magnitude of the particle momentum.
+     */
+    template<class T>
+    double p(const T & p)
+    {
+        return p.p;
+    }
+    REGISTER_VAR_SCOPE(RegistrationScope::BothParticle, p, p);
+
+    /**
      * @brief Variable for the x-component of the particle momentum.
-     * @details The momentum is predicted upstream in the SPINE reconstruction.
+     * @details The momentum is calculated upstream in the SPINE reconstruction
+     * using the kinetic energy and mass of the particle.
      * @tparam T the type of particle (true or reco).
      * @param p the particle to apply the variable on.
      * @return the x-component of the particle momentum.
@@ -613,7 +629,8 @@ namespace pvars
     
     /**
      * @brief Variable for the y-component of the particle momentum.
-     * @details The momentum is predicted upstream in the SPINE reconstruction.
+     * @details The momentum is calculated upstream in the SPINE reconstruction
+     * using the kinetic energy and mass of the particle.
      * @tparam T the type of particle (true or reco).
      * @param p the particle to apply the variable on.
      * @return the x-component of the particle momentum.
@@ -627,7 +644,8 @@ namespace pvars
 
     /**
      * @brief Variable for the z-component of the particle momentum.
-     * @details The momentum is predicted upstream in the SPINE reconstruction.
+     * @details The momentum is calculated upstream in the SPINE reconstruction
+     * using the kinetic energy and mass of the particle.
      * @tparam T the type of particle (true or reco).
      * @param p the particle to apply the variable on.
      * @return the z-component of the particle momentum.
@@ -678,10 +696,10 @@ namespace pvars
     REGISTER_VAR_SCOPE(RegistrationScope::BothParticle, polar_angle, polar_angle);
 
     /**
-     * @brief Variable for the azimuthal angle (w.r.t the z-axis) of the particle.
-     * @details The azimuthal angle is defined as the arccosine of the x-component
-     * of the momentum vector divided by the square root of the sum of the squares
-     * of the x and y components of the momentum vector.
+     * @brief Variable for the azimuthal angle of the particle.
+     * @details The azimuthal angle is defined as the arctangent of the y- and
+     * x-components of the momentum vector. That is, the angle in the x-y plane
+     * from the x-axis.
      * @tparam T the type of particle (true or reco).
      * @param p the particle to apply the variable on.
      * @return the azimuthal angle of the particle.
