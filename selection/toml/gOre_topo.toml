@@ -21,7 +21,7 @@ fiducial_ydist_pos = 50 # cm
 fiducial_ydist_neg = 50 # cm
 fiducial_zdist_pos = 50 # cm
 fiducial_zdist_neg = 50 # cm
-pion_mass_threshold = 0.5 # fraction of π0 mass
+pion_mass_threshold = 0.1 # fraction of π0 mass
 
 [[category]] # contained, fiducial, single photon
 cuts = [
