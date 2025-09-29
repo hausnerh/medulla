@@ -34,19 +34,6 @@
 namespace pvars
 {
     /**
-     * @brief Enumeration for particle primary classification
-     */
-    enum Particle_t
-    {
-        kPhoton   =  0,
-        kElectron =  1,
-        kMuon     =  2,
-        kPion     =  3,
-        kProton   =  4,
-        kUnknown  = -1
-    };
-
-    /**
      * @brief Variable for the particle's primary classification.
      * @details This variable returns the primary classification of the particle.
      * The primary classification is determined upstream in the SPINE
