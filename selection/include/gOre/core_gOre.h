@@ -41,15 +41,18 @@
 #define GORE_FID_THRESH_Z_POS 50.0
 #define GORE_FID_THRESH_Z_NEG 50.0
 
-#include "include/selectors.h" // TODO: see if the selectors could help out here
+#include <optional>
+
 #include "include/utilities.h"
 
+#include "include/gOre/selectors_gOre.h"
+
 /**
- * @namespace core::nc::gOre
+ * @namespace core::gOre
  * @brief Base classes and definitions for NC single photon analyses
  * @details These classes in priciple could be used for other analyses, so do not hesitate to used them
  **/
-namespace core::nc::gOre
+namespace core::gOre
 {
   /**
    * @class mc_topo_particle
@@ -404,6 +407,39 @@ namespace core::nc::gOre
     {
       typedef caf::SRParticleTruthDLPProxy type;
     };
+  
+  template <class T>
+  using ParticleProxy_t = typename ParticleType<T>::type;
+
+  /**
+   * @brief return the primary gOre, if it exists
+   * @tparam T the type of interaction (data or MC)
+   * @param obj the interction
+   * @return std::optional<ParticleProxy_t<T>> the primary gOre, if it exists
+   **/
+  template <class T>
+    std::optional<ParticleProxy_t<T>> primary_gOre(const T& obj)
+    {
+      size_t idx = selectors::gOre::leading_gOre(obj);
+      if (idx == kNoMatch)
+        return std::nullopt;
+      return obj.particles.at(idx);
+    }
+
+  /**
+   * @brief return the secondary gOre, if it exists
+   * @tparam T the type of interaction (data or MC)
+   * @param obj the interction
+   * @return std::optional<ParticleProxy_t<T>> the secondary gOre, if it exists
+   **/
+  template <class T>
+    std::optional<ParticleProxy_t<T>> secondary_gOre(const T& obj)
+    {
+      size_t idx = selectors::gOre::subleading_gOre(obj);
+      if (idx == kNoMatch)
+        return std::nullopt;
+      return obj.particles.at(idx);
+    }
 
   /**
    * @struct Interaction
@@ -528,6 +564,6 @@ namespace core::nc::gOre
 
   typedef Interaction<caf::SRInteractionDLPProxy>      Reco_Interaction; ///< handy typedef for reco interactions
   typedef Interaction<caf::SRInteractionTruthDLPProxy> True_Interaction; ///< handy typedef for MC interactions
-} // end core::nc::gOre namespace
+} // end core::gOre namespace
 
 #endif

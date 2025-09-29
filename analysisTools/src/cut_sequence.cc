@@ -18,6 +18,14 @@ namespace ana::tools
   cut_sequence::cut_sequence() {}
 
   /**
+   * @brief Copy constructor
+   */
+  cut_sequence::cut_sequence(const cut_sequence& other) : cuts(other.cuts)
+  {
+    cut_as_string = string();
+  }
+
+  /**
    * @brief Construct a cut sequence from a vector of individual cut strings
    * @details The strings should be of a form such that a TTree could interpret them, eg "vertex_x < 7"
    */
@@ -85,6 +93,19 @@ namespace ana::tools
   }
 
   /**
+   * @brief Assignment operator
+   **/
+  cut_sequence& cut_sequence::operator=(const cut_sequence& other)
+  {
+    if (this != &other)
+    {
+      cuts = other.cuts;
+      cut_as_string = string();
+    }
+    return *this;
+  }
+
+  /**
    * @brief How many cuts are in the sequence?
    */
   size_t cut_sequence::size() const
@@ -124,7 +145,9 @@ namespace ana::tools
    */
   const char* cut_sequence::c_str() const
   {
-    return cut_as_string.c_str();
+    static thread_local std::string tmp_str;
+    tmp_str = string();
+    return tmp_str.c_str();
   }
 
   /**
@@ -162,7 +185,8 @@ namespace ana::tools
       if (idx != old_cut.size() - 1)
         neg_str += " || ";
     }
-    return neg_str;
+    cut_sequence neg_seq(neg_str);
+    return neg_seq;
   }
 
 }// end namespace ana::tools

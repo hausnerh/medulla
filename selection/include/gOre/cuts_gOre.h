@@ -13,14 +13,29 @@
 #include "include/gOre/core_gOre.h"
 
 /**
- * @namespace cuts::nc::gOre
+ * @namespace cuts::gOre
  * @brief Cut specific to NC single photon analyses
  **/
-namespace cuts::nc::gOre
+namespace cuts::gOre
 {
   /**
+   * @brief Is there a single gOre in the interaction?
+   * @tparam T the type of interaction (true or reco).
+   * @param obj the interaction in question
+   * @param params a vector whose first element is the energy threshold
+   * @return true if there is either a single photon xor single electron
+   * @return false if there is not exactly one photon or exactly one electron
+   **/
+  template<class T>
+    bool single_gOre(const T& obj, std::vector<double> params={GORE_MIN_GORE_ENERGY})
+    {
+      return cuts::single_photon(obj, params) ? cuts::no_electrons(obj, params) : cuts::single_electron(obj, params);
+    }
+  REGISTER_CUT_SCOPE(RegistrationScope::Both, single_gOre, single_gOre);
+
+  /**
    * @brief Does the interaction have a single photon or single electron topology?
-   * @details This cut makes use of the thresholds defined in core::nc::gOre::Interaction.
+   * @details This cut makes use of the thresholds defined in core::gOre::Interaction.
    * Require there are no muons or pions above threshold, either a single photon or a single electron,
    * but no requirement on the protons. The photon and electrons are to be distinguished later with an
    * optimized PID cut.
@@ -29,10 +44,11 @@ namespace cuts::nc::gOre
    * @return true if there is a single shower-like particle and no muons or pions, false otherwise.
    **/
   template<class T>
-    bool gOre_topology(const T& obj)
+    bool gOre_topology(const T& obj, std::vector<double> params={GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PION_ENERGY})
     {
-      core::nc::gOre::Interaction<T> interaction(obj);
-      return interaction.is_valid;
+      return cuts::gOre::single_gOre(obj, {params.at(0)}) &&
+             cuts::no_muons         (obj, {params.at(1)}) &&
+             cuts::no_charged_pions (obj, {params.at(2)}) ;
     }
   REGISTER_CUT_SCOPE(RegistrationScope::Both, gOre_topology, gOre_topology); 
 
@@ -48,7 +64,7 @@ namespace cuts::nc::gOre
   template<class T>
     bool gOre_target_KE(const T& obj)
     {
-      core::nc::gOre::Interaction<T> interaction(obj);
+      core::gOre::Interaction<T> interaction(obj);
       double gOre_KE = interaction.primary_gOre()->ke;
       return (108 < gOre_KE) && (gOre_KE < 408);
     }
@@ -79,7 +95,7 @@ namespace cuts::nc::gOre
   template<class T>
     bool gOre_0p(const T& obj)
     {
-      core::nc::gOre::Interaction<T> interaction(obj);
+      core::gOre::Interaction<T> interaction(obj);
       return (interaction.is_valid) && (interaction.nProtons() == 0);
     }
   REGISTER_CUT_SCOPE(RegistrationScope::Both, gOre_0p, gOre_0p); 
@@ -88,7 +104,7 @@ namespace cuts::nc::gOre
   template<class T>
     bool gOre_1p(const T& obj)
     {
-      core::nc::gOre::Interaction<T> interaction(obj);
+      core::gOre::Interaction<T> interaction(obj);
       return (interaction.is_valid) && (interaction.nProtons() == 1);
     }
   REGISTER_CUT_SCOPE(RegistrationScope::Both, gOre_1p, gOre_1p);
@@ -97,7 +113,7 @@ namespace cuts::nc::gOre
   template<class T>
     bool gOre_Np(const T& obj)
     {
-      core::nc::gOre::Interaction<T> interaction(obj);
+      core::gOre::Interaction<T> interaction(obj);
       return (interaction.is_valid) && (interaction.nProtons() > 0);
     }
   REGISTER_CUT_SCOPE(RegistrationScope::Both, gOre_Np, gOre_Np); 
@@ -135,7 +151,7 @@ namespace cuts::nc::gOre
   template<class T>
     bool has_subthreshold_gOre(const T& obj)
     {
-      core::nc::gOre::Interaction<T> interaction(obj);
+      core::gOre::Interaction<T> interaction(obj);
       return (interaction.subleading_gore_ke > 0);
     }
   REGISTER_CUT_SCOPE(RegistrationScope::Both, has_subthreshold_gOre, has_subthreshold_gOre); 
@@ -167,7 +183,7 @@ namespace cuts::nc::gOre
   template<class T>
   bool gOre_is_photon(const T& obj)
   {
-    core::nc::gOre::True_Interaction interaction(obj);
+    core::gOre::True_Interaction interaction(obj);
     return interaction.is_valid && (pvars::pid(*interaction.primary_gOre()) == pvars::kPhoton);
   }
   REGISTER_CUT_SCOPE(RegistrationScope::True, gOre_is_photon, gOre_is_photon);
@@ -176,7 +192,7 @@ namespace cuts::nc::gOre
   template<class T>
   bool gOre_is_electron(const T& obj)
   {
-    core::nc::gOre::True_Interaction interaction(obj);
+    core::gOre::True_Interaction interaction(obj);
     return interaction.is_valid && (pvars::pid(*interaction.primary_gOre()) == pvars::kElectron);
   }
   REGISTER_CUT_SCOPE(RegistrationScope::True, gOre_is_electron, gOre_is_electron);
@@ -185,7 +201,7 @@ namespace cuts::nc::gOre
   template<class T>
   bool muon_abv_thresh(const T& obj)
   {
-    return (core::nc::gOre::count_primaries(obj).at(pvars::kMuon) > 0);
+    return (core::gOre::count_primaries(obj).at(pvars::kMuon) > 0);
   }
   REGISTER_CUT_SCOPE(RegistrationScope::True, muon_abv_thresh, muon_abv_thresh);
 
@@ -193,7 +209,7 @@ namespace cuts::nc::gOre
   template<class T>
   bool pion_abv_thresh(const T& obj)
   {
-    return (core::nc::gOre::count_primaries(obj).at(pvars::kMuon) > 0);
+    return (core::gOre::count_primaries(obj).at(pvars::kMuon) > 0);
   }
   REGISTER_CUT_SCOPE(RegistrationScope::True, pion_abv_thresh, pion_abv_thresh);
 
@@ -201,7 +217,7 @@ namespace cuts::nc::gOre
   template<class T>
   bool electron_abv_thresh(const T& obj)
   {
-    return (core::nc::gOre::count_primaries(obj).at(pvars::kElectron) > 0);
+    return (core::gOre::count_primaries(obj).at(pvars::kElectron) > 0);
   }
   REGISTER_CUT_SCOPE(RegistrationScope::True, electron_abv_thresh, electron_abv_thresh);
 
@@ -209,7 +225,7 @@ namespace cuts::nc::gOre
   template<class T>
   bool more_than_one_gOre(const T& obj)
   {
-    core::nc::gOre::True_Interaction interaction(obj);
+    core::gOre::True_Interaction interaction(obj);
     return (interaction.ngOres() > 1);
   }
   REGISTER_CUT_SCOPE(RegistrationScope::True, more_than_one_gOre, more_than_one_gOre);
@@ -218,7 +234,7 @@ namespace cuts::nc::gOre
   template<class T>
   bool is_fid_con_gOre(const T& obj)
   {
-    core::nc::gOre::True_Interaction interaction(obj);
+    core::gOre::True_Interaction interaction(obj);
     return interaction.is_valid && is_fid_con_nu(obj);
   }
   REGISTER_CUT_SCOPE(RegistrationScope::True, is_fid_con_gOre, is_fid_con_gOre);
@@ -245,7 +261,7 @@ namespace cuts::nc::gOre
   template<class T>
   bool decay_gOre_photon(const T& obj)
   {
-    core::nc::gOre::True_Interaction interaction(obj);
+    core::gOre::True_Interaction interaction(obj);
     return interaction.is_valid &&
            interaction.primary_gOre()->pdg_code == 22 &&
            interaction.primary_gOre()->ancestor_pdg_code != 22;
@@ -261,7 +277,7 @@ namespace cuts::nc::gOre
   template<class T>
   bool primary_gOre_photon(const T& obj)
   {
-    core::nc::gOre::True_Interaction interaction(obj);
+    core::gOre::True_Interaction interaction(obj);
     return interaction.is_valid &&
            interaction.primary_gOre()->pdg_code == 22 &&
            interaction.primary_gOre()->ancestor_pdg_code == 22;
@@ -271,7 +287,7 @@ namespace cuts::nc::gOre
   template<class T>
   bool debug(const T& obj)
   {
-    core::nc::gOre::True_Interaction interaction(obj);
+    core::gOre::True_Interaction interaction(obj);
     if (not interaction.is_valid)
       return false;
     int64_t          pdg_code = interaction.primary_gOre()->pdg_code; 
@@ -329,6 +345,40 @@ namespace cuts::nc::gOre
   }
   REGISTER_CUT_SCOPE(RegistrationScope::True, debug, debug);
 
+  template<class T>
+  bool mc_debug(const T& obj)
+  {
+    // check only NC ∆ Res events
+    bool isnc = obj.isnc;
+    int resnum = obj.resnum;
+    caf::genie_interaction_type_ genie_inttype = obj.genie_inttype;
+    bool non_pion = (genie_inttype != caf::kResNCNuProtonPi0)       &&
+                    (genie_inttype != caf::kResNCNuProtonPiPlus)    &&
+                    (genie_inttype != caf::kResNCNuNeutronPi0)      &&
+                    (genie_inttype != caf::kResNCNuNeutronPiMinus)  &&
+                    (genie_inttype != caf::kResNCNuBarProtonPi0)    &&
+                    (genie_inttype != caf::kResNCNuBarProtonPiPlus) &&
+                    (genie_inttype != caf::kResNCNuBarNeutronPi0)   &&
+                    (genie_inttype != caf::kResNCNuBarNeutronPiMinus);
+    bool nc_delta_res = isnc && (resnum == 0);
+    if (not nc_delta_res || not non_pion)
+      return false;
+    std::cout << "GTruth INFO: \n"
+              << "  ischarm: "    << obj.ischarm
+              << "  isseaquark: " << obj.isseaquark
+              << "  xsec: "       << obj.xsec << std::endl;
+    std::cout << "PRE-FSI COUNTS: \n"
+              << "  π+: " << obj.npiplus
+              << "  π-: " << obj.npiminus
+              << "  π0: " << obj.npizero
+              << "   p: " << obj.nproton
+              << "   n: " << obj.nneutron << std::endl;
+    core::gOre::mc_topology topology(obj.prim);
+    topology.report();
+    return true;
+  }
+  REGISTER_CUT_SCOPE(RegistrationScope::MCTruth, mc_debug, mc_debug);
+
   //*** MC CUTS***//
   /**
    * @brief is the interaction a true NC Δ res event?
@@ -378,6 +428,6 @@ namespace cuts::nc::gOre
             (obj.genie_inttype == caf::kResNCNuBarNeutronPi0)    );
   }
   REGISTER_CUT_SCOPE(RegistrationScope::MCTruth, nc_delta_res_pi0, nc_delta_res_pi0);
-} // end cuts::nc::gOre namespace
+} // end cuts::gOre namespace
 
  #endif

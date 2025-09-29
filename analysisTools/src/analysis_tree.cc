@@ -73,6 +73,7 @@ namespace ana::tools
     std::cout << "Looking for signal in " << signal_tree_name << std::endl;
     ana::tools::cut_sequence signal_cut    = sel_cats.front().second;
     ana::tools::cut_sequence bkg_cut       = ana::tools::negate_cut(signal_cut); 
+    //bkg_cut.add_sequence(selection_cut);
     TTree* tmpSignalTree = inFile->Get<TTree>(signal_tree_name.c_str());
     signalTree = std::unique_ptr<TTree>(tmpSignalTree->CopyTree(signal_cut.c_str()));
     signalTree->SetDirectory(memFile.get());
@@ -400,7 +401,9 @@ namespace ana::tools
       ana::tools::cut_sequence cut_cat = ana::tools::negate_cut(cut).with_addition(sig_cat_cuts.at(cat));
       std::shared_ptr<TH1F> tmp_hist = std::make_shared<TH1F>(histName.c_str(), "", bins, lw, up);
       signalTree->Draw((var+">>"+histName).c_str(), cut_cat.c_str(), "goff");
-      tmp_hist->SetFillColor(colors.at(2*nCats + cat)->GetNumber());
+      //tmp_hist->SetFillColor(colors.at(2*nCats + cat)->GetNumber());
+      tmp_hist->SetFillColor(colors.at(1 + cat)->GetNumber());
+      tmp_hist->SetFillStyle(3144);
       tmp_hist->SetLineColor(kBlack);
       tmp_hist->SetDirectory(nullptr);
       sc.hists.push_back(tmp_hist);

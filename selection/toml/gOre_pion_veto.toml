@@ -87,111 +87,44 @@ cuts = [
 [[sample]]
 name = "simulation"
 path = "/pnfs/icarus/persistent/users/mueller/production/simulation/cvext/*.flat.root"
+#path = "/pnfs/icarus/persistent/users/mueller/production/simulation/nominal/*.flat.root"
 ismc = true
 
-[[tree]] # no veto
-name = "selected_veto_00"
+[[tree]] # no veto, reco
+name = "selected_reco"
 sim_only = false
 mode = "reco"
 cut = [
-    { name = "fiducial_cut",      type = "reco"                                     },
-    { name = "containment_cut",   type = "reco"                                     },
-    { name = "valid_flashmatch",  type = "reco"                                     },
-    { name = "single_photon",     type = "reco", parameters = [ "@gOre_threshold" ] },
-    { name = "no_electrons",      type = "reco", parameters = [ "@gOre_threshold" ] },
-    { name = "no_muons",          type = "reco", parameters = [ "@muon_threshold" ] },
-    { name = "no_charged_pions",  type = "reco", parameters = [ "@pion_threshold" ] },
+    { name = "fiducial_cut",     type = "reco"                                     },
+    { name = "containment_cut",  type = "reco"                                     },
+    { name = "valid_flashmatch", type = "reco"                                     },
+    { name = "single_photon",    type = "reco", parameters = [ "@gOre_threshold" ] },
+    { name = "no_electrons",     type = "reco", parameters = [ "@gOre_threshold" ] },
+    { name = "no_muons",         type = "reco", parameters = [ "@muon_threshold" ] },
+    { name = "no_charged_pions", type = "reco", parameters = [ "@pion_threshold" ] },
 ]
 branch = [
-  { name = "mc_category",              type = "mctruth" },
+  { name = "mc_category", type = "mctruth" },
 ]
 
-[[tree]] #  5% π0 mass peak resolution veto
-name = "selected_veto_05"
+[[tree]] # no veto, event
+name = "selected_event"
 sim_only = false
-mode = "reco"
+mode = "event"
 cut = [
-    { name = "fiducial_cut",      type = "reco"                                     },
-    { name = "containment_cut",   type = "reco"                                     },
-    { name = "valid_flashmatch",  type = "reco"                                     },
-    { name = "single_photon",     type = "reco", parameters = [ "@gOre_threshold" ] },
-    { name = "no_electrons",      type = "reco", parameters = [ "@gOre_threshold" ] },
-    { name = "no_muons",          type = "reco", parameters = [ "@muon_threshold" ] },
-    { name = "no_charged_pions",  type = "reco", parameters = [ "@pion_threshold" ] },
-    { name = "pion_mass_veto",    type = "event", decrements_exposure = false, parameters = [ 0.05 ]},
+    { name = "has_selected_gOre", type = "event", parameters = [ "@gOre_threshold", "@muon_threshold", "@pion_threshold" ]},
 ]
 branch = [
-  { name = "mc_category",              type = "mctruth" },
-]
-
-[[tree]] # 10% π0 mass peak resolution veto
-name = "selected_vetoi_10"
-sim_only = false
-mode = "reco"
-cut = [
-    { name = "fiducial_cut",      type = "reco"                                     },
-    { name = "containment_cut",   type = "reco"                                     },
-    { name = "valid_flashmatch",  type = "reco"                                     },
-    { name = "single_photon",     type = "reco", parameters = [ "@gOre_threshold" ] },
-    { name = "no_electrons",      type = "reco", parameters = [ "@gOre_threshold" ] },
-    { name = "no_muons",          type = "reco", parameters = [ "@muon_threshold" ] },
-    { name = "no_charged_pions",  type = "reco", parameters = [ "@pion_threshold" ] },
-    { name = "pion_mass_veto",    type = "event", decrements_exposure = false, parameters = [ 0.10 ]},
-]
-branch = [
-  { name = "mc_category",              type = "mctruth" },
-]
-
-[[tree]] # 15% π0 mass peak resolution veto
-name = "selected_veto_15"
-sim_only = false
-mode = "reco"
-cut = [
-    { name = "fiducial_cut",      type = "reco"                                     },
-    { name = "containment_cut",   type = "reco"                                     },
-    { name = "valid_flashmatch",  type = "reco"                                     },
-    { name = "single_photon",     type = "reco", parameters = [ "@gOre_threshold" ] },
-    { name = "no_electrons",      type = "reco", parameters = [ "@gOre_threshold" ] },
-    { name = "no_muons",          type = "reco", parameters = [ "@muon_threshold" ] },
-    { name = "no_charged_pions",  type = "reco", parameters = [ "@pion_threshold" ] },
-    { name = "pion_mass_veto",    type = "event", decrements_exposure = false, parameters = [ 0.15 ]},
-]
-branch = [
-  { name = "mc_category",              type = "mctruth" },
-]
-
-[[tree]] # 20% π0 mass peak resolution veto
-name = "selected_veto_20"
-sim_only = false
-mode = "reco"
-cut = [
-    { name = "fiducial_cut",      type = "reco"                                     },
-    { name = "containment_cut",   type = "reco"                                     },
-    { name = "valid_flashmatch",  type = "reco"                                     },
-    { name = "single_photon",     type = "reco", parameters = [ "@gOre_threshold" ] },
-    { name = "no_electrons",      type = "reco", parameters = [ "@gOre_threshold" ] },
-    { name = "no_muons",          type = "reco", parameters = [ "@muon_threshold" ] },
-    { name = "no_charged_pions",  type = "reco", parameters = [ "@pion_threshold" ] },
-    { name = "pion_mass_veto",    type = "event", decrements_exposure = false, parameters = [ 0.20 ]},
-]
-branch = [
-  { name = "mc_category",              type = "mctruth" },
-]
-
-[[tree]] # 25% π0 mass peak resolution veto
-name = "selected_veto_25"
-sim_only = false
-mode = "reco"
-cut = [
-    { name = "fiducial_cut",      type = "reco"                                     },
-    { name = "containment_cut",   type = "reco"                                     },
-    { name = "valid_flashmatch",  type = "reco"                                     },
-    { name = "single_photon",     type = "reco", parameters = [ "@gOre_threshold" ] },
-    { name = "no_electrons",      type = "reco", parameters = [ "@gOre_threshold" ] },
-    { name = "no_muons",          type = "reco", parameters = [ "@muon_threshold" ] },
-    { name = "no_charged_pions",  type = "reco", parameters = [ "@pion_threshold" ] },
-    { name = "pion_mass_veto",    type = "event", decrements_exposure = false, parameters = [ 0.25 ]},
-]
-branch = [
-  { name = "mc_category",              type = "mctruth" },
+  { name = "nreco",                type = "event"                              },
+  { name = "pion_mass_veto",       type = "event", parameters = [ 0.1, 100.0 ] },
+  { name = "n_photon_dlp",         type = "event"                              },
+  { name = "photons_closest_dist", type = "event"                              },
+  { name = "split_pion_mass",      type = "event"                              },
+  { name = "n_mc_category_0",      type = "event"                              },
+  { name = "n_mc_category_1",      type = "event"                              },
+  { name = "n_mc_category_2",      type = "event"                              },
+  { name = "n_mc_category_3",      type = "event"                              },
+  { name = "n_mc_category_4",      type = "event"                              },
+  { name = "n_mc_category_5",      type = "event"                              },
+  { name = "n_mc_category_6",      type = "event"                              },
 ]

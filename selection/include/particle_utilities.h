@@ -57,6 +57,20 @@ namespace utilities
     }
 
     /**
+     * @brief Calculates the cross product of two three-vectors.
+     * @param a the first three-vector.
+     * @param b the second three-vector.
+     * @return the cross product of the two three-vectors.
+     */
+    three_vector cross_product(const three_vector & a, const three_vector & b)
+    {
+        double c0 = std::get<1>(a)*std::get<2>(b) - std::get<2>(a)*std::get<1>(b);;
+        double c1 = std::get<2>(a)*std::get<0>(b) - std::get<0>(a)*std::get<2>(b);;
+        double c2 = std::get<0>(a)*std::get<1>(b) - std::get<1>(a)*std::get<0>(b);;
+        return std::make_tuple(c0, c1, c2);
+    }
+
+    /**
      * @brief Calculates the magnitude of a three-vector.
      * @details The magnitude of a three-vector is calculated as the square root
      * of the sum of the squares of the components of the vector.

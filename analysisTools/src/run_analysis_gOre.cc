@@ -14,25 +14,25 @@
 
 inline std::vector<std::pair<std::string, ana::tools::cut_sequence>> sel_cats =
 {
-  {"1#gammaXp (primary photon)", "true_category == 0"},
-  {"1#gammaXp (decay photon)",   "true_category == 1"},
-  {"1eXp",                       "true_category == 2"},
-  {"Mulitple Showers",           "true_category == 3"},
-  {"Muon Above Threshold",       "true_category == 4"},
-  {"Pion Above Threshold",       "true_category == 5"},
-  {"Other Topology Failure",     "true_category == 6"},
-  {"Uncontained",                "true_category == 7"},
-  {"Non-Fiducial",               "true_category == 8"},
-  {"Cosmic",                     "true_category == 9"}
+  {"1#gammaXp (Fid/Con)",     "true_category == 0"},
+  {"1#gammaXp (Not Fid/Con)", "true_category == 1"},
+  {"1eXp (Fid/Con)",          "true_category == 2"},
+  {"1eXp (Not Fid/Con)",      "true_category == 3"},
+  {"2#gamma (Fid/Con)",       "true_category == 4"},
+  {"2#gamma (Not Fid/Con)",   "true_category == 5"},
+  {"Other NC",                "true_category == 6"},
+  {"Other CC",                "true+category == 7"},
+  {"Cosmic",                  "true_category == 8"}
 };
 
 inline std::vector<std::pair<std::string, ana::tools::cut_sequence>> sig_cats =
 {
-  {"NC #Delta#rightarrowN#gamma", "true_mc_category == 0"},
-  {"Other NC Single Photon",      "true_mc_category == 1"},
-  {"NC #pi^{0}_{}",               "true_mc_category == 2"},
-  {"Other NC",                    "true_mc_category == 3"},
-  {"CC",                          "true_mc_category == 4"}
+  {"NC #Delta#rightarrowN#gamma (1#gammaXp Post-FSI Topology)", "true_mc_category == 0"},
+  {"NC #Delta#rightarrowN#gamma (Other Post-FSI Topology)",     "true_mc_category == 1"},
+  {"Other NC 1#gammaXp",                                        "true_mc_category == 2"},
+  {"NC #pi^{0}_{} No Primary #gamma",                           "true_mc_category == 3"},
+  {"Other NC",                                                  "true_mc_category == 4"},
+  {"CC",                                                        "true_mc_category == 5"}
 };
 
 inline std::map<int, std::string> genie_modes =
@@ -132,27 +132,27 @@ inline std::map<int, std::string> res_codes =
 
 inline std::map<int, std::string> mc_cats =
 {
-  {0, "NC #Delta#rightarrowN#gamma"},
-  {1, "NC Other post-FSI 1#gammaXp"},
-  {2, "NC #pi^{0}_{}, post-FSI 0#gamma"},
-  {3, "Other NC"},
-  {4, "CC"},
-  {5, "Cosmic"}
+  {0, "NC #Delta#rightarrowN#gamma (1#gammaXp Post-FSI Topology)"},
+  {1, "NC #Delta#rightarrowN#gamma (Other Post-FSI Topology)"},
+  {2, "Other NC 1#gammaXp"},
+  {3, "NC #pi^{0}_{} No Primary #gamma"},
+  {4, "Other NC"},
+  {5, "CC"},
+  {6, "Cosmic"}
 };
 
 inline std::vector<std::tuple<std::string, bool, double, double>> vars_to_optimize =
 {
-  //{"reco_xy_wall_dist",            false,  0,   200},
-  //{"reco_z_wall_dist",             false,  0,   200},
-  {"reco_gOre_start_dedx",         false,  0,     5},
-  {"reco_flash_total_pe",          false,  0, 20000},
-  {"reco_gOre_directional_spread", true,   0,     1}
+  {"reco_leading_gOre_photon_softmax", false, 0, 1}
+  //{"reco_gOre_start_dedx",         false,  0,     5},
+  //{"reco_flash_total_pe",          false,  0, 20000},
+  //{"reco_gOre_directional_spread", true,   0,     1}
 };
 
 inline std::vector<std::tuple<std::string, std::string, bool, double, double>> vars_to_optimize_with_condition =
 {
-  {"reco_n_protons > 1",  "reco_gOre_score", false, -1, 1},
-  {"reco_n_protons == 0", "reco_gOre_score", false, -1, 1}
+  //{"reco_n_protons > 1",  "reco_gOre_score", false, -1, 1},
+  //{"reco_n_protons == 0", "reco_gOre_score", false, -1, 1}
 };
 
 std::tuple<ana::tools::cut_sequence, ana::tools::cut_sequence> optimize_threshold(ana::tools::analysis_tree& the_analysis_tree, // NOT CONST TO UPDATE SIGNAL DEFS
@@ -239,49 +239,58 @@ int run_analysis(const std::string& fileName,
   std::string fileLocation = std::filesystem::current_path().string();
   std::string directoryName = "events/simulation";
   std::string selTreeName = "selected";
-  std::string sigTreeName = "signal";
+  std::string sigTreeName = "signal_nc_delta_res_Ng";
+  //std::string sigTreeName = "signal_topo";
   ana::tools::cut_sequence selection_cut = "reco_is_gOre";
-  selection_cut += "108 < reco_gOre_ke";
-  selection_cut += "reco_gOre_ke < 408";
   ana::tools::analysis_tree my_analysis_tree(fileLocation+"/"+fileName, directoryName,
                                              selection_cut,
                                              selTreeName, sigTreeName,
                                              sel_cats, sig_cats);
-  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~VARIABLE~~~~~~~~~~~~~~~~~~~BINS~~~~MIN~~~~~MAX~~~~~TITLE
-  my_analysis_tree.add_variable("reco_flash_total_pe",         100,     0, 100000,    "Total Flash PE");
-  my_analysis_tree.add_variable("reco_gOre_score",              50,    -1,      1,    "#gamma-candiate PID Score");
-  my_analysis_tree.add_variable("reco_n_protons",                6,     0,      6,    "Protons above Threshold");
-  my_analysis_tree.add_variable("true_vertex_x",                50,  -400,    400,    "True Vertex X (cm)");
-  my_analysis_tree.add_variable("true_vertex_y",                50,  -200,    200,    "True Vertex Y (cm)");
-  my_analysis_tree.add_variable("true_vertex_z",                50, -1000,   1000,    "True Vertex Z (cm)");
-  my_analysis_tree.add_variable("reco_vertex_x",                50,  -400,    400,    "Vertex X (cm)");
-  my_analysis_tree.add_variable("reco_vertex_y",                50,  -200,    200,    "Vertex Y (cm)");
-  my_analysis_tree.add_variable("reco_vertex_z",                50, -1000,   1000,    "Vertex Z (cm)");
-  my_analysis_tree.add_variable("true_xy_wall_dist",            50,     0,    200,    "True Minimum Distance from Vertex to X-/Y-side Detector Wall");
-  my_analysis_tree.add_variable("true_z_wall_dist",             50,     0,   1000,    "True Minimum Distance from Vertex to Z-side Detector Wall");
-  my_analysis_tree.add_variable("reco_xy_wall_dist",            50,     0,    200,    "Minimum Distance from Vertex to X-/Y-side Detector Wall");
-  my_analysis_tree.add_variable("reco_z_wall_dist",             50,     0,   1000,    "Minimum Distance from Vertex to Z-side Detector Wall");
-  my_analysis_tree.add_variable("reco_gOre_start_dedx",         50,     0,     10,    "#gamma-candiate Start dE/dx (MeV/cm)");
-  my_analysis_tree.add_variable("reco_gOre_azimuthal_angle",    50,     0,      3.14, "#gamma-candiate Azimuthal Angle (rad)");
-  my_analysis_tree.add_variable("reco_gOre_polar_angle",        50,     0,      3.14, "#gamma-candiate Polar Angle (rad)");
-  my_analysis_tree.add_variable("true_gOre_ke",                100,     0,   1000,    "#gamma-candiate KE (MeV)");
-  my_analysis_tree.add_variable("reco_gOre_ke",                100,     0,   1000,    "#gamma-candiate KE (MeV)");
-  my_analysis_tree.add_variable("true_subleading_gOre_ke",      25,     0,     25,    "Highest True Subthreshold #gamma-candidate KE (MeV)");
-  my_analysis_tree.add_variable("reco_subleading_gOre_ke",      25,     0,     25,    "Highest Subthreshold #gamma-candidate KE (MeV)");
-  my_analysis_tree.add_variable("true_min_muon_ke",             25,     0,    200,    "Lowest Muon KE (MeV)");
-  my_analysis_tree.add_variable("reco_min_muon_ke",             25,     0,    200,    "Lowest Muon KE (MeV)");
-  my_analysis_tree.add_variable("true_min_pion_ke",             25,     0,     25,    "Lowest Pion KE (MeV)");
-  my_analysis_tree.add_variable("reco_min_pion_ke",             25,     0,     25,    "Lowest Pion KE (MeV)");
-  my_analysis_tree.add_variable("reco_gOre_straightness",       75,     0,      1,    "#gamma-candiate Straightness");
-  my_analysis_tree.add_variable("reco_gOre_axial_spread",       75,     0,      1,    "#gamma-candiate Axial Spread");
-  my_analysis_tree.add_variable("reco_gOre_directional_spread", 75,     0,      1,    "#gamma-candiate Directional Spread");
-  my_analysis_tree.add_variable("reco_gOre_gap",               100,     0,    100,    "#gamma-candiate Distance from Vertex (cm)");
-  my_analysis_tree.add_variable("reco_total_gOre_KE",          150,     0,    150,    "Total KE in Showers (incl. subthreshold)");
-  my_analysis_tree.add_variable("reco_pion_mass",               50,     0,    200,    "Reconstructed Neutral Pion Mass Peak (MeV/c^{2}_{})");
-  my_analysis_tree.add_variable("true_interaction_mode",        15,    -1.5,   13.5,  "GENIE Interaction Mode");
-  my_analysis_tree.add_variable("true_interaction_type",       101,   999.5, 1100.5,  "GENIE Interaction Type");
-  my_analysis_tree.add_variable("true_baryon_res_code",         19,    -1.5,   17.5,  "Resonance Number");
-  my_analysis_tree.add_variable("true_mc_category",              6,    -0.5,   5.5,  "MC Truth Category"); 
+  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~VARIABLE~~~~~~~~~~~~~~~~~~~~~~BINS~~~~MIN~~~~~MAX~~~~~TITLE
+  my_analysis_tree.add_variable("reco_flash_total_pe",                     100,     0, 100000,    "Total Flash PE");
+  my_analysis_tree.add_variable("reco_n_protons",                            6,     0,      6,    "Protons above Threshold");
+  my_analysis_tree.add_variable("true_vertex_x",                            50,  -400,    400,    "True Vertex X (cm)");
+  my_analysis_tree.add_variable("true_vertex_y",                            50,  -200,    200,    "True Vertex Y (cm)");
+  my_analysis_tree.add_variable("true_vertex_z",                            50, -1000,   1000,    "True Vertex Z (cm)");
+  my_analysis_tree.add_variable("reco_vertex_x",                            50,  -400,    400,    "Vertex X (cm)");
+  my_analysis_tree.add_variable("reco_vertex_y",                            50,  -200,    200,    "Vertex Y (cm)");
+  my_analysis_tree.add_variable("reco_vertex_z",                            50, -1000,   1000,    "Vertex Z (cm)");
+  my_analysis_tree.add_variable("true_xy_wall_dist",                        50,     0,    200,    "True Minimum Distance from Vertex to X-/Y-side Detector Wall");
+  my_analysis_tree.add_variable("true_z_wall_dist",                         50,     0,   1000,    "True Minimum Distance from Vertex to Z-side Detector Wall");
+  my_analysis_tree.add_variable("reco_xy_wall_dist",                        50,     0,    200,    "Minimum Distance from Vertex to X-/Y-side Detector Wall");
+  my_analysis_tree.add_variable("reco_z_wall_dist",                         50,     0,   1000,    "Minimum Distance from Vertex to Z-side Detector Wall");
+  my_analysis_tree.add_variable("reco_gOre_gap",                           100,     0,    100,    "#gamma-candiate Distance from Vertex (cm)");
+  my_analysis_tree.add_variable("reco_pion_mass",                           50,     0,   1000,    "Reconstructed Neutral Pion Mass Peak (MeV/c^{2}_{})");
+  my_analysis_tree.add_variable("true_interaction_mode",                    15,    -1.5,   13.5,  "GENIE Interaction Mode");
+  my_analysis_tree.add_variable("true_interaction_type",                   101,   999.5, 1100.5,  "GENIE Interaction Type");
+  my_analysis_tree.add_variable("true_baryon_res_code",                     19,    -1.5,   17.5,  "Resonance Number");
+  my_analysis_tree.add_variable("true_mc_category",                          7,    -0.5,    6.5,  "MC Truth Category"); 
+  my_analysis_tree.add_variable("reco_leading_gOre_photon_softmax",        100,     0,      1,    "Shower Photon Softmax");
+  my_analysis_tree.add_variable("reco_leading_gOre_electron_softmax",      100,     0,      1,    "Shower Electron Softmax");
+  my_analysis_tree.add_variable("reco_leading_gOre_start_dedx",            100,     0,     50,    "Shower Start dE/dx (MeV/cm)");
+  my_analysis_tree.add_variable("true_leading_gOre_azimuthal_angle",       100,    -3.14,   3.14, "True Shower Azimuthal Angle (rad)");
+  my_analysis_tree.add_variable("reco_leading_gOre_azimuthal_angle",       100,    -3.14,   3.14, "Shower Azimuthal Angle (rad)");
+  my_analysis_tree.add_variable("true_leading_gOre_polar_angle",            50,     0,      3.14, "True Shower Polar Angle (rad)");
+  my_analysis_tree.add_variable("reco_leading_gOre_polar_angle",            50,     0,      3.14, "Shower Polar Angle (rad)");
+  my_analysis_tree.add_variable("true_leading_gOre_ke",                    100,     0,   1000,    "True Shower KE (MeV)");
+  my_analysis_tree.add_variable("reco_leading_gOre_ke",                    100,     0,   1000,    "Shower KE (MeV)");
+  my_analysis_tree.add_variable("true_leading_gOre_dpT",                   100,     0,   1000,    "True Shower Transverse Momentum (MeV/c)");
+  my_analysis_tree.add_variable("reco_leading_gOre_dpT",                   100,     0,   1000,    "Shower Transverse Momentum (MeV/c)");
+  my_analysis_tree.add_variable("reco_leading_gOre_axial_spread",          150,    -0.5,    1,    "Shower Axial Spread");
+  my_analysis_tree.add_variable("reco_leading_gOre_directional_spread",    100,     0,      1,    "Shower Directional Spread");
+  my_analysis_tree.add_variable("reco_subleading_gOre_photon_softmax",     100,     0,      1,    "Subleading Shower Photon Softmax");
+  my_analysis_tree.add_variable("reco_subleading_gOre_electron_softmax",   100,     0,      1,    "Subleading Shower Electron Softmax");
+  my_analysis_tree.add_variable("reco_subleading_gOre_start_dedx",         100,     0,     50,    "Subleading Shower Start dE/dx (MeV/cm)");
+  my_analysis_tree.add_variable("true_subleading_gOre_azimuthal_angle",    100,    -3.14,   3.14, "True Subleading Shower Azimuthal Angle (rad)");
+  my_analysis_tree.add_variable("reco_subleading_gOre_azimuthal_angle",    100,    -3.14,   3.14, "Subleading Shower Azimuthal Angle (rad)");
+  my_analysis_tree.add_variable("true_subleading_gOre_polar_angle",         50,     0,      3.14, "True Subleading Shower Polar Angle (rad)");
+  my_analysis_tree.add_variable("reco_subleading_gOre_polar_angle",         50,     0,      3.14, "Subleading Shower Polar Angle (rad)");
+  my_analysis_tree.add_variable("true_subleading_gOre_ke",                 100,     0,   1000,    "True Subleading Shower KE (MeV)");
+  my_analysis_tree.add_variable("reco_subleading_gOre_ke",                 100,     0,   1000,    "Subleading Shower KE (MeV)");
+  my_analysis_tree.add_variable("true_subleading_gOre_dpT",                100,     0,   1000,    "True Subleading Shower Transverse Momentum (MeV/c)");
+  my_analysis_tree.add_variable("reco_subleading_gOre_dpT",                100,     0,   1000,    "Subleading Shower Transverse Momentum (MeV/c)");
+  my_analysis_tree.add_variable("reco_subleading_gOre_axial_spread",       150,    -0.5,    1,    "Subleading Shower Axial Spread");
+  my_analysis_tree.add_variable("reco_subleading_gOre_directional_spread", 100,     0,      1,    "Subleading Shower Directional Spread");
 
   std::string pdf_suffix = ".pdf";
   ana::tools::cut_sequence cut;
@@ -294,31 +303,20 @@ int run_analysis(const std::string& fileName,
   // should alread be implemented as part of making the selected TTree,
   // but we do this for completeness
   std::cout << "//*** TOPOLOGY ***//" << std::endl;
-  cut += "reco_is_gOre";
-  try_call(cut.string(), [&my_analysis_tree, &cut]{ my_analysis_tree.report_on_cut(cut); });
-  //*** GORE KE ***/
-  std::cout << "//** GORE KE ***//" << std::endl;
-  cut += "108 < reco_gOre_ke";
-  cut += "reco_gOre_ke < 408";
+  cut += "reco_is_gOre == 1";
   try_call(cut.string(), [&my_analysis_tree, &cut]{ my_analysis_tree.report_on_cut(cut); });
   //*** FLASH CUT ***//
   std::cout << "//*** FLASH CUT ***//" << std::endl;
-  cut += "reco_flash";
+  cut += "reco_flash == 1";
   try_call(cut.string(), [&my_analysis_tree, &cut]{ my_analysis_tree.report_on_cut(cut); });
   //*** FIDUCIAL CUT ***//
   std::cout << "//*** FIDUCIAL CUT ***//" << std::endl;
-  //cut += "reco_fiducial";
-  cut += "reco_xy_wall_dist > 50";
-  cut += "reco_z_wall_dist > 50";
+  cut += "reco_fiducial == 1";
   try_call(cut.string(), [&my_analysis_tree, &cut]{ my_analysis_tree.report_on_cut(cut); });
   //*** CONTAINMENT CUT***//
   std::cout << "//*** CONTAINMENT CUT ***//" << std::endl;
-  cut += "reco_containment";
+  cut += "reco_containment == 1";
   try_call(cut.string(), [&my_analysis_tree, &cut]{ my_analysis_tree.report_on_cut(cut); });
-  ////*** PROTON VTX GAP ***//
-  //std::cout << "//*** PROTON VTX GAP ***//" << std::endl;
-  //cut.add_conditional_cut("reco_n_protons > 0", "reco_gOre_gap > 5");
-  //try_call(cut.string(), [&my_analysis_tree, &cut]{ my_analysis_tree.report_on_cut(cut); }); 
 
   if (optimizeCuts)
   {
@@ -329,11 +327,11 @@ int run_analysis(const std::string& fileName,
   }
   else
   {
-    std::cout << "//*** OPTIMIZED CUTS ***//" << std::endl;
-    cut += "reco_flash_total_pe > 2720";
-    cut += "reco_gOre_directional_spread < 0.112";
-    cut += "reco_gOre_score > -0.506";
-    try_call(cut.string(), [&my_analysis_tree, &cut]{ my_analysis_tree.report_on_cut(cut); });
+    //std::cout << "//*** OPTIMIZED CUTS ***//" << std::endl;
+    //cut += "reco_flash_total_pe > 2720";
+    //cut += "reco_gOre_directional_spread < 0.112";
+    //cut += "reco_gOre_score > -0.506";
+    //try_call(cut.string(), [&my_analysis_tree, &cut]{ my_analysis_tree.report_on_cut(cut); });
   }
 
   //*** Plot Vars ***//

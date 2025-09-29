@@ -32,8 +32,8 @@
 #include "TDirectory.h"
 #include "TFile.h"
 
-namespace gOreVar = vars::nc::gOre;
-namespace gOreCut = cuts::nc::gOre;
+namespace gOreVar = vars::gOre;
+namespace gOreCut = cuts::gOre;
 
 namespace gOre
 {

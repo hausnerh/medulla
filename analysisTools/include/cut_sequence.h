@@ -31,6 +31,7 @@ namespace ana::tools
     public:
       // constructors
       cut_sequence();
+      cut_sequence(const cut_sequence& other);
       cut_sequence(const std::vector<std::string>& cut_list);
       cut_sequence(const std::initializer_list<std::string>& init);
       cut_sequence(const std::string& initial_cut);
@@ -40,6 +41,7 @@ namespace ana::tools
       void add_cut(const std::string& cut);
       void add_conditional_cut(const std::string& cut_if, const std::string& cut_then);
       void add_sequence(const cut_sequence& new_seq);
+      cut_sequence& operator=(const cut_sequence& other);
 
       // const methods
       size_t size() const;
