@@ -122,6 +122,15 @@ int main(int argc, char * argv[])
     for(cfg::ConfigurationTable & table : tables)
     {
         std::cout << "Processing tree: " << table.get_string_field("origin") << std::endl;
+
+        // Check if the tree exists in the input file.
+        //input->Get(table.get_string_field("origin").c_str());
+        if(input->Get(table.get_string_field("origin").c_str()) == nullptr)
+        {
+            std::cerr << "Info: Tree " << table.get_string_field("origin") << " not found in input file. Skipping..." << std::endl;
+            continue;
+        }
+
         std::string type(table.get_string_field("action"));
         if(type == "copy")
             sys::trees::copy_tree(table, output, input);
