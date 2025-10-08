@@ -53,19 +53,6 @@ namespace pvars::gOre
       return p.directional_spread;
     }
   REGISTER_VAR_SCOPE(RegistrationScope::RecoParticle, directional_spread, directional_spread);
-
-  /**
-   * @brief Return the start dedx of the particle
-   * @tparam T the type of particle (True or Reco) 
-   * @param p the selected particle
-   * @return double the start dedx of the particle
-   **/
-  template <class T>
-    double start_dedx(const T& p)
-    {
-      return p.start_dedx;
-    }
-  REGISTER_VAR_SCOPE(RegistrationScope::RecoParticle, start_dedx, start_dedx);
 }// end pvars::gOre namespace
 
 #endif

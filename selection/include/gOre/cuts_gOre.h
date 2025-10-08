@@ -29,7 +29,27 @@ namespace cuts::gOre
   template<class T>
     bool single_gOre(const T& obj, std::vector<double> params={GORE_MIN_GORE_ENERGY})
     {
-      return cuts::single_photon(obj, params) ? cuts::no_electrons(obj, params) : cuts::single_electron(obj, params);
+      // 0 if none, 1 if either one photon or one electron, 2+ if multiple
+      size_t gOre_multiplicity = particle_multiplicity(obj, 1, pvars::kPhoton,   params)
+                               + particle_multiplicity(obj, 1, pvars::kElectron, params);
+      size_t    leading_idx = selectors::gOre::   leading_primary_gOre(obj);
+      size_t subleading_idx = selectors::gOre::subleading_primary_gOre(obj);
+      bool    leading_abv_thresh = (   leading_idx != kNoMatch) && (pvars::ke(obj.particles.at(   leading_idx)) > params.at(0));
+      bool subleading_abv_thresh = (subleading_idx != kNoMatch) && (pvars::ke(obj.particles.at(subleading_idx)) > params.at(0));
+      if ((gOre_multiplicity == 1) && subleading_abv_thresh)
+      {
+        std::cout << "Found single shower event with subleading shower above threshold:\n"
+                  << "  Photon Multiplicity: " << particle_multiplicity(obj, 1, pvars::kPhoton,   params) << '\n'
+                  << "  Electron Multipicity: " << particle_multiplicity(obj, 1, pvars::kElectron, params) << '\n'
+                  << "  Leading gOre:\n"
+                  << "    pid: " << obj.particles.at(   leading_idx).pid << '\n'
+                  << "    KE: " <<  pvars::ke(obj.particles.at(   leading_idx)) << '\n'
+                  << "  Subeading gOre:\n"
+                  << "    pid: " << obj.particles.at(subleading_idx).pid << '\n'
+                  << "    KE: " <<  pvars::ke(obj.particles.at(subleading_idx)) << '\n'
+                  << std::endl;
+      }
+      return (gOre_multiplicity == 1);
     }
   REGISTER_CUT_SCOPE(RegistrationScope::Both, single_gOre, single_gOre);
 
@@ -62,9 +82,9 @@ namespace cuts::gOre
    * @return if the kinetic energy of the shower is in the range of 258 +/- 150 MeV
    **/
   template<class T>
-    bool gOre_target_KE(const T& obj)
+    bool gOre_target_KE(const T& obj, std::vector<double> params = {GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY})
     {
-      core::gOre::Interaction<T> interaction(obj);
+      core::gOre::Interaction<T> interaction(obj, params);
       double gOre_KE = interaction.primary_gOre()->ke;
       return (108 < gOre_KE) && (gOre_KE < 408);
     }
@@ -93,27 +113,27 @@ namespace cuts::gOre
 
   /** @brief gOre_topology & no protons **/
   template<class T>
-    bool gOre_0p(const T& obj)
+    bool gOre_0p(const T& obj, std::vector<double> params = {GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY})
     {
-      core::gOre::Interaction<T> interaction(obj);
+      core::gOre::Interaction<T> interaction(obj, params);
       return (interaction.is_valid) && (interaction.nProtons() == 0);
     }
   REGISTER_CUT_SCOPE(RegistrationScope::Both, gOre_0p, gOre_0p); 
 
   /** @brief gOre_topology & 1 proton **/
   template<class T>
-    bool gOre_1p(const T& obj)
+    bool gOre_1p(const T& obj, std::vector<double> params = {GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY})
     {
-      core::gOre::Interaction<T> interaction(obj);
+      core::gOre::Interaction<T> interaction(obj, params);
       return (interaction.is_valid) && (interaction.nProtons() == 1);
     }
   REGISTER_CUT_SCOPE(RegistrationScope::Both, gOre_1p, gOre_1p);
 
   /** @brief gOre_topology & at least 1 proton **/
   template<class T>
-    bool gOre_Np(const T& obj)
+    bool gOre_Np(const T& obj, std::vector<double> params = {GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY})
     {
-      core::gOre::Interaction<T> interaction(obj);
+      core::gOre::Interaction<T> interaction(obj, params);
       return (interaction.is_valid) && (interaction.nProtons() > 0);
     }
   REGISTER_CUT_SCOPE(RegistrationScope::Both, gOre_Np, gOre_Np); 
@@ -149,9 +169,9 @@ namespace cuts::gOre
    * @return true if there is a valid sub-leading photon candidate
    **/
   template<class T>
-    bool has_subthreshold_gOre(const T& obj)
+    bool has_subthreshold_gOre(const T& obj, std::vector<double> params = {GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY})
     {
-      core::gOre::Interaction<T> interaction(obj);
+      core::gOre::Interaction<T> interaction(obj, params);
       return (interaction.subleading_gore_ke > 0);
     }
   REGISTER_CUT_SCOPE(RegistrationScope::Both, has_subthreshold_gOre, has_subthreshold_gOre); 
@@ -181,60 +201,60 @@ namespace cuts::gOre
 
   /** @brief true single photon event **/
   template<class T>
-  bool gOre_is_photon(const T& obj)
+  bool gOre_is_photon(const T& obj, std::vector<double> params = {GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY})
   {
-    core::gOre::True_Interaction interaction(obj);
+    core::gOre::True_Interaction interaction(obj, params);
     return interaction.is_valid && (pvars::pid(*interaction.primary_gOre()) == pvars::kPhoton);
   }
   REGISTER_CUT_SCOPE(RegistrationScope::True, gOre_is_photon, gOre_is_photon);
 
   /** @brief true single electron event **/
   template<class T>
-  bool gOre_is_electron(const T& obj)
+  bool gOre_is_electron(const T& obj, std::vector<double> params = {GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY})
   {
-    core::gOre::True_Interaction interaction(obj);
+    core::gOre::True_Interaction interaction(obj, params);
     return interaction.is_valid && (pvars::pid(*interaction.primary_gOre()) == pvars::kElectron);
   }
   REGISTER_CUT_SCOPE(RegistrationScope::True, gOre_is_electron, gOre_is_electron);
 
   /** @brief has muon above threshold **/
   template<class T>
-  bool muon_abv_thresh(const T& obj)
+  bool muon_abv_thresh(const T& obj, std::vector<double> params = {GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY})
   {
-    return (core::gOre::count_primaries(obj).at(pvars::kMuon) > 0);
+    return (core::gOre::count_primaries(obj, params.at(0), params.at(1), params.at(2), params.at(3)).at(pvars::kMuon) > 0);
   }
   REGISTER_CUT_SCOPE(RegistrationScope::True, muon_abv_thresh, muon_abv_thresh);
 
   /** @brief has pion above threshold **/
   template<class T>
-  bool pion_abv_thresh(const T& obj)
+  bool pion_abv_thresh(const T& obj, std::vector<double> params = {GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY})
   {
-    return (core::gOre::count_primaries(obj).at(pvars::kMuon) > 0);
+    return (core::gOre::count_primaries(obj, params.at(0), params.at(1), params.at(2), params.at(3)).at(pvars::kMuon) > 0);
   }
   REGISTER_CUT_SCOPE(RegistrationScope::True, pion_abv_thresh, pion_abv_thresh);
 
   /** @brief has electron above threshold **/
   template<class T>
-  bool electron_abv_thresh(const T& obj)
+  bool electron_abv_thresh(const T& obj, std::vector<double> params = {GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY})
   {
-    return (core::gOre::count_primaries(obj).at(pvars::kElectron) > 0);
+    return (core::gOre::count_primaries(obj,  params.at(0), params.at(1), params.at(2), params.at(3)).at(pvars::kElectron) > 0);
   }
   REGISTER_CUT_SCOPE(RegistrationScope::True, electron_abv_thresh, electron_abv_thresh);
 
   /** @brief more than one shower above threshold**/
   template<class T>
-  bool more_than_one_gOre(const T& obj)
+  bool more_than_one_gOre(const T& obj, std::vector<double> params = {GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY})
   {
-    core::gOre::True_Interaction interaction(obj);
+    core::gOre::True_Interaction interaction(obj, params);
     return (interaction.ngOres() > 1);
   }
   REGISTER_CUT_SCOPE(RegistrationScope::True, more_than_one_gOre, more_than_one_gOre);
 
   /** @brief true fiducial contained single shower event **/
   template<class T>
-  bool is_fid_con_gOre(const T& obj)
+  bool is_fid_con_gOre(const T& obj, std::vector<double> params = {GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY})
   {
-    core::gOre::True_Interaction interaction(obj);
+    core::gOre::True_Interaction interaction(obj, params);
     return interaction.is_valid && is_fid_con_nu(obj);
   }
   REGISTER_CUT_SCOPE(RegistrationScope::True, is_fid_con_gOre, is_fid_con_gOre);
@@ -259,9 +279,9 @@ namespace cuts::gOre
    * @return true if the object has a single photon and the photon was a decay product
    **/
   template<class T>
-  bool decay_gOre_photon(const T& obj)
+  bool decay_gOre_photon(const T& obj, std::vector<double> params = {GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY})
   {
-    core::gOre::True_Interaction interaction(obj);
+    core::gOre::True_Interaction interaction(obj, params);
     return interaction.is_valid &&
            interaction.primary_gOre()->pdg_code == 22 &&
            interaction.primary_gOre()->ancestor_pdg_code != 22;
@@ -275,9 +295,9 @@ namespace cuts::gOre
    * @return true if the object has a single photon and the photon was a primary
    **/
   template<class T>
-  bool primary_gOre_photon(const T& obj)
+  bool primary_gOre_photon(const T& obj, std::vector<double> params = {GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY})
   {
-    core::gOre::True_Interaction interaction(obj);
+    core::gOre::True_Interaction interaction(obj, params);
     return interaction.is_valid &&
            interaction.primary_gOre()->pdg_code == 22 &&
            interaction.primary_gOre()->ancestor_pdg_code == 22;
@@ -285,9 +305,9 @@ namespace cuts::gOre
   REGISTER_CUT_SCOPE(RegistrationScope::True, primary_gOre_photon, primary_gOre_photon);
 
   template<class T>
-  bool debug(const T& obj)
+  bool debug(const T& obj, std::vector<double> params = {GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY})
   {
-    core::gOre::True_Interaction interaction(obj);
+    core::gOre::True_Interaction interaction(obj, params);
     if (not interaction.is_valid)
       return false;
     int64_t          pdg_code = interaction.primary_gOre()->pdg_code; 
@@ -312,7 +332,6 @@ namespace cuts::gOre
                 << "  hadronic_invariant_mass: " << obj.hadronic_invariant_mass << '\n'
                 << "  id: "                      << obj.id                      << '\n'
                 << "  inelasticity: "            << obj.inelasticity            << '\n'
-                << "  interaction_id: "          << obj.interaction_id          << '\n'
                 << "  interaction_mode: "        << obj.interaction_mode        << '\n'
                 << "  interaction_type: "        << obj.interaction_type        << '\n'
                 << "  is_cathode_crosser: "      << obj.is_cathode_crosser      << '\n'
@@ -346,7 +365,8 @@ namespace cuts::gOre
   REGISTER_CUT_SCOPE(RegistrationScope::True, debug, debug);
 
   template<class T>
-  bool mc_debug(const T& obj)
+  bool mc_debug(const T& obj, std::vector<double> params = {GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY,
+                                                            GORE_FID_THRESH_X_POS, GORE_FID_THRESH_X_NEG, GORE_FID_THRESH_Y_POS, GORE_FID_THRESH_Y_NEG, GORE_FID_THRESH_Z_POS, GORE_FID_THRESH_Z_NEG})
   {
     // check only NC ∆ Res events
     bool isnc = obj.isnc;
@@ -373,7 +393,7 @@ namespace cuts::gOre
               << "  π0: " << obj.npizero
               << "   p: " << obj.nproton
               << "   n: " << obj.nneutron << std::endl;
-    core::gOre::mc_topology topology(obj.prim);
+    core::gOre::mc_topology topology(obj.prim, params);
     topology.report();
     return true;
   }

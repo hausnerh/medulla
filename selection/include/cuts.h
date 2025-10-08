@@ -261,12 +261,12 @@ namespace cuts
      * some maximum value (the desired multiplicity + 1).
      */
     template<class T>
-    size_t particle_multiplicity(const T & obj, size_t mult, size_t particle_species, std::vector<double> params={})
+    size_t particle_multiplicity(const T & obj, size_t mult, size_t particle_species, std::vector<double> params={0.0})
     {
         size_t count(0);
         for(const auto & p : obj.particles)
         {
-            if(pvars::pid(p) == particle_species && pvars::primary_classification(p) && pvars::ke(p) >= params[0])
+            if((pvars::pid(p) == particle_species) && pvars::primary_classification(p) && (pvars::ke(p) >= params.at(0)))
                 ++count;
             if(count > mult)
                 break; // No need to count further.

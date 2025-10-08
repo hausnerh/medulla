@@ -90,17 +90,17 @@ namespace core::gOre
         return start;
       }
       /** @brief is the particle origin contained in the detector's fiducial volume? **/
-      bool is_fiducial() const
+      bool is_fiducial(std::vector<double> thresholds = {GORE_FID_THRESH_X_POS, GORE_FID_THRESH_X_NEG, GORE_FID_THRESH_Y_POS, GORE_FID_THRESH_Y_NEG, GORE_FID_THRESH_Z_POS, GORE_FID_THRESH_Z_NEG}) const
       {
         double vtx_x = std::get<0>(start);
         double vtx_y = std::get<1>(start);
         double vtx_z = std::get<2>(start);
-        return (GORE_WALL_X_POS - vtx_x > GORE_FID_THRESH_X_POS) &&
-               (vtx_x - GORE_WALL_X_NEG > GORE_FID_THRESH_X_NEG) &&
-               (GORE_WALL_Y_POS - vtx_y > GORE_FID_THRESH_Y_POS) &&
-               (vtx_y - GORE_WALL_Y_NEG > GORE_FID_THRESH_Y_NEG) &&
-               (GORE_WALL_Z_POS - vtx_z > GORE_FID_THRESH_Z_POS) &&
-               (vtx_z - GORE_WALL_Z_NEG > GORE_FID_THRESH_Z_NEG) ;
+        return (GORE_WALL_X_POS - vtx_x > thresholds.at(0)) &&
+               (vtx_x - GORE_WALL_X_NEG > thresholds.at(1)) &&
+               (GORE_WALL_Y_POS - vtx_y > thresholds.at(2)) &&
+               (vtx_y - GORE_WALL_Y_NEG > thresholds.at(3)) &&
+               (GORE_WALL_Z_POS - vtx_z > thresholds.at(4)) &&
+               (vtx_z - GORE_WALL_Z_NEG > thresholds.at(5)) ;
       }
       /** @brief is the particle contained **/
       bool is_contained() const
@@ -151,31 +151,43 @@ namespace core::gOre
                 std::abs(pdg_code) == 16 );
       }
       /** @brief is the particle above threshold? **/
-      bool is_above_threshold() const
+      bool is_above_threshold(std::vector<double> thresholds = {GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY}) const
       {
         // only check photons, protons, electrons, muons, and pions (since those are the ones with thresholds)
         // since the thresholds are for kinetic energy, subtract off the mass
         // neutrinos are are subthreshold (they're outgoing and basicaly invisible)
         // everything else say it's above
         if (is_neutrino())
+        {
           return false;
-        if (is_photon())
-          return (gen_energy > GORE_MIN_GORE_ENERGY);
-        if (is_electron())
-          return (gen_energy - ELECTRON_MASS > GORE_MIN_GORE_ENERGY);
-        if (is_proton())
-          return (gen_energy - PROTON_MASS > GORE_MIN_PROTON_ENERGY);
-        if (is_muon())
-          return (gen_energy - MUON_MASS > GORE_MIN_MUON_ENERGY);
-        if (is_charged_pion())
-          return (gen_energy - PION_MASS > GORE_MIN_PION_ENERGY);
+        }
+        else if (is_photon())
+        {
+          return (gen_energy > thresholds.at(0));
+        }
+        else if (is_electron())
+        {
+          return (gen_energy - ELECTRON_MASS > thresholds.at(0));
+        }
+        else if (is_muon())
+        {
+          return (gen_energy - MUON_MASS > thresholds.at(1));
+        }
+        else if (is_proton())
+        {
+          return (gen_energy - PROTON_MASS > thresholds.at(2));
+        }
+        else if (is_charged_pion())
+        {
+          return (gen_energy - PION_MASS > thresholds.at(3));
+        }
         return true;
       }
     private:
-      int pdg_code;                  ///< particle's PDG code 
-      double gen_energy;             ///< particle's energy at generation
-      utilities::three_vector start; ///< where the particle was generated
-      bool contained;                ///< was the particle contained?
+      int pdg_code;                   ///< particle's PDG code 
+      double gen_energy;              ///< particle's energy at generation
+      utilities::three_vector start;  ///< where the particle was generated
+      bool contained;                 ///< was the particle contained?
   };
 
   /**
@@ -189,22 +201,26 @@ namespace core::gOre
      * @note Assume the first particle in the vector is the primary lepton
      **/
     public:
-      mc_topology(const caf::Proxy<std::vector<caf::SRTrueParticle>>& particle_vec)
+      mc_topology(const caf::Proxy<std::vector<caf::SRTrueParticle>>& particle_vec, std::vector<double> params = {GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY,
+                                                                                                                  GORE_FID_THRESH_X_POS, GORE_FID_THRESH_X_NEG, GORE_FID_THRESH_Y_POS, GORE_FID_THRESH_Y_NEG, GORE_FID_THRESH_Z_POS, GORE_FID_THRESH_Z_NEG})
       {
+        // init threshol3s
+        energy_thresholds = (params.size() < 4) ? std::vector({GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY}) : std::vector({params.at(0), params.at(1), params.at(2), params.at(3)});
+        fiducial_thresholds = (params.size() < 10) ? std::vector({GORE_FID_THRESH_X_POS, GORE_FID_THRESH_X_NEG, GORE_FID_THRESH_Y_POS, GORE_FID_THRESH_Y_NEG, GORE_FID_THRESH_Z_POS, GORE_FID_THRESH_Z_NEG}) : std::vector({params.at(4), params.at(5), params.at(6), params.at(7), params.at(8), params.at(9)});
         // verify non-empty vector
         if (particle_vec.size() == 0)
           throw std::runtime_error("mc_topology: cannot initialize from empty vector.");
         // first particle is the lepton. Use for fiducialization
         // caf::Proxy is annoying so we can't use first
         mc_topo_particle lepton(particle_vec[0]);
-        fiducial = lepton.is_fiducial();
+        fiducial = lepton.is_fiducial(fiducial_thresholds);
         vertex = lepton.get_start();
         // default assume event is contained. if anything over threshold is not, then the event isn't
         contained = true;
         for (auto const& particle : particle_vec)
         {
           mc_topo_particle cur_topo_particle(particle);
-          if (cur_topo_particle.is_above_threshold())
+          if (cur_topo_particle.is_above_threshold(energy_thresholds))
           {
             contained = contained && cur_topo_particle.is_contained();
             add(cur_topo_particle);
@@ -316,6 +332,8 @@ namespace core::gOre
       bool contained;                                                          ///< Are all of the particles contained?
       bool fiducial;                                                           ///< Is the vertex inside the fiducial volume?
       utilities::three_vector vertex;                                          ///< The location of the vertex in the detector (cm)
+      std::vector<double> energy_thresholds;                                   ///< The particle energy thresholds
+      std::vector<double> fiducial_thresholds;                                 ///< The detector fiducial thresholds
   };
 
   /**
@@ -452,7 +470,7 @@ namespace core::gOre
     {
       typedef typename ParticleType<T>::type PT; ///< The type of particle stored in the interaction
       /** @brief basic Interaction constructor **/
-      Interaction(const T& object) : obj(object)
+      Interaction(const T& object, std::vector<double> params = {GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY}) : obj(object), thresholds(params)
       {
         bool found_Other(false);
         min_muon_ke = std::numeric_limits<double>::max();
@@ -475,8 +493,6 @@ namespace core::gOre
               case pvars::kPion:
                 min_pion_ke = (min_pion_ke > pKE) ? pKE : min_pion_ke;
                 break;
-              case pvars::kProton:
-                nProtons_subthresh += (pKE < GORE_MIN_PROTON_ENERGY);
               default:
                 if (pid == pvars::kPhoton || pid == pvars::kElectron)
                 {
@@ -498,7 +514,7 @@ namespace core::gOre
                 break;
             }
           }
-          if (final_state_signal(particle))
+          if (final_state_signal(particle, thresholds.at(0), thresholds.at(1), thresholds.at(2), thresholds.at(3)))
           {
             switch (pid)
             {
@@ -549,17 +565,17 @@ namespace core::gOre
       {
         return protons.size();
       }
-      const T& obj;              ///< The wrapped interaction
-      std::vector<PT*> gOres;    ///< The photons & electrons in the final state signal, sorted by descending KE
-      std::vector<PT*> protons;  ///< The protons in the final state signal, sorted by descending KE
-      double min_muon_ke;        ///< lowest muon KE below threshold
-      double min_pion_ke;        ///< lowest pion KE below threshold
-      double subleading_gore_ke; ///< what is the KE of the subleading gOre candidate?
-      double pion_costh;         ///< if there is a subleading gOre candidate, what is the cosine of the angle between it and the primary?
-      double total_gore_ke;      ///< what is the sum of KE for all gOre showers (above and below theshold)?
-      bool is_valid;             ///< are there no pions or muons above threshold?
-      size_t nShowers;           ///< How many showers are there (including sub-threshold)
-      size_t nProtons_subthresh; ///< how many protons are there below threshold?
+      const T& obj;                   ///< The wrapped interaction
+      std::vector<PT*> gOres;         ///< The photons & electrons in the final state signal, sorted by descending KE
+      std::vector<PT*> protons;       ///< The protons in the final state signal, sorted by descending KE
+      double min_muon_ke;             ///< lowest muon KE below threshold
+      double min_pion_ke;             ///< lowest pion KE below threshold
+      double subleading_gore_ke;      ///< what is the KE of the subleading gOre candidate?
+      double pion_costh;              ///< if there is a subleading gOre candidate, what is the cosine of the angle between it and the primary?
+      double total_gore_ke;           ///< what is the sum of KE for all gOre showers (above and below theshold)?
+      bool is_valid;                  ///< are there no pions or muons above threshold?
+      size_t nShowers;                ///< How many showers are there (including sub-threshold)
+      std::vector<double> thresholds; ///< Particle Energy Thresholds
     };
 
   typedef Interaction<caf::SRInteractionDLPProxy>      Reco_Interaction; ///< handy typedef for reco interactions

@@ -9,11 +9,11 @@ fsthresh = [
 ]
 
 [parameters]
-gOre_threshold = 10 # MeV
+gOre_threshold = 25 # MeV
 muon_threshold = 25 # MeV
 pion_threshold = 25 # MeV
 proton_threshold = 50 # MeV
-flash_low_t = -0.5 # µs
+flash_low_t =  0.0 # µs
 flash_high_t = 1.6 # µs
 fiducial_xdist_pos = 50 # cm
 fiducial_xdist_neg = 50 # cm
@@ -22,7 +22,7 @@ fiducial_ydist_neg = 50 # cm
 fiducial_zdist_pos = 50 # cm
 fiducial_zdist_neg = 50 # cm
 pion_mass_threshold = 0.4 # fraction of π0 mass
-photon_vertex_resolution = 100 # cm
+photon_vertex_resolution = 150 # cm
 
 [[category]] # contained, fiducial, single photon
 cuts = [
@@ -101,10 +101,16 @@ cuts = [
 ]
 
 [[sample]]
-name = "simulation"
-#path = "/pnfs/icarus/persistent/users/mueller/production/simulation/nominal/*.flat.root"
+name = "cv"
+path = "/pnfs/icarus/persistent/users/mueller/production/simulation/nominal/*.flat.root"
+ismc = true
+disable = true
+
+[[sample]]
+name = "cvext"
 path = "/pnfs/icarus/persistent/users/mueller/production/simulation/cvext/*.flat.root"
 ismc = true
+disable = false
 
 [[tree]] # selection (1γXp) w/ veto
 name = "selected_veto"
@@ -116,12 +122,12 @@ cut = [
                                                                                               "@gOre_threshold",
                                                                                               "@muon_threshold",
                                                                                               "@pion_threshold"           ]},
-    { name = "fiducial_cut",      type = "reco"                                     },
-    { name = "containment_cut",   type = "reco"                                     },
-    { name = "valid_flashmatch",  type = "reco"                                     },
-    { name = "single_gOre",       type = "reco", parameters = [ "@gOre_threshold" ] },
-    { name = "no_muons",          type = "reco", parameters = [ "@muon_threshold" ] },
-    { name = "no_charged_pions",  type = "reco", parameters = [ "@pion_threshold" ] },
+    { name = "fiducial_cut",      type = "reco"                                                   },
+    { name = "containment_cut",   type = "reco"                                                   },
+    { name = "flash_cut",         type = "reco", parameters = [ "@flash_low_t", "@flash_high_t" ] },
+    { name = "single_gOre",       type = "reco", parameters = [ "@gOre_threshold" ]               },
+    { name = "no_muons",          type = "reco", parameters = [ "@muon_threshold" ]               },
+    { name = "no_charged_pions",  type = "reco", parameters = [ "@pion_threshold" ]               },
 ]
 branch = [
     # Topology
@@ -211,12 +217,12 @@ name = "selected"
 sim_only = false
 mode = "reco"
 cut = [
-    { name = "fiducial_cut",      type = "reco"                                     },
-    { name = "containment_cut",   type = "reco"                                     },
-    { name = "valid_flashmatch",  type = "reco"                                     },
-    { name = "single_gOre",       type = "reco", parameters = [ "@gOre_threshold" ] },
-    { name = "no_muons",          type = "reco", parameters = [ "@muon_threshold" ] },
-    { name = "no_charged_pions",  type = "reco", parameters = [ "@pion_threshold" ] },
+    { name = "fiducial_cut",      type = "reco"                                                   },
+    { name = "containment_cut",   type = "reco"                                                   },
+    { name = "flash_cut",         type = "reco", parameters = [ "@flash_low_t", "@flash_high_t" ] },
+    { name = "single_gOre",       type = "reco", parameters = [ "@gOre_threshold" ]               },
+    { name = "no_muons",          type = "reco", parameters = [ "@muon_threshold" ]               },
+    { name = "no_charged_pions",  type = "reco", parameters = [ "@pion_threshold" ]               },
 ]
 branch = [
     # Topology
@@ -306,13 +312,13 @@ name = "selected_dual_photon"
 sim_only = false
 mode = "reco"
 cut = [
-    { name = "fiducial_cut",      type = "reco"                                     },
-    { name = "containment_cut",   type = "reco"                                     },
-    { name = "valid_flashmatch",  type = "reco"                                     },
-    { name = "dual_photon",       type = "reco", parameters = [ "@gOre_threshold" ] },
-    { name = "no_electrons",      type = "reco", parameters = [ "@gOre_threshold" ] },
-    { name = "no_muons",          type = "reco", parameters = [ "@muon_threshold" ] },
-    { name = "no_charged_pions",  type = "reco", parameters = [ "@pion_threshold" ] },
+    { name = "fiducial_cut",      type = "reco"                                                   },
+    { name = "containment_cut",   type = "reco"                                                   },
+    { name = "flash_cut",         type = "reco", parameters = [ "@flash_low_t", "@flash_high_t" ] },
+    { name = "dual_photon",       type = "reco", parameters = [ "@gOre_threshold" ]               },
+    { name = "no_electrons",      type = "reco", parameters = [ "@gOre_threshold" ]               },
+    { name = "no_muons",          type = "reco", parameters = [ "@muon_threshold" ]               },
+    { name = "no_charged_pions",  type = "reco", parameters = [ "@pion_threshold" ]               },
 ]
 branch = [
     # Topology

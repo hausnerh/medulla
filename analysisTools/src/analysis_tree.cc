@@ -25,6 +25,7 @@ namespace ana::tools
   analysis_tree::analysis_tree(const std::string& inFileName, 
                                const std::string& directory,
                                const ana::tools::cut_sequence& selection_cut,
+                               const ana::tools::cut_sequence& signal_cut,
                                const std::string& sel_tree,
                                const std::string& sig_tree,
                                const std::vector<std::pair<std::string, ana::tools::cut_sequence>> sel_cats,
@@ -56,9 +57,6 @@ namespace ana::tools
       colors.push_back(new TColor(0.05 + gry, 0.05 + gry, 0.05 + gry));
       colors.push_back(new TColor(1.05 - gry, 1.05 - gry, 1.05 - gry));
     }
-    //colors.push_back(new TColor(0.25, 0.25, 0.25)); // Gray (light gray)
-    //colors.push_back(new TColor(0.45, 0.45, 0.45)); // Gray (just gray)
-    //colors.push_back(new TColor(0.85, 0.85, 0.85)); // Gray (but darker)
 
     // Memory Handling
     std::string tmpName = "temp_TTrees-"+sel_tree+"-"+sig_tree+"_Cuts-"+sel_cats.front().second.string()+"-"+sig_cats.front().second.string()+".root";
@@ -71,14 +69,15 @@ namespace ana::tools
     std::cout << "Looking for selection in " << selection_tree_name << std::endl;
     std::string signal_tree_name    = directory + "/" + sig_tree;
     std::cout << "Looking for signal in " << signal_tree_name << std::endl;
-    ana::tools::cut_sequence signal_cut    = sel_cats.front().second;
     ana::tools::cut_sequence bkg_cut       = ana::tools::negate_cut(signal_cut); 
-    //bkg_cut.add_sequence(selection_cut);
     TTree* tmpSignalTree = inFile->Get<TTree>(signal_tree_name.c_str());
+    if (tmpSignalTree == nullptr)
+      throw std::runtime_error(("Could not open TTree " + signal_tree_name).c_str());
     signalTree = std::unique_ptr<TTree>(tmpSignalTree->CopyTree(signal_cut.c_str()));
     signalTree->SetDirectory(memFile.get());
     TTree* selectedTree = inFile->Get<TTree>(selection_tree_name.c_str());
-    selectedSignalTree = std::unique_ptr<TTree>(signalTree->CopyTree(selection_cut.c_str()));
+    //selectedSignalTree = std::unique_ptr<TTree>(signalTree->CopyTree(selection_cut.c_str()));
+    selectedSignalTree = std::unique_ptr<TTree>(selectedTree->CopyTree(signal_cut.c_str()));
     selectedSignalTree->SetDirectory(memFile.get());
     backgroundTree   = std::unique_ptr<TTree>(selectedTree->CopyTree(bkg_cut.c_str()));
     backgroundTree->SetDirectory(memFile.get());

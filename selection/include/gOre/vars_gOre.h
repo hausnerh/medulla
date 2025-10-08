@@ -23,9 +23,9 @@ namespace vars::gOre
    * @return 1 for passing, 0 for failing
    **/
   template <class T>
-    double is_gOre(const T& obj)
+    double is_gOre(const T& obj, std::vector<double> params={GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PION_ENERGY})
     {
-      return cuts::gOre::gOre_topology(obj);
+      return cuts::gOre::gOre_topology(obj, params);
     }
   REGISTER_VAR_SCOPE(RegistrationScope::Both, is_gOre, is_gOre);
 
@@ -37,9 +37,9 @@ namespace vars::gOre
    * @return 0 for primary photon, 1 for secondary photon, 2 for electron, -1 for invalid
    **/
   template <class T>
-    double gOre_category(const T& obj)
+    double gOre_category(const T& obj, std::vector<double> params = {GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY})
     {
-      core::gOre::Interaction<T> interaction(obj);
+      core::gOre::Interaction<T> interaction(obj, params);
       if (not interaction.is_valid)
         return -1.;
       if (interaction.primary_gOre()->pdg_code != 22)
@@ -57,9 +57,9 @@ namespace vars::gOre
    * @return the pdg code of the ancestor, (NaN if invalid)
    **/
   template <class T>
-    double gOre_ancestor(const T& obj)
+    double gOre_ancestor(const T& obj, std::vector<double> params = {GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY})
     {
-      core::gOre::Interaction<T> interaction(obj);
+      core::gOre::Interaction<T> interaction(obj, params);
       if (not interaction.is_valid)
         return std::numeric_limits<double>::quiet_NaN();
       return interaction.primary_gOre()->ancestor_pdg_code;
@@ -94,38 +94,24 @@ namespace vars::gOre
    * @return the number of protons as a double
   **/
   template <class T>
-    double n_protons(const T& obj)
+    double n_protons(const T& obj, std::vector<double> params = {GORE_MIN_PROTON_ENERGY})
     {
-      core::gOre::Interaction<T> interaction(obj);
-      if (not interaction.is_valid)
-        return std::numeric_limits<double>::quiet_NaN();
-      return static_cast<double>(interaction.nProtons());
+      //core::gOre::Interaction<T> interaction(obj);
+      //if (not interaction.is_valid)
+      //  return std::numeric_limits<double>::quiet_NaN();
+      //return static_cast<double>(interaction.nProtons());
+      return cuts::particle_multiplicity(obj, std::numeric_limits<size_t>::max(), pvars::kProton, params);
     }
   REGISTER_VAR_SCOPE(RegistrationScope::Both, n_protons, n_protons);
-
-  /**
-   * @brief how many protons are in the interaction below threshold?
-   * @param obj the interaction of interest (data or MC)
-   * @return the number of protons as a double
-  **/
-  template <class T>
-    double n_protons_subthreshold(const T& obj)
-    {
-      core::gOre::Interaction<T> interaction(obj);
-      if (not interaction.is_valid)
-        return std::numeric_limits<double>::quiet_NaN();
-      return static_cast<double>(interaction.nProtons_subthresh);
-    }
-  REGISTER_VAR_SCOPE(RegistrationScope::Both, n_protons_subthreshold, n_protons_subthreshold);
 
   /**
    * @brief the total KE of protons above threshold
    * @param obj the interaction of interest (data or MC)
    **/
   template <class T>
-    double total_proton_ke(const T& obj)
+    double total_proton_ke(const T& obj, std::vector<double> params = {GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY})
     {
-      core::gOre::Interaction<T> interaction(obj);
+      core::gOre::Interaction<T> interaction(obj, params);
       if (not interaction.is_valid)
         return std::numeric_limits<double>::quiet_NaN();
       double ke = 0;
@@ -140,9 +126,9 @@ namespace vars::gOre
    * @details if there are no subthreshold muons the energy is 0;
    **/
   template <class T>
-    double min_muon_ke(const T& obj)
+    double min_muon_ke(const T& obj, std::vector<double> params = {GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY})
     {
-      core::gOre::Interaction<T> interaction(obj);
+      core::gOre::Interaction<T> interaction(obj, params);
       if (not interaction.is_valid)
         return std::numeric_limits<double>::quiet_NaN();
       return interaction.min_muon_ke;
@@ -154,9 +140,9 @@ namespace vars::gOre
    * @details if there are no subthreshold pions the energy is 0;
    **/
   template <class T>
-    double min_pion_ke(const T& obj)
+    double min_pion_ke(const T& obj, std::vector<double> params = {GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY})
     {
-      core::gOre::Interaction<T> interaction(obj);
+      core::gOre::Interaction<T> interaction(obj, params);
       if (not interaction.is_valid)
         return std::numeric_limits<double>::quiet_NaN();
       return interaction.min_pion_ke;
@@ -169,9 +155,9 @@ namespace vars::gOre
    * @return the kinetic energy of the photon/electron
   **/
   template <class T>
-    double gOre_ke(const T& obj)
+    double gOre_ke(const T& obj, std::vector<double> params = {GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY})
     {
-      core::gOre::Interaction<T> interaction(obj);
+      core::gOre::Interaction<T> interaction(obj, params);
       if (not interaction.is_valid)
         return std::numeric_limits<double>::quiet_NaN();
       return interaction.primary_gOre()->ke;
@@ -186,9 +172,9 @@ namespace vars::gOre
    * @return the kinetic energy of the photon/electron
   **/
   template <class T>
-    double subleading_gOre_ke(const T& obj)
+    double subleading_gOre_ke(const T& obj, std::vector<double> params = {GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY})
     {
-      core::gOre::Interaction<T> interaction(obj);
+      core::gOre::Interaction<T> interaction(obj, params);
       if (not interaction.is_valid)
         return std::numeric_limits<double>::quiet_NaN();
       return interaction.subleading_gore_ke;
@@ -200,9 +186,9 @@ namespace vars::gOre
    * @param the interaction of interest (data or MC)
    **/
   template <class T>
-    double gOre_axial_spread(const T& obj)
+    double gOre_axial_spread(const T& obj, std::vector<double> params = {GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY})
     {
-      core::gOre::Interaction<T> interaction(obj);
+      core::gOre::Interaction<T> interaction(obj, params);
       if (not interaction.is_valid)
         return std::numeric_limits<double>::quiet_NaN();
       return static_cast<double>(interaction.primary_gOre()->axial_spread);
@@ -214,9 +200,9 @@ namespace vars::gOre
    * @param the interaction of interest (data or MC)
    **/
   template <class T>
-    double gOre_directional_spread(const T& obj)
+    double gOre_directional_spread(const T& obj, std::vector<double> params = {GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY})
     {
-      core::gOre::Interaction<T> interaction(obj);
+      core::gOre::Interaction<T> interaction(obj, params);
       if (not interaction.is_valid)
         return std::numeric_limits<double>::quiet_NaN();
       return static_cast<double>(interaction.primary_gOre()->directional_spread);
@@ -228,9 +214,9 @@ namespace vars::gOre
    * @param the interaction of interest (data or MC)
    **/
   template <class T>
-    double gOre_length(const T& obj)
+    double gOre_length(const T& obj, std::vector<double> params = {GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY})
     {
-      core::gOre::Interaction<T> interaction(obj);
+      core::gOre::Interaction<T> interaction(obj, params);
       if (not interaction.is_valid)
         return std::numeric_limits<double>::quiet_NaN();
       return static_cast<double>(interaction.primary_gOre()->length);
@@ -241,9 +227,9 @@ namespace vars::gOre
    * @brief the momentum magnitude of the candicate photon 
    **/
   template <class T>
-    double gOre_momentum(const T& obj)
+    double gOre_momentum(const T& obj, std::vector<double> params = {GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY})
     {
-      core::gOre::Interaction<T> interaction(obj);
+      core::gOre::Interaction<T> interaction(obj, params);
       if (not interaction.is_valid)
         return std::numeric_limits<double>::quiet_NaN();
       return static_cast<double>(interaction.primary_gOre()->p);
@@ -254,9 +240,9 @@ namespace vars::gOre
    * @brief the transerverse momentum of the candidate photon
    **/
   template <class T>
-    double gOre_dpT(const T& obj)
+    double gOre_dpT(const T& obj, std::vector<double> params = {GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY})
     {
-      core::gOre::Interaction<T> interaction(obj);
+      core::gOre::Interaction<T> interaction(obj, params);
       if (not interaction.is_valid)
         return std::numeric_limits<double>::quiet_NaN();
       return pvars::dpT(*interaction.primary_gOre());
@@ -267,9 +253,9 @@ namespace vars::gOre
    * @brief the start dedx of the candidate photon
    **/
   template <class T>
-    double gOre_start_dedx(const T& obj)
+    double gOre_start_dedx(const T& obj, std::vector<double> params = {GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY})
     {
-      core::gOre::Interaction<T> interaction(obj);
+      core::gOre::Interaction<T> interaction(obj, params);
       if (not interaction.is_valid)
         return std::numeric_limits<double>::quiet_NaN();
       return interaction.primary_gOre()->start_dedx;
@@ -280,9 +266,9 @@ namespace vars::gOre
    * @brief the straightness of the candidate photon
    **/
   template <class T>
-    double gOre_straightness(const T& obj)
+    double gOre_straightness(const T& obj, std::vector<double> params = {GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY})
     {
-      core::gOre::Interaction<T> interaction(obj);
+      core::gOre::Interaction<T> interaction(obj, params);
       if (not interaction.is_valid)
         return std::numeric_limits<double>::quiet_NaN();
       return interaction.primary_gOre()->start_straightness;
@@ -293,9 +279,9 @@ namespace vars::gOre
    * @brief the vertex gap of the candidate photon
    **/
   template <class T>
-    double gOre_gap(const T& obj)
+    double gOre_gap(const T& obj, std::vector<double> params = {GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY})
     {
-      core::gOre::Interaction<T> interaction(obj);
+      core::gOre::Interaction<T> interaction(obj, params);
       if (not interaction.is_valid)
         return std::numeric_limits<double>::quiet_NaN();
       utilities::three_vector interaction_vtx = utilities::to_three_vector(obj.vertex);
@@ -309,9 +295,9 @@ namespace vars::gOre
    * @details 1 is photon-like, -1 is electron-like
    **/
   template <class T>
-    double gOre_score(const T& obj)
+    double gOre_score(const T& obj, std::vector<double> params = {GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY})
     {
-      core::gOre::Interaction<T> interaction(obj);
+      core::gOre::Interaction<T> interaction(obj, params);
       if (not interaction.is_valid)
         return std::numeric_limits<double>::quiet_NaN();
       std::vector<double> softmax_vec = pvars::particle_softmax_vec(*interaction.primary_gOre());
@@ -323,9 +309,9 @@ namespace vars::gOre
    * @brief the photon/electron polar angle w.r.t the beam
    **/
   template <class T>
-    double gOre_polar_angle(const T& obj)
+    double gOre_polar_angle(const T& obj, std::vector<double> params = {GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY})
     {
-      core::gOre::Interaction<T> interaction(obj);
+      core::gOre::Interaction<T> interaction(obj, params);
       if (not interaction.is_valid)
         return std::numeric_limits<double>::quiet_NaN();
       return pvars::polar_angle(*interaction.primary_gOre());
@@ -336,9 +322,9 @@ namespace vars::gOre
    * @brief the photon/electron azimuthal angle w.r.t the beam
    **/
   template <class T>
-    double gOre_azimuthal_angle(const T& obj)
+    double gOre_azimuthal_angle(const T& obj, std::vector<double> params = {GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY})
     {
-      core::gOre::Interaction<T> interaction(obj);
+      core::gOre::Interaction<T> interaction(obj, params);
       if (not interaction.is_valid)
         return std::numeric_limits<double>::quiet_NaN();
       return pvars::azimuthal_angle(*interaction.primary_gOre());
@@ -392,9 +378,9 @@ namespace vars::gOre
    * @brief sum of gOre shower KE (including sub-thresholds) 
    **/
   template <class T>
-    double total_gOre_KE(const T& obj)
+    double total_gOre_KE(const T& obj, std::vector<double> params = {GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY})
     {
-      core::gOre::Interaction<T> interaction(obj);
+      core::gOre::Interaction<T> interaction(obj, params);
       if (not interaction.is_valid)
         return std::numeric_limits<double>::quiet_NaN();
       return interaction.total_gore_ke;
@@ -405,9 +391,9 @@ namespace vars::gOre
    * @brief how many subthreshold gOre showers are there?
    **/
   template <class T>
-    double n_gOre_showers(const T& obj)
+    double n_gOre_showers(const T& obj, std::vector<double> params = {GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY})
     {
-      core::gOre::Interaction<T> interaction(obj);
+      core::gOre::Interaction<T> interaction(obj, params);
       if (not interaction.is_valid)
         return std::numeric_limits<double>::quiet_NaN();
       return interaction.nShowers;
@@ -482,7 +468,8 @@ namespace vars::gOre
    * 6: Non-neutrino
    **/
   template <class T>
-    double mc_category(const T& obj)
+    double mc_category(const T& obj, std::vector<double> params = {GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY,
+                                                                   GORE_FID_THRESH_X_POS, GORE_FID_THRESH_X_NEG, GORE_FID_THRESH_Y_POS, GORE_FID_THRESH_Y_NEG, GORE_FID_THRESH_Z_POS, GORE_FID_THRESH_Z_NEG})
     {
       double cat(6);
       bool isnc = obj.isnc;
@@ -490,7 +477,7 @@ namespace vars::gOre
       caf::genie_interaction_type_ genie_inttype = obj.genie_inttype;
       int resnum = obj.resnum;
       // post-FSI primary particles
-      core::gOre::mc_topology topology(obj.prim);
+      core::gOre::mc_topology topology(obj.prim, params);
       // is NC ∆ res
       bool is_nc_delta_res = isnc && (resnum == 0);
       // non pion producing res

@@ -21,7 +21,7 @@ inline std::vector<std::pair<std::string, ana::tools::cut_sequence>> sel_cats =
   {"2#gamma (Fid/Con)",       "true_category == 4"},
   {"2#gamma (Not Fid/Con)",   "true_category == 5"},
   {"Other NC",                "true_category == 6"},
-  {"Other CC",                "true+category == 7"},
+  {"Other CC",                "true_category == 7"},
   {"Cosmic",                  "true_category == 8"}
 };
 
@@ -143,10 +143,12 @@ inline std::map<int, std::string> mc_cats =
 
 inline std::vector<std::tuple<std::string, bool, double, double>> vars_to_optimize =
 {
-  {"reco_leading_gOre_photon_softmax", false, 0, 1}
-  //{"reco_gOre_start_dedx",         false,  0,     5},
-  //{"reco_flash_total_pe",          false,  0, 20000},
-  //{"reco_gOre_directional_spread", true,   0,     1}
+  {"reco_leading_primary_gOre_axial_spread",       false, -0.5,   1},
+  {"reco_leading_primary_gOre_directional_spread", true,   0,     1},
+  {"reco_leading_primary_gOre_dpT",                true,   0,  1000},
+  {"reco_leading_primary_gOre_start_dedx",         false,  0,     5},
+  {"reco_flash_total_pe",                  false,  0, 20000},
+  {"reco_leading_primary_gOre_photon_softmax",     false,  0,     1}
 };
 
 inline std::vector<std::tuple<std::string, std::string, bool, double, double>> vars_to_optimize_with_condition =
@@ -224,73 +226,119 @@ ana::tools::cut_sequence optimize_conditional_cut(const ana::tools::analysis_tre
 }
 
 int run_analysis(const std::string& fileName,
-                 const std::string& sample,
+                 const std::string& sampleBase,
+                 const std::string& sampleName,
                  const std::string& sel,
                  const std::string& sig,
                  const bool& optimizeCuts)
 {
+  // sample string
+  const std::string sample = sampleBase + "/" + sampleName;
+
   // setup output dir
   if (not std::filesystem::is_directory("plots") || not std::filesystem::exists("plots"))
     std::filesystem::create_directory("plots");
+  if (not std::filesystem::is_directory("plots/"+sampleBase) || not std::filesystem::exists("plots/"+sampleBase))
+    std::filesystem::create_directory("plots/"+sampleBase);
   if (not std::filesystem::is_directory("plots/"+sample) || not std::filesystem::exists("plots/"+sample))
     std::filesystem::create_directory("plots/"+sample);
   
   // setup analysis tree
   std::string fileLocation = std::filesystem::current_path().string();
-  std::string directoryName = "events/simulation";
+  std::string directoryName = "events/" + sampleName;
   std::string selTreeName = "selected";
   std::string sigTreeName = "signal_nc_delta_res_Ng";
   //std::string sigTreeName = "signal_topo";
-  ana::tools::cut_sequence selection_cut = "reco_is_gOre";
+  ana::tools::cut_sequence selection_cut = "reco_gOre_topology";
+  ana::tools::cut_sequence signal_cut = "true_mc_category == 0";
   ana::tools::analysis_tree my_analysis_tree(fileLocation+"/"+fileName, directoryName,
-                                             selection_cut,
+                                             selection_cut, signal_cut,
                                              selTreeName, sigTreeName,
                                              sel_cats, sig_cats);
-  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~VARIABLE~~~~~~~~~~~~~~~~~~~~~~BINS~~~~MIN~~~~~MAX~~~~~TITLE
-  my_analysis_tree.add_variable("reco_flash_total_pe",                     100,     0, 100000,    "Total Flash PE");
-  my_analysis_tree.add_variable("reco_n_protons",                            6,     0,      6,    "Protons above Threshold");
-  my_analysis_tree.add_variable("true_vertex_x",                            50,  -400,    400,    "True Vertex X (cm)");
-  my_analysis_tree.add_variable("true_vertex_y",                            50,  -200,    200,    "True Vertex Y (cm)");
-  my_analysis_tree.add_variable("true_vertex_z",                            50, -1000,   1000,    "True Vertex Z (cm)");
-  my_analysis_tree.add_variable("reco_vertex_x",                            50,  -400,    400,    "Vertex X (cm)");
-  my_analysis_tree.add_variable("reco_vertex_y",                            50,  -200,    200,    "Vertex Y (cm)");
-  my_analysis_tree.add_variable("reco_vertex_z",                            50, -1000,   1000,    "Vertex Z (cm)");
-  my_analysis_tree.add_variable("true_xy_wall_dist",                        50,     0,    200,    "True Minimum Distance from Vertex to X-/Y-side Detector Wall");
-  my_analysis_tree.add_variable("true_z_wall_dist",                         50,     0,   1000,    "True Minimum Distance from Vertex to Z-side Detector Wall");
-  my_analysis_tree.add_variable("reco_xy_wall_dist",                        50,     0,    200,    "Minimum Distance from Vertex to X-/Y-side Detector Wall");
-  my_analysis_tree.add_variable("reco_z_wall_dist",                         50,     0,   1000,    "Minimum Distance from Vertex to Z-side Detector Wall");
-  my_analysis_tree.add_variable("reco_gOre_gap",                           100,     0,    100,    "#gamma-candiate Distance from Vertex (cm)");
-  my_analysis_tree.add_variable("reco_pion_mass",                           50,     0,   1000,    "Reconstructed Neutral Pion Mass Peak (MeV/c^{2}_{})");
-  my_analysis_tree.add_variable("true_interaction_mode",                    15,    -1.5,   13.5,  "GENIE Interaction Mode");
-  my_analysis_tree.add_variable("true_interaction_type",                   101,   999.5, 1100.5,  "GENIE Interaction Type");
-  my_analysis_tree.add_variable("true_baryon_res_code",                     19,    -1.5,   17.5,  "Resonance Number");
-  my_analysis_tree.add_variable("true_mc_category",                          7,    -0.5,    6.5,  "MC Truth Category"); 
-  my_analysis_tree.add_variable("reco_leading_gOre_photon_softmax",        100,     0,      1,    "Shower Photon Softmax");
-  my_analysis_tree.add_variable("reco_leading_gOre_electron_softmax",      100,     0,      1,    "Shower Electron Softmax");
-  my_analysis_tree.add_variable("reco_leading_gOre_start_dedx",            100,     0,     50,    "Shower Start dE/dx (MeV/cm)");
-  my_analysis_tree.add_variable("true_leading_gOre_azimuthal_angle",       100,    -3.14,   3.14, "True Shower Azimuthal Angle (rad)");
-  my_analysis_tree.add_variable("reco_leading_gOre_azimuthal_angle",       100,    -3.14,   3.14, "Shower Azimuthal Angle (rad)");
-  my_analysis_tree.add_variable("true_leading_gOre_polar_angle",            50,     0,      3.14, "True Shower Polar Angle (rad)");
-  my_analysis_tree.add_variable("reco_leading_gOre_polar_angle",            50,     0,      3.14, "Shower Polar Angle (rad)");
-  my_analysis_tree.add_variable("true_leading_gOre_ke",                    100,     0,   1000,    "True Shower KE (MeV)");
-  my_analysis_tree.add_variable("reco_leading_gOre_ke",                    100,     0,   1000,    "Shower KE (MeV)");
-  my_analysis_tree.add_variable("true_leading_gOre_dpT",                   100,     0,   1000,    "True Shower Transverse Momentum (MeV/c)");
-  my_analysis_tree.add_variable("reco_leading_gOre_dpT",                   100,     0,   1000,    "Shower Transverse Momentum (MeV/c)");
-  my_analysis_tree.add_variable("reco_leading_gOre_axial_spread",          150,    -0.5,    1,    "Shower Axial Spread");
-  my_analysis_tree.add_variable("reco_leading_gOre_directional_spread",    100,     0,      1,    "Shower Directional Spread");
-  my_analysis_tree.add_variable("reco_subleading_gOre_photon_softmax",     100,     0,      1,    "Subleading Shower Photon Softmax");
-  my_analysis_tree.add_variable("reco_subleading_gOre_electron_softmax",   100,     0,      1,    "Subleading Shower Electron Softmax");
-  my_analysis_tree.add_variable("reco_subleading_gOre_start_dedx",         100,     0,     50,    "Subleading Shower Start dE/dx (MeV/cm)");
-  my_analysis_tree.add_variable("true_subleading_gOre_azimuthal_angle",    100,    -3.14,   3.14, "True Subleading Shower Azimuthal Angle (rad)");
-  my_analysis_tree.add_variable("reco_subleading_gOre_azimuthal_angle",    100,    -3.14,   3.14, "Subleading Shower Azimuthal Angle (rad)");
-  my_analysis_tree.add_variable("true_subleading_gOre_polar_angle",         50,     0,      3.14, "True Subleading Shower Polar Angle (rad)");
-  my_analysis_tree.add_variable("reco_subleading_gOre_polar_angle",         50,     0,      3.14, "Subleading Shower Polar Angle (rad)");
-  my_analysis_tree.add_variable("true_subleading_gOre_ke",                 100,     0,   1000,    "True Subleading Shower KE (MeV)");
-  my_analysis_tree.add_variable("reco_subleading_gOre_ke",                 100,     0,   1000,    "Subleading Shower KE (MeV)");
-  my_analysis_tree.add_variable("true_subleading_gOre_dpT",                100,     0,   1000,    "True Subleading Shower Transverse Momentum (MeV/c)");
-  my_analysis_tree.add_variable("reco_subleading_gOre_dpT",                100,     0,   1000,    "Subleading Shower Transverse Momentum (MeV/c)");
-  my_analysis_tree.add_variable("reco_subleading_gOre_axial_spread",       150,    -0.5,    1,    "Subleading Shower Axial Spread");
-  my_analysis_tree.add_variable("reco_subleading_gOre_directional_spread", 100,     0,      1,    "Subleading Shower Directional Spread");
+  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~VARIABLE~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~BINS~~~~MIN~~~~~MAX~~~~~TITLE
+  my_analysis_tree.add_variable("true_gOre_topology",                                2,    -0.5,    1.5,  "True Single Shower Topology");
+  my_analysis_tree.add_variable("reco_gOre_topology",                                2,    -0.5,    1.5,  "Reconstucted Single Shower Topology");
+  my_analysis_tree.add_variable("reco_flash_total_pe",                              50,     0, 100000,    "Total Flash PE");
+  my_analysis_tree.add_variable("true_n_protons",                                    6,     0,      6,    "True Protons above Threshold");
+  my_analysis_tree.add_variable("reco_n_protons",                                    6,     0,      6,    "Protons above Threshold");
+  my_analysis_tree.add_variable("true_vertex_x",                                    50,  -400,    400,    "True Vertex X (cm)");
+  my_analysis_tree.add_variable("true_vertex_y",                                    50,  -200,    200,    "True Vertex Y (cm)");
+  my_analysis_tree.add_variable("true_vertex_z",                                    50, -1000,   1000,    "True Vertex Z (cm)");
+  my_analysis_tree.add_variable("reco_vertex_x",                                    50,  -400,    400,    "Vertex X (cm)");
+  my_analysis_tree.add_variable("reco_vertex_y",                                    50,  -200,    200,    "Vertex Y (cm)");
+  my_analysis_tree.add_variable("reco_vertex_z",                                    50, -1000,   1000,    "Vertex Z (cm)");
+  my_analysis_tree.add_variable("true_xy_wall_dist",                                50,     0,    200,    "True Minimum Distance from Vertex to X-/Y-side Detector Wall");
+  my_analysis_tree.add_variable("true_z_wall_dist",                                 50,     0,   1000,    "True Minimum Distance from Vertex to Z-side Detector Wall");
+  my_analysis_tree.add_variable("reco_xy_wall_dist",                                50,     0,    200,    "Minimum Distance from Vertex to X-/Y-side Detector Wall");
+  my_analysis_tree.add_variable("reco_z_wall_dist",                                 50,     0,   1000,    "Minimum Distance from Vertex to Z-side Detector Wall");
+  my_analysis_tree.add_variable("reco_gOre_gap",                                    50,     0,    100,    "#gamma-candiate Distance from Vertex (cm)");
+  my_analysis_tree.add_variable("reco_pion_mass",                                   50,     0,   1000,    "Reconstructed Neutral Pion Mass Peak (MeV/c^{2}_{})");
+  my_analysis_tree.add_variable("true_interaction_mode",                            15,    -1.5,   13.5,  "GENIE Interaction Mode");
+  my_analysis_tree.add_variable("true_interaction_type",                           101,   999.5, 1100.5,  "GENIE Interaction Type");
+  my_analysis_tree.add_variable("true_baryon_res_code",                             19,    -1.5,   17.5,  "Resonance Number");
+  my_analysis_tree.add_variable("true_mc_category",                                  7,    -0.5,    6.5,  "MC Truth Category"); 
+  my_analysis_tree.add_variable("reco_leading_primary_gOre_photon_softmax",         50,     0,      1,    "Shower Photon Softmax");
+  my_analysis_tree.add_variable("reco_leading_primary_gOre_electron_softmax",       50,     0,      1,    "Shower Electron Softmax");
+  my_analysis_tree.add_variable("reco_leading_primary_gOre_start_dedx",             50,     0,     50,    "Shower Start dE/dx (MeV/cm)");
+  my_analysis_tree.add_variable("true_leading_primary_gOre_azimuthal_angle",        50,    -3.14,   3.14, "True Shower Azimuthal Angle (rad)");
+  my_analysis_tree.add_variable("reco_leading_primary_gOre_azimuthal_angle",        50,    -3.14,   3.14, "Shower Azimuthal Angle (rad)");
+  my_analysis_tree.add_variable("true_leading_primary_gOre_polar_angle",            50,     0,      3.14, "True Shower Polar Angle (rad)");
+  my_analysis_tree.add_variable("reco_leading_primary_gOre_polar_angle",            50,     0,      3.14, "Shower Polar Angle (rad)");
+  my_analysis_tree.add_variable("true_leading_primary_gOre_ke",                    100,     0,   1000,    "True Shower KE (MeV)");
+  my_analysis_tree.add_variable("reco_leading_primary_gOre_ke",                    100,     0,   1000,    "Shower KE (MeV)");
+  my_analysis_tree.add_variable("true_leading_primary_gOre_dpT",                   100,     0,   1000,    "True Shower Transverse Momentum (MeV/c)");
+  my_analysis_tree.add_variable("reco_leading_primary_gOre_dpT",                   100,     0,   1000,    "Shower Transverse Momentum (MeV/c)");
+  my_analysis_tree.add_variable("reco_leading_primary_gOre_axial_spread",          150,    -0.5,    1,    "Shower Axial Spread");
+  my_analysis_tree.add_variable("reco_leading_primary_gOre_directional_spread",    100,     0,      1,    "Shower Directional Spread");
+  my_analysis_tree.add_variable("reco_subleading_primary_gOre_photon_softmax",      50,     0,      1,    "Subleading Shower Photon Softmax");
+  my_analysis_tree.add_variable("reco_subleading_primary_gOre_electron_softmax",    50,     0,      1,    "Subleading Shower Electron Softmax");
+  my_analysis_tree.add_variable("reco_subleading_primary_gOre_start_dedx",          50,     0,     50,    "Subleading Shower Start dE/dx (MeV/cm)");
+  my_analysis_tree.add_variable("true_subleading_primary_gOre_azimuthal_angle",     50,    -3.14,   3.14, "True Subleading Shower Azimuthal Angle (rad)");
+  my_analysis_tree.add_variable("reco_subleading_primary_gOre_azimuthal_angle",     50,    -3.14,   3.14, "Subleading Shower Azimuthal Angle (rad)");
+  my_analysis_tree.add_variable("true_subleading_primary_gOre_polar_angle",         50,     0,      3.14, "True Subleading Shower Polar Angle (rad)");
+  my_analysis_tree.add_variable("reco_subleading_primary_gOre_polar_angle",         50,     0,      3.14, "Subleading Shower Polar Angle (rad)");
+  my_analysis_tree.add_variable("true_subleading_primary_gOre_ke",                  25,     0,     25,    "True Subleading Shower KE (MeV)");
+  my_analysis_tree.add_variable("reco_subleading_primary_gOre_ke",                  25,     0,     25,    "Subleading Shower KE (MeV)");
+  my_analysis_tree.add_variable("true_subleading_primary_gOre_dpT",                 25,     0,     25,    "True Subleading Shower Transverse Momentum (MeV/c)");
+  my_analysis_tree.add_variable("reco_subleading_primary_gOre_dpT",                 25,     0,     25,    "Subleading Shower Transverse Momentum (MeV/c)");
+  my_analysis_tree.add_variable("reco_subleading_primary_gOre_axial_spread",       150,    -0.5,    1,    "Subleading Shower Axial Spread");
+  my_analysis_tree.add_variable("reco_subleading_primary_gOre_directional_spread", 100,     0,      1,    "Subleading Shower Directional Spread");
+  my_analysis_tree.add_variable("reco_leading_proton_proton_softmax",               50,     0,      1,    "Leadiing Proton Proton Softmax");
+  my_analysis_tree.add_variable("reco_leading_proton_muon_softmax",                 50,     0,      1,    "Leadiing Proton Muon Softmax");
+  my_analysis_tree.add_variable("reco_leading_proton_pion_softmax",                 50,     0,      1,    "Leadiing Proton Pion Softmax");
+  my_analysis_tree.add_variable("reco_leading_proton_start_dedx",                   50,     0,     50,    "Leadiing Proton Start dE/dx (MeV/cm)");
+  my_analysis_tree.add_variable("true_leading_proton_azimuthal_angle",              50,    -3.14,   3.14, "True Leadiing Proton Azimuthal Angle (rad)");
+  my_analysis_tree.add_variable("reco_leading_proton_azimuthal_angle",              50,    -3.14,   3.14, "Leadiing Proton Azimuthal Angle (rad)");
+  my_analysis_tree.add_variable("true_leading_proton_polar_angle",                  50,     0,      3.14, "True Leadiing Proton Polar Angle (rad)");
+  my_analysis_tree.add_variable("reco_leading_proton_polar_angle",                  50,     0,      3.14, "Leadiing Proton Polar Angle (rad)");
+  my_analysis_tree.add_variable("true_leading_proton_ke",                          100,     0,   1000,    "True Leadiing Proton KE (MeV)");
+  my_analysis_tree.add_variable("reco_leading_proton_ke",                          100,     0,   1000,    "Leadiing Proton KE (MeV)");
+  my_analysis_tree.add_variable("true_leading_proton_dpT",                         100,     0,   1000,    "True Leadiing Proton Transverse Momentum (MeV/c)");
+  my_analysis_tree.add_variable("reco_leading_proton_dpT",                         100,     0,   1000,    "Leadiing Proton Transverse Momentum (MeV/c)");
+  my_analysis_tree.add_variable("reco_leading_muon_proton_softmax",                 50,     0,      1,    "Leadiing Muon Proton Softmax");
+  my_analysis_tree.add_variable("reco_leading_muon_muon_softmax",                   50,     0,      1,    "Leadiing Muon Muon Softmax");
+  my_analysis_tree.add_variable("reco_leading_muon_pion_softmax",                   50,     0,      1,    "Leadiing Muon Pion Softmax");
+  my_analysis_tree.add_variable("reco_leading_muon_start_dedx",                     50,     0,     50,    "Leadiing Muon Start dE/dx (MeV/cm)");
+  my_analysis_tree.add_variable("true_leading_muon_azimuthal_angle",                50,    -3.14,   3.14, "True Leadiing Muon Azimuthal Angle (rad)");
+  my_analysis_tree.add_variable("reco_leading_muon_azimuthal_angle",                50,    -3.14,   3.14, "Leadiing Muon Azimuthal Angle (rad)");
+  my_analysis_tree.add_variable("true_leading_muon_polar_angle",                    50,     0,      3.14, "True Leadiing Muon Polar Angle (rad)");
+  my_analysis_tree.add_variable("reco_leading_muon_polar_angle",                    50,     0,      3.14, "Leadiing Muon Polar Angle (rad)");
+  my_analysis_tree.add_variable("true_leading_muon_ke",                            100,     0,   1000,    "True Leadiing Muon KE (MeV)");
+  my_analysis_tree.add_variable("reco_leading_muon_ke",                            100,     0,   1000,    "Leadiing Muon KE (MeV)");
+  my_analysis_tree.add_variable("true_leading_muon_dpT",                           100,     0,   1000,    "True Leadiing Muon Transverse Momentum (MeV/c)");
+  my_analysis_tree.add_variable("reco_leading_muon_dpT",                           100,     0,   1000,    "Leadiing Muon Transverse Momentum (MeV/c)");
+  my_analysis_tree.add_variable("reco_leading_pion_proton_softmax",                 50,     0,      1,    "Leadiing Pion Proton Softmax");
+  my_analysis_tree.add_variable("reco_leading_pion_muon_softmax",                   50,     0,      1,    "Leadiing Pion Muon Softmax");
+  my_analysis_tree.add_variable("reco_leading_pion_pion_softmax",                   50,     0,      1,    "Leadiing Pion Pion Softmax");
+  my_analysis_tree.add_variable("reco_leading_pion_start_dedx",                     50,     0,     50,    "Leadiing Pion Start dE/dx (MeV/cm)");
+  my_analysis_tree.add_variable("true_leading_pion_azimuthal_angle",                50,    -3.14,   3.14, "True Leadiing Pion Azimuthal Angle (rad)");
+  my_analysis_tree.add_variable("reco_leading_pion_azimuthal_angle",                50,    -3.14,   3.14, "Leadiing Pion Azimuthal Angle (rad)");
+  my_analysis_tree.add_variable("true_leading_pion_polar_angle",                    50,     0,      3.14, "True Leadiing Pion Polar Angle (rad)");
+  my_analysis_tree.add_variable("reco_leading_pion_polar_angle",                    50,     0,      3.14, "Leadiing Pion Polar Angle (rad)");
+  my_analysis_tree.add_variable("true_leading_pion_ke",                            100,     0,   1000,    "True Leadiing Pion KE (MeV)");
+  my_analysis_tree.add_variable("reco_leading_pion_ke",                            100,     0,   1000,    "Leadiing Pion KE (MeV)");
+  my_analysis_tree.add_variable("true_leading_pion_dpT",                           100,     0,   1000,    "True Leadiing Pion Transverse Momentum (MeV/c)");
+  my_analysis_tree.add_variable("reco_leading_pion_dpT",                           100,     0,   1000,    "Leadiing Pion Transverse Momentum (MeV/c)");
 
   std::string pdf_suffix = ".pdf";
   ana::tools::cut_sequence cut;
@@ -303,7 +351,7 @@ int run_analysis(const std::string& fileName,
   // should alread be implemented as part of making the selected TTree,
   // but we do this for completeness
   std::cout << "//*** TOPOLOGY ***//" << std::endl;
-  cut += "reco_is_gOre == 1";
+  cut += "reco_gOre_topology == 1";
   try_call(cut.string(), [&my_analysis_tree, &cut]{ my_analysis_tree.report_on_cut(cut); });
   //*** FLASH CUT ***//
   std::cout << "//*** FLASH CUT ***//" << std::endl;
@@ -327,11 +375,9 @@ int run_analysis(const std::string& fileName,
   }
   else
   {
-    //std::cout << "//*** OPTIMIZED CUTS ***//" << std::endl;
-    //cut += "reco_flash_total_pe > 2720";
-    //cut += "reco_gOre_directional_spread < 0.112";
-    //cut += "reco_gOre_score > -0.506";
-    //try_call(cut.string(), [&my_analysis_tree, &cut]{ my_analysis_tree.report_on_cut(cut); });
+    cut += "reco_leading_primary_gOre_photon_softmax > 0.1";
+    cut += "reco_leading_primary_gOre_directional_spread < 0.1";
+    try_call(cut.string(), [&my_analysis_tree, &cut]{ my_analysis_tree.report_on_cut(cut); });
   }
 
   //*** Plot Vars ***//
@@ -397,14 +443,18 @@ int main(int argc, char* argv[])
   gErrorIgnoreLevel=3000;
   //gDebug=3;
   int ret = 0;
-  bool optimize_cuts = true;
+  //bool optimize_cuts = true;
+  bool optimize_cuts = false;
   if (not (argc > 1))
     die("Must pass in the name of the ROOT file to analyze. Bail.");
+  if (not (argc > 2))
+    die("Must give name of sample in file to process");
   const std::string suffix = ".root";
   const std::string fileName(argv[1]);
+  const std::string sampleName(argv[2]);
   if (fileName.compare(fileName.size() - suffix.size(), fileName.size(), suffix) != 0)
     die("File must be a ROOT file (.root extension). Bail.");
-  std::string sample = fileName.substr(0, fileName.size() - suffix.size());
-  ret = try_call("Run gOre Analysis", run_analysis, fileName, sample, "gOre", "gOre", optimize_cuts);
+  std::string sampleBase = fileName.substr(0, fileName.size() - suffix.size());
+  ret = try_call("Run gOre Analysis", run_analysis, fileName, sampleBase, sampleName, "gOre", "gOre", optimize_cuts);
   return ret;
 }

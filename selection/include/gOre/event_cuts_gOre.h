@@ -26,14 +26,15 @@ namespace ecuts::gOre
    * @return true if the event has a true NC ∆->Nγ 
    **/
   template <typename T>
-    bool has_nc_delta_ng_interaction(const T& sr)
+    bool has_nc_delta_ng_interaction(const T& sr, std::vector<double> params = {GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY,
+                                                                                GORE_FID_THRESH_X_POS, GORE_FID_THRESH_X_NEG, GORE_FID_THRESH_Y_POS, GORE_FID_THRESH_Y_NEG, GORE_FID_THRESH_Z_POS, GORE_FID_THRESH_Z_NEG})
     {
       // loop over the sr truth info and check if there's a hit
       for (auto const& interaction : sr.mc.nu)
       {
         bool isnc = interaction.isnc;
         bool delta_res = (interaction.resnum == 0);
-        core::gOre::mc_topology topology(interaction.prim);
+        core::gOre::mc_topology topology(interaction.prim, params);
         bool single_photon = topology.single_photon() && topology.only_photons_and_nucleons();
         if (isnc && delta_res && single_photon)
           return true;
@@ -65,7 +66,7 @@ namespace ecuts::gOre
    * @return true only if there is a gOre interaction and no other shower producing interaction
    **/
   template <typename T>
-    bool gOre_veto(const T& sr)
+    bool gOre_veto(const T& sr, std::vector<double> params = {GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY})
     {
       size_t nreco = sr.ndlp;
       if (nreco < 2)
@@ -74,7 +75,7 @@ namespace ecuts::gOre
       bool otherPhoton(false);
       for (auto const& reco : sr.dlp)
       {
-        core::gOre::Reco_Interaction interaction(reco);
+        core::gOre::Reco_Interaction interaction(reco, params);
         bool this_gOre = interaction.is_valid;
         bool this_photon(false);
         if (not this_gOre)

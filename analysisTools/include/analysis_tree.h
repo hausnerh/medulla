@@ -40,6 +40,7 @@ namespace ana::tools
       analysis_tree(const std::string& inFileName,
                     const std::string& directory,
                     const ana::tools::cut_sequence& selection_cut,
+                    const ana::tools::cut_sequence& signal_cut,
                     const std::string& sel_tree,
                     const std::string& sig_tree,
                     const std::vector<std::pair<std::string, ana::tools::cut_sequence>> sel_cats,
