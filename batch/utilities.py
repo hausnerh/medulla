@@ -1,5 +1,7 @@
 # Utilities for batch processing in medulla projects using jobsub
+import os
 import sqlite3
+import toml
 from glob import glob
 import subprocess
 from pathlib import Path
@@ -102,10 +104,100 @@ def get_samples(
     # Return the list of enabled samples.
     return batches
 
+def create_systematics_cfg(
+    base_cfg : dict,
+    trees : list[dict],
+    samples : list[dict],
+):
+    """
+    Create a TOML configuration for running systematics on the given
+    samples. The configuration is based on the provided base
+    configuration file, which must implement all systematics. Each pair
+    of selection sample and selection tree configuration blocks
+    represents a unique output in the final systematics output file.
+    Systematics are only valid for MC samples, and must specifically be
+    requested in the tree configuration block.
+
+    Parameters
+    ----------
+    base_cfg : dict
+        Base configuration dictionary.
+    trees : list[dict]
+        List of tree configurations in the selection configuration.
+    samples : list[dict]
+        List of sample configurations in the selection configuration.
+    
+    Returns
+    -------
+    syst_cfg : list[dict]
+        List of configuration dictionaries for each sample.
+    """
+    # Loop over each tree and sample combination. If the sample is data
+    # or the tree does not have systematics enabled, skip it. There are
+    # some sanity checks as well to ensure that the proper branches are
+    # present in the tree configuration.
+    syst_trees = {}
+    for tree in trees:
+        for sample in samples:
+            # Check if this combination is already configured. If so,
+            # skip it (this can happen due to the expansion of samples
+            # into batches).
+            key = f"events/{sample['name']}/{tree['name']}"
+            if key in syst_trees:
+                continue
+
+            # Data samples and samples not requesting systematics are
+            # configured with a "copy" action that just copies the
+            # selected events to the output without applying any
+            # systematics.
+            if not sample['ismc'] or not tree.get('add_systematics', False):
+                syst_trees[key] = {
+                    'origin' : key,
+                    'destination' : f'events/{sample["name"]}/',
+                    'name' : tree['name'],
+                    'action' : 'copy',
+                }
+            # If the sample is MC and the tree requests systematics, do
+            # some additional checking and then configure it with a
+            # "add_weights" action.
+            else:
+                # We need to check that the tree configuration includes
+                # both a "neutrino_id" branch and a "neutrino_energy"
+                # branch (if the systematics template has
+                # "use_additional_hash" set to true). These are used by
+                # the systematics code and must be present. Better to
+                # catch it here than have the job fail later.
+                branch_variables = [(b['name'], b['type']) for b in tree['branch']]
+                if ('neutrino_id', 'true') not in branch_variables:
+                    raise ValueError(f"Tree {tree['name']} for sample {sample['name']} requests systematics but does not define a 'neutrino_id' branch.")
+                if base_cfg.get('input.use_additional_hash', False) and ('neutrino_energy', 'mctruth') not in branch_variables:
+                    raise ValueError(f"Tree {tree['name']} for sample {sample['name']} requests systematics but does not define a 'neutrino_energy' branch.")
+                syst_trees[key] = {
+                    'origin' : key,
+                    'destination' : f'events/{sample["name"]}/',
+                    'name' : tree['name'],
+                    'action' : 'add_weights',
+                }
+
+    # Create a new configuration dictionary based on the base
+    # configuration. For grid submission purposes, we always set the
+    # following:
+    # - input.path = "output.root"
+    # - input.weights = "data/*flat*.root"
+    # - output.path = "output_sys.root"
+    # - tree = list of syst_trees values
+    syst_cfg = base_cfg.copy()
+    syst_cfg['input']['path'] = 'output.root'
+    syst_cfg['input']['weights'] = 'data/*flat*.root'
+    syst_cfg['output']['path'] = 'output_sys.root'
+    syst_cfg['tree'] = list(syst_trees.values())
+    return syst_cfg
+
 def create_new_project(
     project_dir : Path,
     tml : str,
-    batch_size : int
+    batch_size : int,
+    sys : str = Path(__file__).resolve().parent / 'sys_template.toml',
 ):
     """
     Create a new project directory with the necessary subdirectories
@@ -121,6 +213,10 @@ def create_new_project(
         Path to the TOML file containing the configuration.
     batch_size : int
         Number of files to process in each batch.
+    sys : str
+        Path to the TOML file containing the systematics configuration
+        template. If not provided, the default template in the
+        medulla/batch directory is used.
 
     Returns
     -------
@@ -147,6 +243,13 @@ def create_new_project(
     cfg = toml.load(tml)
     samples = get_samples(tml, batch_size)
 
+    # Create a systematics configuration based on the selection
+    # configuration. This will be used by each job to run systematics
+    # after the selection step.
+    sys = create_systematics_cfg(toml.load(sys), cfg.get('tree', []), samples)
+    with open(project_dir / 'systematics.toml', 'w') as f:
+        toml.dump(sys, f)
+
     # Form a "batch" config for each sample: i.e., each sample gets a
     # copy of the TOML configuration with the [[tree]] list preserved,
     # the [general] section modified to set the 'output' key to its
@@ -167,7 +270,6 @@ def create_new_project(
     command(curs, "INSERT INTO configuration (jobid, cfg) VALUES (?, ?)", ins_configurations)
     command(curs, "INSERT INTO jobs (jobid, status) VALUES (?, ?)", ins_jobs)
     conn.commit()
-
     conn.close()
 
 def check_project_status(

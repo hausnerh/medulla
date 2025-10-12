@@ -48,7 +48,7 @@ def main(
         if project_exists:
             raise FileExistsError(f"Project database {project_dir / 'project.db'} already exists.")
         create_new_project(project_dir, tml, batch_size)
-        print(f"Created new project in {project_dir}")
+        print(f"[INFO] -- Created new project in {project_dir}")
 
     # If the project exists, do a check of the project status.
     if project_exists:
