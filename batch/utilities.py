@@ -294,6 +294,7 @@ def launch_jobsub(
             print(f"[ERROR] -- Job submission failed with error: {output}")
         return
     
-    #stdout = out.stdout.strip()
-    #print(stdout)
+    stdout = out.stdout.strip()
+    last_lines = '\n'.join(stdout.split('\n')[-4:])
+    print(last_lines)
     print(f"[INFO] -- Launched {njobs} jobs.")
