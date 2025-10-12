@@ -367,25 +367,29 @@ void sys::trees::copy_with_weight_systematics(cfg::ConfigurationTable & config, 
         directory->WriteObject(value, (key+"Tree").c_str());
     
     // Write the systematic histograms to the output file.
-    TDirectory * histogram_directory = create_directory(output, config.get_string_field("output.histogram_destination"));
-    for(auto & [key, value] : results2d)
+    std::string destination = config.get_string_field("output.histogram_destination", "");
+    if(destination != "")
     {
-        std::string name = value->GetName();
-        histogram_directory->WriteObject(value, name.c_str());
-        for(int i(0); i < value->GetNbinsY(); ++i)
+        TDirectory * histogram_directory = create_directory(output, destination.c_str());
+        for(auto & [key, value] : results2d)
         {
-            double sum(0);
-            for(int j(0); j < value->GetNbinsX(); ++j)
-                sum += value->GetBinContent(j+1, i+1);
-            results1d[key]->Fill((sum - nominal_count) / nominal_count);
+            std::string name = value->GetName();
+            histogram_directory->WriteObject(value, name.c_str());
+            for(int i(0); i < value->GetNbinsY(); ++i)
+            {
+                double sum(0);
+                for(int j(0); j < value->GetNbinsX(); ++j)
+                    sum += value->GetBinContent(j+1, i+1);
+                results1d[key]->Fill((sum - nominal_count) / nominal_count);
+            }
+            delete value;
         }
-        delete value;
-    }
-    for(auto & [key, value] : results1d)
-    {
-        std::string name = value->GetName();
-        histogram_directory->WriteObject(value, name.c_str());
-        delete value;
+        for(auto & [key, value] : results1d)
+        {
+            std::string name = value->GetName();
+            histogram_directory->WriteObject(value, name.c_str());
+            delete value;
+        }
     }
 
     // Write detector systematic histograms to the output file.
