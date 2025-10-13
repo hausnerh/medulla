@@ -372,7 +372,7 @@ def launch_jobsub(
         '--singularity-image=/cvmfs/singularity.opensciencegrid.org/fermilab/fnal-wn-sl7:latest',
         f'file://{Path(__file__).resolve().parent / "submit.sh"}',
         '--',
-        f'--project-dir={project_dir.resolve()}',
+        f'--project={project_dir.resolve()}',
     ]
     print(f"[INFO] -- Launching {njobs} jobs with command: {' '.join(cmd)}")
 

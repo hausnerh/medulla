@@ -7,6 +7,10 @@
 #   --project=PROJECT   : Specify the project directory
 #######################################################################
 
+# Initialize variables
+PROJECT=""
+
+# Parse arguments
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --project=*)
@@ -31,14 +35,24 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-echo "Project: $PROJECT"
+#######################################################################
+# Check for required arguments
+#######################################################################
+missing_args=()
+[[ -z "$PROJECT" ]] && missing_args+=("--project")
 
-###############################################
+if [[ ${#missing_args[@]} -gt 0 ]]; then
+    echo "Error: Missing required argument(s): ${missing_args[*]}" >&2
+    usage
+    exit 1
+fi
+
+#######################################################################
 # Initial Setup
-###############################################
+#######################################################################
 
 # Setup CVMFS area
-source /cvmfs/sbnd.opensciencegrid.org/products/sbnd/setup_sbnd.sh
+source /cvmfs/icarus.opensciencegrid.org/products/icarus/setup_icarus.sh
 
 # Setup the required dependencies
 setup sbnana v10_01_02_01 -q e26:prof
@@ -49,15 +63,16 @@ ups active
 # Build medulla
 git clone https://github.com/justinjmueller/medulla.git
 cd medulla
+git checkout feature/grid_workflow
 mkdir build && cd build
 export CC=$(which gcc)
 export CXX=$(which g++)
 cmake .. -DCMAKE_CXX_STANDARD=17 -DCMAKE_CXX_COMPILER=$CXX -DCMAKE_C_COMPILER=$CC
 make -j4
 
-###############################################
+#######################################################################
 # Prestage job-specific files
-###############################################
+#######################################################################
 
 # Copy the project database
 ifdh cp --cp_maxretries=0 --web_timeout=100 $PROJECT/project.db project.db
@@ -95,9 +110,9 @@ cat job_config.toml
 ls -lrth .
 ls -lrth data/
 
-###############################################
+#######################################################################
 # Run the analysis
-###############################################
+#######################################################################
 
 # Run medulla (selection)
 ./selection/medulla job_config.toml
