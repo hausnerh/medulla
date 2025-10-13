@@ -177,6 +177,7 @@ def create_systematics_cfg(
                     'destination' : f'events/{sample["name"]}/',
                     'name' : tree['name'],
                     'action' : 'add_weights',
+                    'table_types': ['multisim', 'multisigma']
                 }
 
     # Create a new configuration dictionary based on the base
@@ -197,7 +198,7 @@ def create_new_project(
     project_dir : Path,
     tml : str,
     batch_size : int,
-    sys : str = Path(__file__).resolve().parent / 'sys_template.toml',
+    sys : str = None,
 ):
     """
     Create a new project directory with the necessary subdirectories
@@ -246,6 +247,8 @@ def create_new_project(
     # Create a systematics configuration based on the selection
     # configuration. This will be used by each job to run systematics
     # after the selection step.
+    if sys is None:
+        sys = Path(__file__).resolve().parent / 'sys_template.toml'
     sys = create_systematics_cfg(toml.load(sys), cfg.get('tree', []), samples)
     with open(project_dir / 'systematics.toml', 'w') as f:
         toml.dump(sys, f)
