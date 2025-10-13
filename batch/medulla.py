@@ -10,6 +10,7 @@ def main(
     test_job : bool = False,
     tml : str = None,
     batch_size : int = None,
+    systematic : str = None,
 ):
     """
     Main function to run the medulla script.
@@ -29,6 +30,9 @@ def main(
         Path to the TOML file containing the configuration.
     batch_size : int
         Number of files to process in each batch.
+    systematic : str
+        Path to the systematic template file to use. If None, use the
+        default template file in the batch directory.
 
     Returns
     -------
@@ -47,7 +51,7 @@ def main(
             raise ValueError("Batch size must be provided when creating a new project.")
         if project_exists:
             raise FileExistsError(f"Project database {project_dir / 'project.db'} already exists.")
-        create_new_project(project_dir, tml, batch_size)
+        create_new_project(project_dir, tml, batch_size, systematic)
         print(f"[INFO] -- Created new project in {project_dir}")
 
     # If the project exists, do a check of the project status.
@@ -92,6 +96,14 @@ if __name__ == '__main__':
         help='Number of files to process in each batch (only used when creating a new project).'
     )
 
+    # The --systematic flag indicates the systematic template file to
+    # use. The default is the template file in the batch directory.
+    # This is used when creating a new project.
+    p.add_argument(
+        '--systematic', '-s', type=str, default=None,
+        help='Path to the systematic template file to use.'
+    )
+
     # The --test-job flag indicates that a test job should be run. That
     # is, launch a single job to test the configuration.
     p.add_argument(
@@ -130,4 +142,5 @@ if __name__ == '__main__':
         test_job=args.test_job,
         tml=args.toml,
         batch_size=args.batch_size,
+        systematic=args.systematic,
     )
