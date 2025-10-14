@@ -5,6 +5,7 @@ from utilities import create_new_project, check_project_status, launch_jobsub
 
 def main(
     project_dir : str,
+    experiment : str,
     create_project : bool,
     launch_jobs : int = None,
     test_job : bool = False,
@@ -19,6 +20,8 @@ def main(
     ----------
     project_dir : str
         Path to the base directory for the job directory.
+    experiment : str
+        Experiment name (default: sbnd).
     create_project : bool
         Whether to create a new project. If this is True, then tml and
         batch_size must be provided.
@@ -63,13 +66,13 @@ def main(
     if test_job:
         if not project_exists:
             raise FileNotFoundError(f"Project database {project_dir / 'project.db'} does not exist. Please create a new project first.")
-        launch_jobsub(project_dir, njobs=1)
+        launch_jobsub(project_dir, experiment, njobs=1)
 
     # If the user requested to launch jobs, do so.
     if launch_jobs is not None:
         if not project_exists:
             raise FileNotFoundError(f"Project database {project_dir / 'project.db'} does not exist. Please create a new project first.")
-        launch_jobsub(project_dir, njobs=launch_jobs)
+        launch_jobsub(project_dir, experiment, njobs=launch_jobs)
 
 if __name__ == '__main__':
     p = ArgumentParser(description='Run medulla.')
@@ -78,6 +81,12 @@ if __name__ == '__main__':
     p.add_argument(
         '--project-dir', '-p', type=str, required=True,
         help='Path to the base directory for the job directory.'
+    )
+
+    # The experiment is always required.
+    p.add_argument(
+        '--experiment', '-e', type=str, required=False, default='sbnd',
+        help='Experiment name (default: sbnd).'
     )
 
     # The --create-project flag indicates that a new project should be
@@ -122,6 +131,10 @@ if __name__ == '__main__':
 
     args = p.parse_args()
 
+    # Requirement: the experiment must be sbnd or icarus.
+    if args.experiment not in ['sbnd', 'icarus']:
+        p.error("Experiment must be either 'sbnd' or 'icarus'.")
+
     # Conditional requirement: if --create-project is set, then --toml
     # and --batch-size are required.
     if args.create_project and args.toml is None:
@@ -137,6 +150,7 @@ if __name__ == '__main__':
     # Run the main function.
     main(
         project_dir=args.project_dir,
+        experiment=args.experiment,
         create_project=args.create_project,
         launch_jobs=args.launch_jobs,
         test_job=args.test_job,

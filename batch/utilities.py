@@ -315,6 +315,7 @@ def check_project_status(
 
 def launch_jobsub(
     project_dir : str,
+    exp : str = 'sbnd',
     njobs : int = -1,
 ):
     """
@@ -325,6 +326,8 @@ def launch_jobsub(
     ----------
     project_dir : str
         Path to the base directory for the job directory.
+    exp : str
+        Experiment name (default: sbnd).
     njobs : int
         Number of jobs to launch. If None, launch all pending jobs.
 
@@ -365,10 +368,10 @@ def launch_jobsub(
     # Form the jobsub command to launch the jobs.
     cmd = [
         'jobsub_submit',
-        '-G', 'sbnd',
+        '-G', exp,
         '-N', str(njobs),
         '--memory=1800MB',
-        '--disk=25GB',
+        f'--disk={"10GB" if exp == "sbnd" else "25GB"}',
         '--expected-lifetime=1h',
         '--resource-provides=usage_model=DEDICATED,OPPORTUNISTIC,OFFSITE',
         "--append_condor_requirements='(TARGET.HAS_Singularity==true)'",
