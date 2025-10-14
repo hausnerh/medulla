@@ -368,7 +368,7 @@ def launch_jobsub(
         '-G', 'sbnd',
         '-N', str(njobs),
         '--memory=1800MB',
-        '--disk=10GB',
+        '--disk=25GB',
         '--expected-lifetime=1h',
         '--resource-provides=usage_model=DEDICATED,OPPORTUNISTIC,OFFSITE',
         "--append_condor_requirements='(TARGET.HAS_Singularity==true)'",
