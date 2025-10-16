@@ -255,6 +255,7 @@ class SpineSpectra2D(SpineSpectra):
                 # Draw uniform bins histogram using imshow
                 ax.imshow(values.T, extent=(binedges[0], binedges[-1], binedges[0], binedges[-1]),
                         aspect='auto', origin='lower', norm=ln if logz else None)
+                mesh = None
             else:
                 # Draw non-uniform bins histogram using pcolormesh
                 mesh = ax.pcolormesh(
@@ -277,7 +278,7 @@ class SpineSpectra2D(SpineSpectra):
             # Draw the colorbar if requested. The color axis may also
             # be logarithmic if requested.
             if draw_colorbar:
-                cbar = plt.colorbar(ax.images[0], ax=ax) if mesh is None else plt.colorbar(mesh, ax=ax)
+                cbar = plt.colorbar(ax.images[0] if mesh is None else mesh,  ax=ax)
                 cbar.set_label('Entries')
 
         if show_option == 'projection' and self._plotdata_diagonal is not None:
