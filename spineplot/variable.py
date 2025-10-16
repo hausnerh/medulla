@@ -53,8 +53,8 @@ class Variable:
             The number of bins for the variable.
         binning_scheme : str
             The binning scheme for the variable. This can be either
-            'equal_width', 'custom_bins', or 'equal_population'. The default is
-            'equal_width,' which creates bins of equal width
+            'equal_width', 'custom_bins', or 'equal_population'. The 
+            default is 'equal_width,' which creates bins of equal width
             irrespective of the number of entries in each bin.
             Option 'custom_bins' requires entering bin edges tuple for 
             parameter custom_bins.
@@ -63,7 +63,8 @@ class Variable:
         mask : string, optional
             A mask formula to apply to the variable. The default is None.
         custom_bins : tuple
-            The customized bin edges (required if binning_scheme = 'custom_bins').
+            The customized bin edges (required if binning_scheme is
+            'custom_bins').
 
         Returns
         -------
@@ -127,14 +128,10 @@ class Variable:
                     self._bin_edges[g] = np.percentile(all_entries[range_mask], np.linspace(0, 100, self._nbins+1))
                     self._bin_centers[g] = 0.5*(self._bin_edges[g][1:] + self._bin_edges[g][:-1])
                     self._bin_widths[g] = self._bin_edges[g][1:] - self._bin_edges[g][:-1]
-                elif self._binning_scheme == 'custom_bins':
-                    try:
-                        self._nbins = len(self._custom_bins) - 1
-                        self._range = (self._custom_bins[0], self._custom_bins[-1])
-                        self._bin_edges[g] = np.array(self._custom_bins)
-                    except TypeError:
-                        print(f'Cannot find custom_bins for variable {self._name}, category {g}. Use equal bin width instead.')
-                        self._bin_edges[g] = np.linspace(self._range[0], self._range[1], self._nbins+1)
+                elif self._custom_bins is not None and self._binning_scheme == 'custom_bins':
+                    self._nbins = len(self._custom_bins) - 1
+                    self._range = (self._custom_bins[0], self._custom_bins[-1])
+                    self._bin_edges[g] = np.array(self._custom_bins)
                     self._bin_centers[g] = 0.5*(self._bin_edges[g][1:] + self._bin_edges[g][:-1])
                     self._bin_widths[g] = self._bin_edges[g][1:] - self._bin_edges[g][:-1]
                 else:
