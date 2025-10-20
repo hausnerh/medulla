@@ -8,6 +8,7 @@ The `medulla` package is designed to be an all-encompassing tool for selection d
 This tutorial will reference the example configuration files located in the `tutorial/examples` directory. These files can be used as a starting point for your own selection development. The examples provided include:
 * `example01_ccqe.toml` - a simple charged-current quasi-elastic (CCQE)-like selection.
 * `example02_muons.toml` - a particle-level selection focusing on muons.
+* `example03_cccoh.toml` - a charged-current coherent pion production (CCCOH) selection.
 
 A slack channel in the SBN workspace (#medulla) is available for questions and discussion. Please do use it!
 
@@ -28,7 +29,7 @@ setup cmake v3_27_4
 
 # Clone the medulla repository:
 git clone https://github.com/justinjmueller/medulla.git medulla
-cd medulla && git checkout v1.0.2
+cd medulla && git checkout v1.0.3
 mkdir build && cd build
 
 # Configure and build medulla:
@@ -352,18 +353,18 @@ Some notes on the command-line arguments:
 The total number of files and therefore the total number of jobs is calculated by expanding patterns in the `path` parameter of each `sample` block in the configuration file. Once the project is created, it is recommended that the user submit a single test job to ensure that everything is set up correctly:
 
 ```bash
-python3 medulla/batch/medulla.py -p <path_to_project> --test-job
+python3 medulla/batch/medulla.py -p <path_to_project> -e <experiment> --test-job
 ```
 This will form a candidate job submission and prompt the user to confirm that it looks correct. If everything looks good, the user can proceed with the test job submission. After the test job completes successfully, the user can submit the full set of jobs:
 
 ```bash
-python3 medulla/batch/medulla.py -p <path_to_project> --launch-jobs
+python3 medulla/batch/medulla.py -p <path_to_project> -e <experiment> --launch-jobs
 ```
 
 or
 
 ```bash
-python3 medulla/batch/medulla.py -p <path_to_project> --launch-jobs N
+python3 medulla/batch/medulla.py -p <path_to_project> -e <experiment> --launch-jobs N
 ```
 
 where `N` is some integer number of jobs to launch (e.g., `10` to launch 10 jobs). If no number is provided, all jobs will be launched. Each time this script is run, it will check for completed output files and only submit jobs that have not yet completed. This does not check for running jobs, so the user should be careful not to submit duplicate jobs.
