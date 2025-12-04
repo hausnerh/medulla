@@ -17,10 +17,12 @@
 #include "THStack.h"
 #include "TGaxis.h"
 #include "TGraph.h"
+#include "TLatex.h"
 #include "TLegend.h"
 #include "TLine.h"
 #include "TMarker.h"
 #include "TMultiGraph.h"
+#include "TRandom.h"
 
 #include <memory>
 #include <string>
@@ -44,7 +46,13 @@ namespace ana::tools
     std::shared_ptr<TLegend> legend;
     std::shared_ptr<THStack> stack;
     std::vector<std::shared_ptr<TH1F>> hists;
+    std::shared_ptr<TH1F> err;
+    std::tuple<double, double, double, double> LegendPlace() const;
+    void ConstructLegend();
+    void Preliminary();
+    void SetStatUncertainty();
     void Print(const std::string& file_name) const;
+    void PrintPreliminary(const std::string& file_name);
   };
 
   /**
@@ -82,7 +90,10 @@ namespace ana::tools
     double limit;
     double fom;
     bool is_upper_bound; ///< false -> lower bound
+    std::tuple<double, double, double, double> LegendPlace() const;
+    void Preliminary();
     void Print(const std::string& file_name) const;
+    void PrintPreliminary(const std::string& file_name);
   };
 
 }// end ana::tools namespace
