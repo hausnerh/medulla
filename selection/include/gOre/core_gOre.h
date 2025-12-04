@@ -204,7 +204,7 @@ namespace core::gOre
       mc_topology(const caf::Proxy<std::vector<caf::SRTrueParticle>>& particle_vec, std::vector<double> params = {GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY,
                                                                                                                   GORE_FID_THRESH_X_POS, GORE_FID_THRESH_X_NEG, GORE_FID_THRESH_Y_POS, GORE_FID_THRESH_Y_NEG, GORE_FID_THRESH_Z_POS, GORE_FID_THRESH_Z_NEG})
       {
-        // init threshol3s
+        // init thresholds
         energy_thresholds = (params.size() < 4) ? std::vector({GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY}) : std::vector({params.at(0), params.at(1), params.at(2), params.at(3)});
         fiducial_thresholds = (params.size() < 10) ? std::vector({GORE_FID_THRESH_X_POS, GORE_FID_THRESH_X_NEG, GORE_FID_THRESH_Y_POS, GORE_FID_THRESH_Y_NEG, GORE_FID_THRESH_Z_POS, GORE_FID_THRESH_Z_NEG}) : std::vector({params.at(4), params.at(5), params.at(6), params.at(7), params.at(8), params.at(9)});
         // verify non-empty vector
@@ -316,6 +316,11 @@ namespace core::gOre
       bool has_pi0() const
       {
         return has(111);
+      }
+      /** @brief does the topology have a charged pion? **/
+      bool has_pi_pm() const
+      {
+        return count_with_antiparticles(211) > 0;
       }
       /** @brief is the interaction vertex contained in the fiducial volume? **/
       bool is_fiducial() const

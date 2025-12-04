@@ -391,11 +391,6 @@ int run_analysis(const std::string& fileName,
   }
   else
   {
-    auto precut_leading_primary_gOre_primary_softmax =
-      try_call("leading_primary_gOre_primary_softmax",
-         [&my_analysis_tree, &cut]{ return my_analysis_tree.plot_var_sel("reco_leading_primary_gOre_primary_softmax", cut); });
-    precut_leading_primary_gOre_primary_softmax.PrintPreliminary("plots/"+sample+"/precut_leading_primary_gOre_primary_softmax"+pdf_suffix);
-
     auto precut_leading_primary_gOre_start_dedx =
       try_call("leading_primary_gOre_start_dedx",
          [&my_analysis_tree, &cut]{ return my_analysis_tree.plot_var_sel("reco_leading_primary_gOre_start_dedx", cut); });
@@ -416,22 +411,11 @@ int run_analysis(const std::string& fileName,
          [&my_analysis_tree, &cut]{ return my_analysis_tree.plot_var_sel("reco_leading_primary_gOre_photon_softmax", cut); });
     precut_leading_primary_gOre_photon_softmax.PrintPreliminary("plots/"+sample+"/precut_leading_primary_gOre_photon_softmax"+pdf_suffix);
 
-    std::cout << "//*** Electron/Photon Seperation ***//" << std::endl;
-    //cut += "reco_leading_primary_gOre_primary_softmax > 0.992";
-    //cut += "reco_leading_primary_gOre_start_dedx > 3.495";
-    //cut += "reco_leading_primary_gOre_axial_spread > -0.1895";
-    //cut += "reco_leading_primary_gOre_directional_spread < 0.113";
-    //cut += "reco_leading_primary_gOre_photon_softmax > 0.077";
-    cut += "reco_leading_primary_gOre_start_dedx > 3.645";
-    cut += "reco_leading_primary_gOre_axial_spread > -0.005";
-    cut += "reco_leading_primary_gOre_directional_spread < 0.068";
-    cut += "reco_leading_primary_gOre_photon_softmax > 0.092";
-    try_call(cut.string(), [&my_analysis_tree, &cut]{ my_analysis_tree.report_on_cut(cut); });
-
-    auto postcut_leading_primary_gOre_primary_softmax =
-      try_call("leading_primary_gOre_primary_softmax",
-         [&my_analysis_tree, &cut]{ return my_analysis_tree.plot_var_sel("reco_leading_primary_gOre_primary_softmax", cut); });
-    postcut_leading_primary_gOre_primary_softmax.PrintPreliminary("plots/"+sample+"/postcut_leading_primary_gOre_primary_softmax"+pdf_suffix);
+    cut += "reco_leading_primary_gOre_primary_softmax > 0.992";
+    cut += "reco_leading_primary_gOre_start_dedx > 3.495";
+    cut += "reco_leading_primary_gOre_axial_spread > -0.1895";
+    cut += "reco_leading_primary_gOre_directional_spread < 0.113";
+    cut += "reco_leading_primary_gOre_photon_softmax > 0.077";
 
     auto postcut_leading_primary_gOre_start_dedx =
       try_call("leading_primary_gOre_start_dedx",
@@ -453,37 +437,105 @@ int run_analysis(const std::string& fileName,
          [&my_analysis_tree, &cut]{ return my_analysis_tree.plot_var_sel("reco_leading_primary_gOre_photon_softmax", cut); });
     postcut_leading_primary_gOre_photon_softmax.PrintPreliminary("plots/"+sample+"/postcut_leading_primary_gOre_photon_softmax"+pdf_suffix);
 
-    // *** Fit Pion Mass Peak ***
+    auto plot_gOre_ke_electron_cuts = 
+      try_call("plot_gOre_ke_electron_cuts",
+        [&my_analysis_tree, &cut]{ return my_analysis_tree.plot_var_sel("reco_leading_primary_gOre_ke", cut); });
+    plot_gOre_ke_electron_cuts.PrintPreliminary("plots/"+sample+"/electron_cuts_reco_leading_primary_gOre_ke"+pdf_suffix);
 
-    auto precut_subleading_primary_gOre_ke =
-      try_call("subleading_primary_gOre_ke",
-         [&my_analysis_tree, &cut]{ return my_analysis_tree.plot_var_sel("reco_subleading_primary_gOre_ke", cut); });
-    precut_subleading_primary_gOre_ke.PrintPreliminary("plots/"+sample+"/precut_subleading_primary_gOre_ke"+pdf_suffix);
+    auto plot_n_protons_electron_cuts = 
+      try_call("plot_n_protons_electron_cuts",
+        [&my_analysis_tree, &cut]{ return my_analysis_tree.plot_var_sel("reco_n_protons", cut); });
+    plot_n_protons_electron_cuts.PrintPreliminary("plots/"+sample+"/electron_cuts_reco_n_protons"+pdf_suffix);
 
-    auto precut_pion_mass =
-      try_call("pion_mass",
-         [&my_analysis_tree, &cut]{ return my_analysis_tree.plot_var_sel("reco_pion_mass", cut); });
-    precut_pion_mass.PrintPreliminary("plots/"+sample+"/precut_pion_mass"+pdf_suffix);
+    auto plot_gOre_photon_softmax_electron_cuts =
+      try_call("plot_gOre_ke_electron_cuts",
+        [&my_analysis_tree, &cut]{ return my_analysis_tree.plot_var_sel("reco_leading_primary_gOre_photon_softmax", cut); });
+    plot_gOre_photon_softmax_electron_cuts.PrintPreliminary("plots/"+sample+"/electron_cuts_photon_softmax"+pdf_suffix);
 
-    TH1F precut_pion_mass_tofit = precut_pion_mass.SumHist();
-    TF1* pion_fit = new TF1("pion_fit", "[0]*exp((-0.5*(x - [1])/[2])**2) + [3]*exp((-0.5*(x - [4])/[5])**2)", 0, 250);
-    precut_pion_mass_tofit.Fit(pion_fit);
+    auto plot_true_category_electron_cuts =
+      try_call("plot_true_category_electron_cuts", 
+        [&my_analysis_tree, &cut]{ return my_analysis_tree.plot_var_sel("true_category", cut); });
+    for (size_t bin = 1; bin < plot_true_category_electron_cuts.hists.front()->GetXaxis()->GetNbins() + 1; ++bin)
+    {
+      int bin_code = plot_true_category_electron_cuts.hists.front()->GetXaxis()->GetBinCenter(bin);
+      std::string bin_label = sel_cats.at(bin_code).first;
+      for (auto& hist : plot_true_category_electron_cuts.hists)
+        hist->GetXaxis()->SetBinLabel(bin, bin_label.c_str());
+    }
+    plot_true_category_electron_cuts.stack->SetTitle(";;Events");
+    plot_true_category_electron_cuts.PrintPreliminary("plots/"+sample+"/electron_cuts_true_category"+pdf_suffix);
 
-    std::cout << "//*** Pion Rejection ***//" << std::endl;
-    cut.add_conditional_cut("reco_pion_mass > 0", "reco_pion_mass < 94.2");
-    cut.add_conditional_cut("reco_subleading_primary_gOre_ke > 0", "reco_subleading_primary_gOre_ke < 6.8");
+    auto plot_true_mc_category_electron_cuts =
+      try_call("plot_true_mc_category_electron_cuts", 
+        [&my_analysis_tree, &cut]{ return my_analysis_tree.plot_var_sel("true_mc_category", cut); });
+    for (size_t bin = 1; bin < plot_true_mc_category_electron_cuts.hists.front()->GetXaxis()->GetNbins() + 1; ++bin)
+    {
+      int bin_code = plot_true_mc_category_electron_cuts.hists.front()->GetXaxis()->GetBinCenter(bin);
+      std::string bin_label = mc_cats.at(bin_code);
+      for (auto& hist : plot_true_mc_category_electron_cuts.hists)
+        hist->GetXaxis()->SetBinLabel(bin, bin_label.c_str());
+    }
+    plot_true_mc_category_electron_cuts.stack->SetTitle(";;Events");
+    plot_true_mc_category_electron_cuts.PrintPreliminary("plots/"+sample+"/electron_cuts_true_mc_category"+pdf_suffix);
+
+    auto plot_signal_true_category_electron_cuts =
+      try_call("plot_signal_true_category_electron_cuts", 
+        [&my_analysis_tree, &cut]{ return my_analysis_tree.plot_var_sig("true_category", cut); });
+    for (size_t bin = 1; bin < plot_signal_true_category_electron_cuts.hists.front()->GetXaxis()->GetNbins() + 1; ++bin)
+    {
+      int bin_code = plot_signal_true_category_electron_cuts.hists.front()->GetXaxis()->GetBinCenter(bin);
+      std::string bin_label = sel_cats.at(bin_code).first;
+      for (auto& hist : plot_signal_true_category_electron_cuts.hists)
+        hist->GetXaxis()->SetBinLabel(bin, bin_label.c_str());
+    }
+    plot_signal_true_category_electron_cuts.stack->SetTitle(";;Events");
+    plot_signal_true_category_electron_cuts.PrintPreliminary("plots/"+sample+"/electron_cuts_signal_true_category"+pdf_suffix);
+
+    auto plot_signal_true_mc_category_electron_cuts =
+      try_call("plot_signal_true_mc_category_electron_cuts", 
+        [&my_analysis_tree, &cut]{ return my_analysis_tree.plot_var_sig("true_mc_category", cut); });
+    for (size_t bin = 1; bin < plot_signal_true_mc_category_electron_cuts.hists.front()->GetXaxis()->GetNbins() + 1; ++bin)
+    {
+      int bin_code = plot_signal_true_mc_category_electron_cuts.hists.front()->GetXaxis()->GetBinCenter(bin);
+      std::string bin_label = mc_cats.at(bin_code);
+      for (auto& hist : plot_signal_true_mc_category_electron_cuts.hists)
+        hist->GetXaxis()->SetBinLabel(bin, bin_label.c_str());
+    }
+    plot_signal_true_mc_category_electron_cuts.stack->SetTitle(";;Events");
+    plot_signal_true_mc_category_electron_cuts.PrintPreliminary("plots/"+sample+"/electron_cuts_signal_true_mc_category"+pdf_suffix);
+    
     try_call(cut.string(), [&my_analysis_tree, &cut]{ my_analysis_tree.report_on_cut(cut); });
 
-    auto postcut_subleading_primary_gOre_ke =
-      try_call("subleading_primary_gOre_ke",
-         [&my_analysis_tree, &cut]{ return my_analysis_tree.plot_var_sel("reco_subleading_primary_gOre_ke", cut); });
-    postcut_subleading_primary_gOre_ke.PrintPreliminary("plots/"+sample+"/postcut_subleading_primary_gOre_ke"+pdf_suffix);
+    auto plot_reco_pion_mass_electron_cuts = 
+      try_call("plot_reco_pion_mass_electron_cuts",
+        [&my_analysis_tree, &cut]{ return my_analysis_tree.plot_var_sel("reco_pion_mass", cut); });
+    plot_reco_pion_mass_electron_cuts.PrintPreliminary("plots/"+sample+"/electron_cuts_reco_pion_mass"+pdf_suffix);
 
-    auto postcut_pion_mass =
-      try_call("pion_mass",
-         [&my_analysis_tree, &cut]{ return my_analysis_tree.plot_var_sel("reco_pion_mass", cut); });
-    postcut_pion_mass.PrintPreliminary("plots/"+sample+"/postcut_pion_mass"+pdf_suffix);
+    auto plot_reco_subleading_primary_gOre_ke_electron_cuts = 
+      try_call("plot_reco_subleading_primary_gOre_ke_electron_cuts",
+        [&my_analysis_tree, &cut]{ return my_analysis_tree.plot_var_sel("reco_subleading_primary_gOre_ke", cut); });
+    plot_reco_subleading_primary_gOre_ke_electron_cuts.PrintPreliminary("plots/"+sample+"/electron_cuts_reco_subleading_primary_gOre_ke"+pdf_suffix);
 
+    auto plot_shower_ke_diff = 
+      try_call("plot shower KE frac diff",
+        [&my_analysis_tree, &cut]{ return my_analysis_tree.plot_var_sel("(reco_leading_primary_gOre_ke - true_leading_primary_gOre_ke)/true_leading_primary_gOre_ke", cut); });
+    plot_shower_ke_diff.PrintPreliminary("plots/"+sample+"/electron_cuts_shower_ke_diff"+pdf_suffix);
+
+    auto plot_signal_shower_ke_diff = 
+      try_call("plot signal shower KE frac diff",
+        [&my_analysis_tree, &cut]{ return my_analysis_tree.plot_var_sig("(reco_leading_primary_gOre_ke - true_leading_primary_gOre_ke)/true_leading_primary_gOre_ke", cut); });
+    plot_signal_shower_ke_diff.PrintPreliminary("plots/"+sample+"/electron_cuts_signal_shower_ke_diff"+pdf_suffix);
+
+    auto plot_reco_azimuthal_angle = 
+      try_call("plot shower azimuthal angle",
+        [&my_analysis_tree, &cut]{ return my_analysis_tree.plot_var_sel("reco_leading_primary_gOre_azimuthal_angle", cut); });
+    plot_reco_azimuthal_angle.stack->SetMaximum(400);
+    plot_reco_azimuthal_angle.PrintPreliminary("plots/"+sample+"/electron_cuts_reco_leading_primary_gOre_azimuthal_angle"+pdf_suffix);
+
+    auto plot_reco_polar_angle = 
+      try_call("plot shower polar angle",
+        [&my_analysis_tree, &cut]{ return my_analysis_tree.plot_var_sel("reco_leading_primary_gOre_polar_angle", cut); });
+    plot_reco_polar_angle.PrintPreliminary("plots/"+sample+"/electron_cuts_reco_leading_primary_gOre_polar_angle"+pdf_suffix);
   }
 
   //*** Plot Vars ***//

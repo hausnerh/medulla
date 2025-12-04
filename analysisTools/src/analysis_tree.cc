@@ -148,8 +148,8 @@ namespace ana::tools
     {
       std::ostringstream limStrm;
       limStrm << std::setprecision(10) << limit;
-      ana::tools::cut_sequence cut = old_cut.with_addition(var + " < " + limStrm.str());
-      ana::tools::cut_sequence truth_cut = old_truth_cut.with_addition(true_var + " < " + limStrm.str());
+      ana::tools::cut_sequence cut = old_cut.with_addition(var + " > " + limStrm.str());
+      ana::tools::cut_sequence truth_cut = old_truth_cut.with_addition(true_var + " > " + limStrm.str());
       auto [new_total_signal, selected_signal, selected_background, efficiency, purity] = signal_def_e_p(cut, truth_cut);
       double fom = get_fom(selected_signal, selected_background, efficiency, purity);
       opt.purity_graph->AddPoint(limit, purity);
@@ -183,17 +183,19 @@ namespace ana::tools
     newNuBackgroundTree->SetDirectory(memFile.get());
     backgroundTree = std::move(newNuBackgroundTree);
     total_signal = signalTree->GetEntries();
-    
-    for (size_t idx = 0; idx < opt.fom_graph->GetN(); ++idx)
-    {
-      double fom, bound;
-      opt.fom_graph->GetPoint(idx, bound, fom);
-      opt.fom_graph->SetPoint(idx, bound, fom / std::ceil(opt.fom));
-    }
+    if (opt.fom != 0) 
+      for (size_t idx = 0; idx < opt.fom_graph->GetN(); ++idx)
+      {
+        double fom, bound;
+        opt.fom_graph->GetPoint(idx, bound, fom);
+        double scaled_fom = std::max(fom / std::ceil(opt.fom), 0.0);
+        opt.fom_graph->SetPoint(idx, bound, scaled_fom);
+      }
     opt.purity_graph->SetLineColor(colors.at(1)->GetNumber());
     opt.efficiency_graph->SetLineColor(colors.at(2)->GetNumber());
     opt.fom_graph->SetLineColor(colors.at(3)->GetNumber());
-    opt.legend = std::make_shared<TLegend>(0.6, 0.6, 0.8, 0.8);
+    auto const [x1, y1, x2, y2] = opt.LegendPlace();
+    opt.legend = std::make_shared<TLegend>(x1, y1, x2, y2);
     opt.legend->SetBit(kCanDelete, false);
     opt.legend->SetFillStyle(0);
     opt.legend->AddEntry(opt.purity_graph.get(), "Purity", "l");
@@ -282,8 +284,8 @@ namespace ana::tools
   {
     unsigned int selected_signal      = selectedSignalTree->GetEntries(cut.c_str());
     unsigned int selected_background  = backgroundTree  ->GetEntries(cut.c_str());
-    double efficiency = static_cast<double>(selected_signal) / total_signal;
-    double purity     = static_cast<double>(selected_signal) / (selected_signal + selected_background);
+    double efficiency = (total_signal > 0) ? static_cast<double>(selected_signal) / total_signal : 0;
+    double purity     = (selected_signal + selected_background > 0) ? static_cast<double>(selected_signal) / (selected_signal + selected_background) : 0;
     return std::make_tuple(selected_signal, selected_background, efficiency, purity);
   }
 
@@ -337,10 +339,12 @@ namespace ana::tools
     sc.hists.push_back(std::move(sel_sig));
     std::vector<std::shared_ptr<TH1F>> bkg_hists;
     size_t nCats = sel_cat_labels.size();
+    ana::tools::cut_sequence null_cut = cut;
     for (size_t cat = 0; cat < nCats; ++cat)
     {
       std::string histName = "bkg_" + std::to_string(cat);
       ana::tools::cut_sequence cut_cat = cut.with_addition(sel_cat_cuts.at(cat));
+      null_cut += negate_cut(sel_cat_cuts.at(cat));
       std::shared_ptr<TH1F> tmp_hist = std::make_shared<TH1F>(histName.c_str(), "", bins, lw, up);
       backgroundTree->Draw((var+">>"+histName).c_str(), cut_cat.c_str(), "goff");
       tmp_hist->SetDirectory(nullptr);
@@ -348,21 +352,30 @@ namespace ana::tools
       if (bkg_hists.at(cat) == nullptr)
         throw std::runtime_error("bkg_hists for cat " + std::to_string(cat) + " is null");
     }
+    std::shared_ptr<TH1F> null_cat_hist = std::make_shared<TH1F>("null", "", bins, lw, up);
+    backgroundTree->Draw((var+">>null").c_str(), null_cut.c_str(), "goff");
+    bkg_hists.push_back(null_cat_hist);
     for (size_t cat = 1; cat < nCats; ++cat)
       sc.hists.push_back(std::move(bkg_hists.at(cat)));
+    sc.hists.push_back(std::move(bkg_hists.at(nCats)));
     sc.stack = std::make_shared<THStack>((var+"_stack").c_str(), (var+"_stack").c_str());
     sc.stack->SetBit(kCanDelete, false);
-    sc.legend = std::make_shared<TLegend>(0.6, 0.6, 0.8, 0.8);
-    sc.legend->SetBit(kCanDelete, false);
-    sc.legend->SetFillStyle(0);
     sc.stack->SetTitle((";"+var_to_title.at(var)+";Events").c_str());
+    sc.hists.at(nCats)->SetFillColor(kGray);
+    sc.hists.at(nCats)->SetLineColor(kBlack);
+    sc.stack->Add(sc.hists.at(nCats).get());
     for (size_t cat = 0; cat < nCats; ++cat)
     {
       sc.hists.at(nCats - cat - 1)->SetFillColor(colors.at(nCats - cat)->GetNumber());
       sc.hists.at(nCats - cat - 1)->SetLineColor(kBlack);
       sc.stack->Add(sc.hists.at(nCats - cat - 1).get());
-      sc.legend->AddEntry(sc.hists.at(cat).get(), sel_cat_labels.at(cat).c_str(), "f");
     }
+    sc.ConstructLegend();
+    for (size_t cat = 0; cat < nCats; ++cat)
+      if (sc.hists.at(cat)->Integral() != 0)
+        sc.legend->AddEntry(sc.hists.at(cat).get(), sel_cat_labels.at(cat).c_str(), "f");
+    if (sc.hists.at(nCats)->Integral() != 0)
+      sc.legend->AddEntry(sc.hists.at(nCats).get(), "No Match", "f");
     sc.stack->Draw("hist");
     sc.legend->Draw("same");
     return sc;
@@ -412,16 +425,20 @@ namespace ana::tools
 
     sc.stack = std::make_shared<THStack>((var+"_stack").c_str(), (var+"_stack").c_str());
     sc.stack->SetBit(kCanDelete, false);
-    sc.legend = std::make_shared<TLegend>(0.6, 0.6, 0.8, 0.8);
-    sc.legend->SetBit(kCanDelete, false);
-    sc.legend->SetFillStyle(0);
     sc.stack->SetTitle((";"+var_to_title.at(var)+";Events").c_str());
+    std::vector<std::string> sig_var_labels;
     for (size_t cat = 0; cat < 2*nCats; ++cat)
     {
       sc.stack->Add(sc.hists.at(2*nCats - cat - 1).get());
       std::string label = (cat < nCats) ? "Selected " + sig_cat_labels.at(cat) : "Unselected " + sig_cat_labels.at(cat - nCats);
-      sc.legend->AddEntry(sc.hists.at(cat).get(), label.c_str(), "f");
+      sig_var_labels.push_back(label);
     }
+    sc.ConstructLegend();
+    for (size_t cat = 0; cat < 2*nCats; ++cat)
+      if (sc.hists.at(cat)->Integral() != 0)
+        sc.legend->AddEntry(sc.hists.at(cat).get(), sig_var_labels.at(cat).c_str(), "f");
+    //if (sc.hists.at(2*nCats)->Integral() != 0)
+    //  sc.legend->AddEntry(sc.hists.at(2*nCats).get(), "No Match", "f");
     sc.stack->Draw("hist");
     sc.legend->Draw("same");
     return sc;
@@ -441,9 +458,8 @@ namespace ana::tools
     // by default to optimizing for signal over uncertainty
     if (selected_signal + selected_background > 0)
       fom = static_cast<double>(selected_signal) / std::sqrt(selected_signal + selected_background);
-    //if (purity + efficiency > 0)
-    //  fom = 2. * purity * efficiency / (purity + efficiency);
     return fom;
+    //return std::sqrt(efficiency*purity);
   }
 
   /**
@@ -491,16 +507,19 @@ namespace ana::tools
         opt.limit = limit;
       }
     }
-    for (size_t idx = 0; idx < opt.fom_graph->GetN(); ++idx)
-    {
-      double fom, bound;
-      opt.fom_graph->GetPoint(idx, bound, fom);
-      opt.fom_graph->SetPoint(idx, bound, fom / std::ceil(opt.fom));
-    }
+    if (opt.fom != 0)
+      for (size_t idx = 0; idx < opt.fom_graph->GetN(); ++idx)
+      {
+        double fom, bound;
+        opt.fom_graph->GetPoint(idx, bound, fom);
+        double scaled_fom = std::max(fom / std::ceil(opt.fom), 0.0);
+        opt.fom_graph->SetPoint(idx, bound, scaled_fom);
+      }
     opt.purity_graph->SetLineColor(colors.at(1)->GetNumber());
     opt.efficiency_graph->SetLineColor(colors.at(2)->GetNumber());
     opt.fom_graph->SetLineColor(colors.at(3)->GetNumber());
-    opt.legend = std::make_shared<TLegend>(0.6, 0.6, 0.8, 0.8);
+    auto const [x1, y1, x2, y2] = opt.LegendPlace();
+    opt.legend = std::make_shared<TLegend>(x1, y1, x2, y2);
     opt.legend->SetBit(kCanDelete, false);
     opt.legend->SetFillStyle(0);
     opt.legend->AddEntry(opt.purity_graph.get(), "Purity", "l");
@@ -600,16 +619,19 @@ namespace ana::tools
         opt.limit = limit;
       }
     }
-    for (size_t idx = 0; idx < opt.fom_graph->GetN(); ++idx)
-    {
-      double fom, bound;
-      opt.fom_graph->GetPoint(idx, bound, fom);
-      opt.fom_graph->SetPoint(idx, bound, fom / std::ceil(opt.fom));
-    }
+    if (opt.fom != 0)
+      for (size_t idx = 0; idx < opt.fom_graph->GetN(); ++idx)
+      {
+        double fom, bound;
+        opt.fom_graph->GetPoint(idx, bound, fom);
+        double scaled_fom = std::max(fom / std::ceil(opt.fom), 0.0);
+        opt.fom_graph->SetPoint(idx, bound, scaled_fom);
+      }
     opt.purity_graph->SetLineColor(colors.at(1)->GetNumber());
     opt.efficiency_graph->SetLineColor(colors.at(2)->GetNumber());
     opt.fom_graph->SetLineColor(colors.at(3)->GetNumber());
-    opt.legend = std::make_shared<TLegend>(0.6, 0.6, 0.8, 0.8);
+    auto const [x1, y1, x2, y2] = opt.LegendPlace();
+    opt.legend = std::make_shared<TLegend>(x1, y1, x2, y2);
     opt.legend->SetBit(kCanDelete, false);
     opt.legend->SetFillStyle(0);
     opt.legend->AddEntry(opt.purity_graph.get(), "Purity", "l");
@@ -725,16 +747,19 @@ namespace ana::tools
         opt.limit = limit;
       }
     }
-    for (size_t idx = 0; idx < opt.fom_graph->GetN(); ++idx)
-    {
-      double fom, bound;
-      opt.fom_graph->GetPoint(idx, bound, fom);
-      opt.fom_graph->SetPoint(idx, bound, fom / std::ceil(opt.fom));
-    }
+    if (opt.fom != 0)
+      for (size_t idx = 0; idx < opt.fom_graph->GetN(); ++idx)
+      {
+        double fom, bound;
+        opt.fom_graph->GetPoint(idx, bound, fom);
+        double scaled_fom = std::max(fom / std::ceil(opt.fom), 0.0);
+        opt.fom_graph->SetPoint(idx, bound, scaled_fom);
+      }
     opt.purity_graph->SetLineColor(colors.at(1)->GetNumber());
     opt.efficiency_graph->SetLineColor(colors.at(2)->GetNumber());
     opt.fom_graph->SetLineColor(colors.at(3)->GetNumber());
-    opt.legend = std::make_shared<TLegend>(0.6, 0.6, 0.8, 0.8);
+    auto const [x1, y1, x2, y2] = opt.LegendPlace();
+    opt.legend = std::make_shared<TLegend>(x1, y1, x2, y2);
     opt.legend->SetBit(kCanDelete, false);
     opt.legend->SetFillStyle(0);
     opt.legend->AddEntry(opt.purity_graph.get(), "Purity", "l");
@@ -838,16 +863,19 @@ namespace ana::tools
         opt.limit = limit;
       }
     }
-    for (size_t idx = 0; idx < opt.fom_graph->GetN(); ++idx)
-    {
-      double fom, bound;
-      opt.fom_graph->GetPoint(idx, bound, fom);
-      opt.fom_graph->SetPoint(idx, bound, fom / std::ceil(opt.fom));
-    }
+    if (opt.fom != 0)
+      for (size_t idx = 0; idx < opt.fom_graph->GetN(); ++idx)
+      {
+        double fom, bound;
+        opt.fom_graph->GetPoint(idx, bound, fom);
+        double scaled_fom = std::max(fom / std::ceil(opt.fom), 0.0);
+        opt.fom_graph->SetPoint(idx, bound, scaled_fom);
+      }
     opt.purity_graph->SetLineColor(colors.at(1)->GetNumber());
     opt.efficiency_graph->SetLineColor(colors.at(2)->GetNumber());
     opt.fom_graph->SetLineColor(colors.at(3)->GetNumber());
-    opt.legend = std::make_shared<TLegend>(0.6, 0.6, 0.8, 0.8);
+    auto const [x1, y1, x2, y2] = opt.LegendPlace();
+    opt.legend = std::make_shared<TLegend>(x1, y1, x2, y2);
     opt.legend->SetBit(kCanDelete, false);
     opt.legend->SetFillStyle(0);
     opt.legend->AddEntry(opt.purity_graph.get(), "Purity", "l");

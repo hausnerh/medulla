@@ -401,26 +401,112 @@ namespace vars::gOre
   REGISTER_VAR_SCOPE(RegistrationScope::Both, n_gOre_showers, n_gOre_showers);
 
   /**
-   * @brief if there is a subthreshold shower, approximate the pion_mass peak
+   * @brief how many primary showers (above threshold) are in the event?
+   **/
+  template <class T>
+    double n_primary_showers(const T& obj, std::vector<double> params = {GORE_MIN_GORE_ENERGY})
+    {
+      size_t count(0);
+      for(const auto & p : obj.particles)
+      {
+        bool is_shower = (pvars::pid(p) == pvars::kPhoton) || (pvars::pid(p) == pvars::kElectron); 
+        if(is_shower && pvars::primary_classification(p) && pvars::ke(p) >= params[0])
+          ++count;
+      }
+      return count;
+    }
+  REGISTER_VAR_SCOPE(RegistrationScope::Both, n_primary_showers, n_primary_showers);
+
+  /**
+   * @brief how many secondary showers (above threshold) are in the event?
+   **/
+  template <class T>
+    double n_secondary_showers(const T& obj, std::vector<double> params = {GORE_MIN_GORE_ENERGY})
+    {
+      size_t count(0);
+      for(const auto & p : obj.particles)
+      {
+        bool is_shower = (pvars::pid(p) == pvars::kPhoton) || (pvars::pid(p) == pvars::kElectron); 
+        if(is_shower && not pvars::primary_classification(p) && pvars::ke(p) >= params[0])
+          ++count;
+      }
+      return count;
+    }
+  REGISTER_VAR_SCOPE(RegistrationScope::Both, n_secondary_showers, n_secondary_showers);
+
+  /**
+   * @brief approximate the pion_mass peak
    * @details m = sqrt(2*E_1*E_2*(1 - CosTh))
    **/
   template <class T>
     double pion_mass(const T& obj)
     {
-      size_t idx_1 = selectors::gOre::leading_gOre(obj);
-      size_t idx_2 = selectors::gOre::subleading_gOre(obj);
-      if (idx_1 == kNoMatch || idx_2 == kNoMatch)
-        return kNoMatchValue;
+      double pmass = -999.9;
+      size_t idx_1 = selectors::gOre::leading_primary_gOre(obj);
+      if (idx_1 == kNoMatch)
+        return pmass;
+      size_t idx_2 = selectors::gOre::subleading_primary_gOre(obj);
+      if (idx_2 == kNoMatch)
+        return pmass;
       auto const& gOre_1 = obj.particles.at(idx_1);
-      auto const& gOre_2 = obj.particles.at(idx_2);
       double ke_1 = pvars::ke(gOre_1);
-      double ke_2 = pvars::ke(gOre_2);
       utilities::three_vector dir_1 = utilities::to_three_vector(gOre_1.start_dir);
+      auto const& gOre_2 = obj.particles.at(idx_2);
+      double ke_2 = pvars::ke(gOre_2);
       utilities::three_vector dir_2 = utilities::to_three_vector(gOre_2.start_dir);
       double cosTh = utilities::dot_product(dir_1, dir_2);
-      return std::sqrt(2.*ke_1*ke_2*(1.-cosTh));
+      pmass = std::sqrt(2.*ke_1*ke_2*(1.-cosTh));
+      return pmass;
     }
-  REGISTER_VAR_SCOPE(RegistrationScope::Both, pion_mass, pion_mass);
+  REGISTER_VAR_SCOPE(RegistrationScope::Reco, pion_mass, pion_mass);
+
+  /**
+   * @brief approximate the Delta baryon/nucleon mass square splitting
+   * @details if there is a proton, this is possible
+   **/
+  template <class T>
+    double baryon_mass_splitting(const T& obj)
+    {
+      double massSqSplit = std::numeric_limits<double>::quiet_NaN();
+      size_t idx_gamma = selectors::gOre::leading_primary_gOre(obj);
+      size_t idx_proton = selectors::gOre::leading_primary_proton(obj);
+      if (idx_gamma == kNoMatch || idx_proton == kNoMatch)
+        return massSqSplit;
+      auto const& gamma  = obj.particles.at(idx_gamma);
+      auto const& proton = obj.particles.at(idx_proton);
+      double p_gamma  = pvars::p(gamma);
+      double p_proton = pvars::p(proton);
+      utilities::three_vector dir_gamma  = utilities::to_three_vector(gamma.start_dir);
+      utilities::three_vector dir_proton = utilities::to_three_vector(proton.start_dir);
+      double cosTh = utilities::dot_product(dir_gamma, dir_proton);
+      massSqSplit = 2.*p_gamma*(std::sqrt(p_proton*p_proton + PROTON_MASS*PROTON_MASS) - p_proton*cosTh);
+      return massSqSplit;
+    }
+  REGISTER_VAR_SCOPE(RegistrationScope::Both, baryon_mass_splitting, baryon_mass_splitting);
+
+  /**
+   * @brief approximate the Delta baryon mass
+   * @details if there is a proton, this is possible
+   **/
+  template <class T>
+    double delta_mass(const T& obj)
+    {
+      double mass = -999.9;
+      size_t idx_gamma = selectors::gOre::leading_primary_gOre(obj);
+      size_t idx_proton = selectors::gOre::leading_primary_proton(obj);
+      if (idx_gamma == kNoMatch || idx_proton == kNoMatch)
+        return mass;
+      auto const& gamma  = obj.particles.at(idx_gamma);
+      auto const& proton = obj.particles.at(idx_proton);
+      double p_gamma  = pvars::p(gamma);
+      double p_proton = pvars::p(proton);
+      utilities::three_vector dir_gamma  = utilities::to_three_vector(gamma.start_dir);
+      utilities::three_vector dir_proton = utilities::to_three_vector(proton.start_dir);
+      double cosTh = utilities::dot_product(dir_gamma, dir_proton);
+      mass = std::sqrt(2.*p_gamma*(std::sqrt(p_proton*p_proton + PROTON_MASS*PROTON_MASS) - p_proton*cosTh) + PROTON_MASS*PROTON_MASS);
+      return mass;
+    }
+  REGISTER_VAR_SCOPE(RegistrationScope::Both, delta_mass, delta_mass);
 
   //*** TRUTH ONLY VARS ***//
   /**
@@ -459,19 +545,20 @@ namespace vars::gOre
   /**
    * @brief categorize for MC Truth
    * @details The fiducialization is being a pain, so focus on FSI topology and mode/interaction tyoe
-   * 0: NC ∆->Nγ, Single Photon post-FSI Topology
-   * 1: NC ∆->Nγ, Other post-FSI Topology
-   * 2: NC Other Single Photon
-   * 3: NC π0 No Primary Photon
+   * 0: NC ∆->Nγ
+   * 1: NC Other Single Photon
+   * 2: NC π0
+   * 3: NC Charged π
    * 4: Other NC
-   * 5: CC
-   * 6: Non-neutrino
+   * 5: CC-Electron
+   * 6: Other CC
+   * 7: Non-neutrino
    **/
   template <class T>
     double mc_category(const T& obj, std::vector<double> params = {GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY,
                                                                    GORE_FID_THRESH_X_POS, GORE_FID_THRESH_X_NEG, GORE_FID_THRESH_Y_POS, GORE_FID_THRESH_Y_NEG, GORE_FID_THRESH_Z_POS, GORE_FID_THRESH_Z_NEG})
     {
-      double cat(6);
+      double cat(7);
       bool isnc = obj.isnc;
       caf::genie_interaction_mode_ genie_mode = obj.genie_mode;
       caf::genie_interaction_type_ genie_inttype = obj.genie_inttype;
@@ -480,33 +567,24 @@ namespace vars::gOre
       core::gOre::mc_topology topology(obj.prim, params);
       // is NC ∆ res
       bool is_nc_delta_res = isnc && (resnum == 0);
-      // non pion producing res
-      bool non_pion = (genie_inttype != caf::kResNCNuProtonPi0)       &&
-                      (genie_inttype != caf::kResNCNuProtonPiPlus)    &&
-                      (genie_inttype != caf::kResNCNuNeutronPi0)      &&
-                      (genie_inttype != caf::kResNCNuNeutronPiMinus)  &&
-                      (genie_inttype != caf::kResNCNuBarProtonPi0)    &&
-                      (genie_inttype != caf::kResNCNuBarProtonPiPlus) &&
-                      (genie_inttype != caf::kResNCNuBarNeutronPi0)   &&
-                      (genie_inttype != caf::kResNCNuBarNeutronPiMinus);
       // single photon topology (1γ and maybe some nucleons)
       bool is_single_photon_topology = topology.single_photon() && topology.only_photons_and_nucleons();
-      // has π0 no photons
-      bool has_pi0_0g = topology.has_pi0() && not topology.has(22);
       // is a neutrino interaction
       bool is_nu = obj.index != -1;
-      if (is_nc_delta_res && non_pion && is_single_photon_topology)
+      if (is_nc_delta_res && is_single_photon_topology)
         cat = 0;
-      else if (is_nc_delta_res && non_pion)
-        cat = 1;
       else if (isnc && is_single_photon_topology)
+        cat = 1;
+      else if (isnc && topology.has_pi0())
         cat = 2;
-      else if (isnc && has_pi0_0g)
+      else if (isnc && topology.has_pi_pm())
         cat = 3;
       else if (isnc)
         cat = 4;
-      else if (is_nu)
+      else if (not isnc && topology.count_with_antiparticles(11) > 0)
         cat = 5;
+      else if (is_nu)
+        cat = 6;
       return cat;
     }
   REGISTER_VAR_SCOPE(RegistrationScope::MCTruth, mc_category, mc_category);

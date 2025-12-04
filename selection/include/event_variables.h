@@ -377,7 +377,7 @@ namespace evar
      * defined as a SpillVar in the usual CAFAna parlance. It is used as a
      * metric that roughly characterizes the overlap of the beam with the
      * target and can be used as a cut to reject events that correspond to bad
-     * beam conditions.
+     * beam conditions. (FoM2 renamed FoM & FoM1 renamed FoM_noMultiWire)
      * @tparam T the top-level record.
      * @param sr the StandardRecord to apply the variable on.
      * @return the FoM2 value for the event.
@@ -385,7 +385,8 @@ namespace evar
     template<typename T>
     double bnb_fom2(const T & sr)
     {
-        return ana::kSpillFoM2(&sr);
+        //return ana::kSpillFoM2(&sr);
+        return ana::kSpillFoM(&sr);
     }
     REGISTER_VAR_SCOPE(RegistrationScope::Event, bnb_fom2, bnb_fom2);
 
