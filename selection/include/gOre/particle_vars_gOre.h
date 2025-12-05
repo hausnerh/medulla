@@ -27,32 +27,6 @@ namespace pvars::gOre
       return static_cast<double>(p.ancestor_pdg_code);
     }
   REGISTER_VAR_SCOPE(RegistrationScope::TrueParticle, ancestor, ancestor);
-
-  /**
-   * @brief Return the axial spread of the particle
-   * @tparam T the type of particle (True or Reco) 
-   * @param p the selected particle
-   * @return double the axial spread of the particle
-   **/
-  template <class T>
-    double axial_spread(const T& p)
-    {
-      return p.axial_spread;
-    }
-  REGISTER_VAR_SCOPE(RegistrationScope::RecoParticle, axial_spread, axial_spread);
-
-  /**
-   * @brief Return the directional spread of the particle
-   * @tparam T the type of particle (True or Reco) 
-   * @param p the selected particle
-   * @return double the directional spread of the particle
-   **/
-  template <class T>
-    double directional_spread(const T& p)
-    {
-      return p.directional_spread;
-    }
-  REGISTER_VAR_SCOPE(RegistrationScope::RecoParticle, directional_spread, directional_spread);
 }// end pvars::gOre namespace
 
 #endif
