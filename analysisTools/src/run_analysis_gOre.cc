@@ -6,6 +6,7 @@
  **/
 
 #include "TError.h"
+#include "TF1.h"
 
 #include <filesystem>
 
