@@ -15,14 +15,13 @@
 namespace ana::tools
 {
   /**
-   * @brief Return a TH1F with the sum of the sections
+   * @brief make a TH1F with the sum of the sections
    **/
-  TH1F stack_canvas::SumHist() const
+  void stack_canvas::SumHist()
   {
-    TH1F tmp("sum", "Sum", hists.front()->GetNbinsX(), stack->GetXaxis()->GetXmin(), stack->GetXaxis()->GetXmax());
+    sum = std::make_shared<TH1F>("sum", "Sum", hists.front()->GetNbinsX(), stack->GetXaxis()->GetXmin(), stack->GetXaxis()->GetXmax());
     for (auto const& hist : hists)
-      tmp.Add(hist.get());
-    return tmp;
+      sum->Add(hist.get());
   }
 
   /**

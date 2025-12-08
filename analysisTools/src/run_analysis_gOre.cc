@@ -7,11 +7,20 @@
 
 #include "TError.h"
 #include "TF1.h"
+#include "TFitResult.h"
+#include "TFitResultPtr.h"
 
 #include <filesystem>
 
 #include "include/analysis_tree.h"
 #include "include/yell_try_die.h"
+
+inline const double pion_mass = 134.9768;
+
+double landauPlusGauss(double* x, double* par)
+{
+  return par[0] * TMath::Landau(x[0], par[1], par[2], true) + par[3] * TMath::Gaus(x[0], par[4], par[5], true);
+}
 
 inline std::vector<std::pair<std::string, ana::tools::cut_sequence>> sel_cats =
 {
@@ -172,6 +181,7 @@ inline std::vector<std::tuple<std::string, std::string, bool, double, double>> v
   //{"reco_n_protons == 0", "reco_gOre_score", false, -1, 1}
   //{"reco_n_protons == 0", "reco_flash_total_pe", false, 0, 20000},
   {"reco_pion_mass > 0", "reco_pion_mass", true, 0, 300},
+  {"reco_subleading_primary_gOre_ke > 0", "reco_subleading_primary_gOre_primary_softmax", true, 0, 1},
   {"reco_subleading_primary_gOre_ke > 0", "reco_subleading_primary_gOre_ke", true, 0, 25}
 };
 
@@ -297,8 +307,8 @@ int run_analysis(const std::string& fileName,
   my_analysis_tree.add_variable("reco_z_wall_dist",                                 50,     0,   1000,    "Minimum Distance from Vertex to Z-side Detector Wall");
   my_analysis_tree.add_variable("reco_gOre_gap",                                    50,     0,    100,    "#gamma-candiate Distance from Vertex (cm)");
   my_analysis_tree.add_variable("reco_pion_mass",                                   50,     0,    250,    "Reconstructed Neutral Pion Mass Peak (MeV/c^{2}_{})");
-  //my_analysis_tree.add_variable("reco_baryon_mass_splitting",                       50,     0,    3e6,    "Reconstructed M^{2}_{#Delta} - M^{2}_{Proton} (MeV/c^{2}_{})");
-  //my_analysis_tree.add_variable("true_baryon_mass_splitting",                       50,     0,    3e6,    "True M^{2}_{#Delta} - M^{2}_{Proton} (MeV/c^{2}_{})");
+  my_analysis_tree.add_variable("reco_delta_mass",                                  50,   800,   1800,    "Reconstructed M_{#Delta} Resonance Peak (MeV/c^{2}_{})");
+  //my_analysis_tree.add_variable("true_detla_mass",                                  50,   800,   1800,    "True M_{#Delta} Resonance Peak (MeV/c^{2}_{})");
   my_analysis_tree.add_variable("true_interaction_mode",                            15,    -1.5,   13.5,  "GENIE Interaction Mode");
   my_analysis_tree.add_variable("true_interaction_type",                           101,   999.5, 1100.5,  "GENIE Interaction Type");
   my_analysis_tree.add_variable("true_baryon_res_code",                             19,    -1.5,   17.5,  "Resonance Number");
@@ -418,15 +428,15 @@ int run_analysis(const std::string& fileName,
     precut_leading_primary_gOre_photon_softmax.PrintPreliminary("plots/"+sample+"/precut_leading_primary_gOre_photon_softmax"+pdf_suffix);
 
     std::cout << "//*** Electron/Photon Seperation ***//" << std::endl;
-    //cut += "reco_leading_primary_gOre_primary_softmax > 0.992";
-    //cut += "reco_leading_primary_gOre_start_dedx > 3.495";
-    //cut += "reco_leading_primary_gOre_axial_spread > -0.1895";
-    //cut += "reco_leading_primary_gOre_directional_spread < 0.113";
-    //cut += "reco_leading_primary_gOre_photon_softmax > 0.077";
-    cut += "reco_leading_primary_gOre_start_dedx > 3.645";
-    cut += "reco_leading_primary_gOre_axial_spread > -0.005";
-    cut += "reco_leading_primary_gOre_directional_spread < 0.068";
-    cut += "reco_leading_primary_gOre_photon_softmax > 0.092";
+    cut += "reco_leading_primary_gOre_primary_softmax > 0.992";
+    cut += "reco_leading_primary_gOre_start_dedx > 3.495";
+    cut += "reco_leading_primary_gOre_axial_spread > -0.1895";
+    cut += "reco_leading_primary_gOre_directional_spread < 0.113";
+    cut += "reco_leading_primary_gOre_photon_softmax > 0.077";
+    //cut += "reco_leading_primary_gOre_start_dedx > 3.645";
+    //cut += "reco_leading_primary_gOre_axial_spread > -0.005";
+    //cut += "reco_leading_primary_gOre_directional_spread < 0.068";
+    //cut += "reco_leading_primary_gOre_photon_softmax > 0.092";
     try_call(cut.string(), [&my_analysis_tree, &cut]{ my_analysis_tree.report_on_cut(cut); });
 
     auto postcut_leading_primary_gOre_primary_softmax =
@@ -465,10 +475,21 @@ int run_analysis(const std::string& fileName,
       try_call("pion_mass",
          [&my_analysis_tree, &cut]{ return my_analysis_tree.plot_var_sel("reco_pion_mass", cut); });
     precut_pion_mass.PrintPreliminary("plots/"+sample+"/precut_pion_mass"+pdf_suffix);
-
-    TH1F precut_pion_mass_tofit = precut_pion_mass.SumHist();
-    TF1* pion_fit = new TF1("pion_fit", "[0]*exp((-0.5*(x - [1])/[2])**2) + [3]*exp((-0.5*(x - [4])/[5])**2)", 0, 250);
-    precut_pion_mass_tofit.Fit(pion_fit);
+    precut_pion_mass.SumHist();
+    TF1* pion_fit = new TF1("selected", landauPlusGauss, 0, 250, 6);
+    pion_fit->SetParNames("LandauNorm", "LandauMean", "LandauSigma", "GausNorm", "GausMean", "GausSigma");
+    pion_fit->SetParameters(precut_pion_mass.sum->GetMaximum(), 21, 7.8, 0.25*precut_pion_mass.sum->GetMaximum(), pion_mass, 10);
+    pion_fit->SetParLimits(1, 0, 50);
+    pion_fit->SetParLimits(2, 0, 250);
+    pion_fit->SetParLimits(4, 50, 250);
+    pion_fit->SetParLimits(5, 0, 250);
+    TFitResultPtr res = precut_pion_mass.sum->Fit(pion_fit, "LS", "0 R");
+    std::cout << "Chi^2: " << res->Chi2() << ", NDoF: " << res->Ndf() << std::endl;
+    precut_pion_mass.canvas->cd();
+    precut_pion_mass.stack->Draw("hist");
+    pion_fit->Draw("L,same");
+    precut_pion_mass.canvas->Update();
+    precut_pion_mass.PrintPreliminary("plots/"+sample+"/precut_pion_mass_FIT"+pdf_suffix);
 
     std::cout << "//*** Pion Rejection ***//" << std::endl;
     cut.add_conditional_cut("reco_pion_mass > 0", "reco_pion_mass < 94.2");
@@ -552,8 +573,8 @@ int main(int argc, char* argv[])
   gErrorIgnoreLevel=3000;
   //gDebug=3;
   int ret = 0;
-  //bool optimize_cuts = true;
-  bool optimize_cuts = false;
+  bool optimize_cuts = true;
+  //bool optimize_cuts = false;
   if (not (argc > 1))
     die("Must pass in the name of the ROOT file to analyze. Bail.");
   if (not (argc > 2))

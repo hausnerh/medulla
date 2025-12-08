@@ -45,6 +45,7 @@
 
 #include "include/utilities.h"
 
+#include "include/gOre/scorers_gOre.h"
 #include "include/gOre/selectors_gOre.h"
 
 /**

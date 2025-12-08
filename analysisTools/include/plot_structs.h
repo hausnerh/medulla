@@ -47,7 +47,8 @@ namespace ana::tools
     std::shared_ptr<THStack> stack;
     std::vector<std::shared_ptr<TH1F>> hists;
     std::shared_ptr<TH1F> err;
-    TH1F SumHist() const; 
+    std::shared_ptr<TH1F> sum;
+    void SumHist(); 
     std::tuple<double, double, double, double> LegendPlace() const;
     void ConstructLegend();
     void Preliminary();

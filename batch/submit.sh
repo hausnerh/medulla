@@ -63,7 +63,7 @@ ups active
 # Build medulla
 git clone https://github.com/hausnerh/medulla.git
 cd medulla
-git checkout hausnerh_medulla_gOre
+git checkout feature/hausnerh_medulla_gOre
 mkdir build && cd build
 export CC=$(which gcc)
 export CXX=$(which g++)
