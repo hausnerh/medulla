@@ -508,6 +508,51 @@ namespace vars::gOre
     }
   REGISTER_VAR_SCOPE(RegistrationScope::Both, delta_mass, delta_mass);
 
+  /**
+   * @brief approximate the Delta baryon mass (1g1p)
+   * @details Use the proton
+   **/
+  template <class T>
+    double delta_mass_P(const T& obj)
+    {
+      double mass = -999.9;
+      size_t idx_gamma = selectors::gOre::leading_primary_gOre(obj);
+      size_t idx_proton = selectors::gOre::leading_primary_proton(obj);
+      if (idx_gamma == kNoMatch || idx_proton == kNoMatch)
+        return mass;
+      auto const& gamma  = obj.particles.at(idx_gamma);
+      auto const& proton = obj.particles.at(idx_proton);
+      double p_gamma  = pvars::p(gamma);
+      double p_proton = pvars::p(proton);
+      utilities::three_vector dir_gamma  = utilities::to_three_vector(gamma.start_dir);
+      utilities::three_vector dir_proton = utilities::to_three_vector(proton.start_dir);
+      double cosTh = utilities::dot_product(dir_gamma, dir_proton);
+      mass = std::sqrt(2.*p_gamma*(std::sqrt(p_proton*p_proton + PROTON_MASS*PROTON_MASS) - p_proton*cosTh) + PROTON_MASS*PROTON_MASS);
+      return mass;
+    }
+  REGISTER_VAR_SCOPE(RegistrationScope::Both, delta_mass_P, delta_mass_P);
+
+  /**
+   * @brief approximate the Delta baryon mass (1g0p)
+   * @details Make approximations for the neutron. Params are first the scaling of the PE to neutron momentum,
+   * and second the scaling factor for transverse direction cosine to cosTh
+   **/
+  template <class T>
+    double delta_mass_N(const T& obj, std::vector<double> params = {0.01, 1.0})
+    {
+      double mass = -999.9;
+      size_t idx_gamma = selectors::gOre::leading_primary_gOre(obj);
+      if (idx_gamma == kNoMatch)
+        return mass;
+      auto const& gamma  = obj.particles.at(idx_gamma);
+      double p_gamma   = pvars::p(gamma);
+      double p_neutron = params[0]*vars::flash_total_pe(obj);
+      double cosTh = params[1]*std::sqrt(1 - std::pow(pvars::dpT(gamma) / p_gamma, 2.0));
+      mass = std::sqrt(2.*p_gamma*(std::sqrt(p_neutron*p_neutron + NEUTRON_MASS*NEUTRON_MASS) - p_neutron*cosTh) + NEUTRON_MASS*NEUTRON_MASS);
+      return mass;
+    }
+  REGISTER_VAR_SCOPE(RegistrationScope::Both, delta_mass_N, delta_mass_N);
+
   //*** TRUTH ONLY VARS ***//
   /**
    * @brief get the resonance number from the MC Truth

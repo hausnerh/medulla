@@ -348,6 +348,8 @@ int run_analysis(const std::string& fileName,
   my_analysis_tree.add_variable("reco_subleading_primary_gOre_iou",                100,     0,      1,    "Subleading Shower IoU");
 
   //my_analysis_tree.add_variable("(reco_leading_primary_gOre_ke-true_leading_primary_gOre_ke)/true_leading_primary_gOre_ke", 100, -1, 1, "(KE_{reco} - KE_{true})/KE_{true}");
+  std::string var_delta_mass_N = "sqrt(2*reco_leading_primary_gOre_ke*(sqrt((0.01*reco_flash_total_pe)^2+(939.56542194)^2)-(0.01*reco_flash_total_pe)*sqrt(1 - (reco_leading_primary_gOre_dpT/reco_leading_primary_gOre_ke)^2))+(939.56542194)^2)";
+  my_analysis_tree.add_variable(var_delta_mass_N, 50, 800, 1800, "Reconstructed M_{#Delta} Resonance Peak (MeV/c^{2}_{})"); 
 
   std::string pdf_suffix = ".pdf";
   ana::tools::cut_sequence cut;
@@ -519,6 +521,11 @@ int run_analysis(const std::string& fileName,
        [&my_analysis_tree, &var, &cut]{ return my_analysis_tree.plot_var_sig(var, cut); });
     std::string pdfName = "plots/"+sample+"/"+var+pdf_suffix;
     std::string pdfName_sig = "plots/"+sample+"/signal_"+var+pdf_suffix;
+    if (var == var_delta_mass_N)
+    {
+      pdfName = "plots/"+sample+"/reco_delta_mass_neutron_approx"+pdf_suffix;
+      pdfName_sig = "plots/"+sample+"/signal_reco_delta_mass_neutron_approx"+pdf_suffix;
+    }
     // some vars use alphanumeric labels
     if (var == "true_interaction_type" ||
         var == "true_interaction_mode" ||
@@ -564,6 +571,18 @@ int run_analysis(const std::string& fileName,
     var_plot.PrintPreliminary(pdfName);
     var_plot_sig.PrintPreliminary(pdfName_sig);
   }
+
+  // try res peak plots
+  auto delta_mass_P =
+    try_call("delta_mass_P",
+       [&my_analysis_tree, &cut]{ return my_analysis_tree.plot_var_sel("reco_delta_mass", cut.with_addition("reco_n_protons == 1")); });
+  delta_mass_P.stack->SetTitle("1#gamma1p");
+  delta_mass_P.PrintPreliminary("plots/"+sample+"/delta_mass_P.pdf");
+  auto delta_mass_N =
+    try_call("delta_mass_N",
+       [&my_analysis_tree, &cut, &var_delta_mass_N]{ return my_analysis_tree.plot_var_sel(var_delta_mass_N, cut.with_addition("reco_n_protons == 0")); });
+  delta_mass_N.stack->SetTitle("1#gamma0p");
+  delta_mass_N.PrintPreliminary("plots/"+sample+"/delta_mass_N.pdf");
 
   return 0;
 }
