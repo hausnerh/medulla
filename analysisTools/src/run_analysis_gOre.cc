@@ -35,17 +35,17 @@ inline std::vector<std::pair<std::string, ana::tools::cut_sequence>> sel_cats =
   {"Cosmic",                  "true_category == 8"}
 };
 
-inline std::vector<std::pair<std::string, ana::tools::cut_sequence>> sig_cats =
-{
-  {"NC #Delta#rightarrowN#gamma", "true_mc_category == 0"},
-  {"Other NC 1#gammaXp Post-FSI", "true_mc_category == 1"},
-  {"NC #pi^{0}_{}",               "true_mc_category == 2"},
-  {"NC #pi^{+/-}_{}",             "true_mc_category == 3"},
-  {"Other NC",                    "true_mc_category == 4"},
-  {"CC e",                        "true_mc_category == 5"},
-  {"Other CC",                    "true_mc_category == 6"}
-  //{"Cosmic",                      "true_mc_category == 7"}
-};
+//inline std::vector<std::pair<std::string, ana::tools::cut_sequence>> sig_cats =
+//{
+//  {"NC #Delta#rightarrowN#gamma", "true_mc_category == 0"},
+//  {"Other NC 1#gammaXp Post-FSI", "true_mc_category == 1"},
+//  {"NC #pi^{0}_{}",               "true_mc_category == 2"},
+//  {"NC #pi^{+/-}_{}",             "true_mc_category == 3"},
+//  {"Other NC",                    "true_mc_category == 4"},
+//  {"CC e",                        "true_mc_category == 5"},
+//  {"Other CC",                    "true_mc_category == 6"}
+//  //{"Cosmic",                      "true_mc_category == 7"}
+//};
 
 inline std::map<int, std::string> genie_modes =
 {
@@ -152,17 +152,17 @@ inline std::map<int, std::string> res_codes =
 //  {5, "CC"},
 //  {6, "Cosmic"}
 //};
-inline std::map<int, std::string> mc_cats =
-{
-  {0, sig_cats.at(0).first},
-  {1, sig_cats.at(1).first},
-  {2, sig_cats.at(2).first},
-  {3, sig_cats.at(3).first},
-  {4, sig_cats.at(4).first},
-  {5, sig_cats.at(5).first},
-  {6, sig_cats.at(6).first}
-  //{7, sig_cats.at(7).first}
-};
+//inline std::map<int, std::string> mc_cats =
+//{
+//  {0, sig_cats.at(0).first},
+//  {1, sig_cats.at(1).first},
+//  {2, sig_cats.at(2).first},
+//  {3, sig_cats.at(3).first},
+//  {4, sig_cats.at(4).first},
+//  {5, sig_cats.at(5).first},
+//  {6, sig_cats.at(6).first}
+//  //{7, sig_cats.at(7).first}
+//};
 
 inline std::vector<std::tuple<std::string, bool, double, double>> vars_to_optimize =
 {
@@ -172,7 +172,8 @@ inline std::vector<std::tuple<std::string, bool, double, double>> vars_to_optimi
   {"reco_leading_primary_gOre_start_dedx",         false,  0,     5},
   {"reco_leading_primary_gOre_axial_spread",       false, -0.5,   1},
   {"reco_leading_primary_gOre_directional_spread", true,   0,     1},
-  {"reco_leading_primary_gOre_photon_softmax",     false,  0,     1}
+  {"reco_leading_primary_gOre_photon_softmax",     false,  0,     1},
+  {"reco_gOre_gap",                                false,  0,   100}
 };
 
 inline std::vector<std::tuple<std::string, std::string, bool, double, double>> vars_to_optimize_with_condition =
@@ -256,43 +257,81 @@ ana::tools::cut_sequence optimize_conditional_cut(const ana::tools::analysis_tre
 int run_analysis(const std::string& fileName,
                  const std::string& sampleBase,
                  const std::string& sampleName,
+                 const std::string& topology,
                  const std::string& sel,
                  const std::string& sig,
                  const bool& optimizeCuts)
 {
   // sample string
-  const std::string sample = sampleBase + "/" + sampleName;
+  const std::string sample = sampleBase + "/" + sampleName + "/" + topology;
 
   // setup output dir
   if (not std::filesystem::is_directory("plots") || not std::filesystem::exists("plots"))
     std::filesystem::create_directory("plots");
   if (not std::filesystem::is_directory("plots/"+sampleBase) || not std::filesystem::exists("plots/"+sampleBase))
     std::filesystem::create_directory("plots/"+sampleBase);
+  if (not std::filesystem::is_directory("plots/"+sampleBase+"/"+sampleName) || not std::filesystem::exists("plots/"+sampleBase+"/"+sampleName))
+    std::filesystem::create_directory("plots/"+sampleBase+"/"+sampleName);
   if (not std::filesystem::is_directory("plots/"+sample) || not std::filesystem::exists("plots/"+sample))
     std::filesystem::create_directory("plots/"+sample);
-  
+ 
+  // setup up categories
+  const std::vector<std::pair<std::string, ana::tools::cut_sequence>> sig_cats = (topology == "1g0p") ?
+    std::vector<std::pair<std::string, ana::tools::cut_sequence>>({
+      {"NC #Delta#rightarrowN#gamma (1#gamma0p)",      "(true_mc_category == 0) && (true_n_protons == 0)"},
+      {"NC #Delta#rightarrowN#gamma (Other Topology)", "(true_mc_category == 0) && (true_n_protons != 0)"},
+      {"Other NC 1#gammaXp Post-FSI",                  "true_mc_category == 1"},
+      {"NC #pi^{0}_{}",                                "true_mc_category == 2"},
+      {"NC #pi^{+/-}_{}",                              "true_mc_category == 3"},
+      {"Other NC",                                     "true_mc_category == 4"},
+      {"CC e",                                         "true_mc_category == 5"},
+      {"Other CC",                                     "true_mc_category == 6"}
+    }) :
+    std::vector<std::pair<std::string, ana::tools::cut_sequence>>({
+      {"NC #Delta#rightarrowN#gamma (1#gamma1p)",      "(true_mc_category == 0) && (true_n_protons == 1)"},
+      {"NC #Delta#rightarrowN#gamma (Other Topology)", "(true_mc_category == 0) && (true_n_protons != 1)"},
+      {"Other NC 1#gammaXp Post-FSI",                  "true_mc_category == 1"},
+      {"NC #pi^{0}_{}",                                "true_mc_category == 2"},
+      {"NC #pi^{+/-}_{}",                              "true_mc_category == 3"},
+      {"Other NC",                                     "true_mc_category == 4"},
+      {"CC e",                                         "true_mc_category == 5"},
+      {"Other CC",                                     "true_mc_category == 6"}
+    });
+  const std::map<int, std::string> mc_cats =
+  {
+    {0, sig_cats.at(0).first},
+    {1, sig_cats.at(1).first},
+    {2, sig_cats.at(2).first},
+    {3, sig_cats.at(3).first},
+    {4, sig_cats.at(4).first},
+    {5, sig_cats.at(5).first},
+    {6, sig_cats.at(6).first},
+    {7, sig_cats.at(7).first}
+  };
+
   // setup analysis tree
   std::string fileLocation = std::filesystem::current_path().string();
   std::string directoryName = "events/" + sampleName;
-  std::string selTreeName = "selected";
-  std::string sigTreeName = "signal_nc_delta_res_Ng";
-  //std::string sigTreeName = "signal_topo";
+  std::string selTreeName = "selected_" + topology;
+  std::string sigTreeName = "signal_" + topology;
   ana::tools::cut_sequence selection_cut = "reco_gOre_topology";
   ana::tools::cut_sequence signal_cut = "true_mc_category == 0";
-  //ana::tools::cut_sequence signal_cut = "true_category == 0";
+  ana::tools::cut_sequence reco_topology_cut = (topology == "1g0p") ? "reco_n_protons == 0" : "reco_n_protons == 1";
+  ana::tools::cut_sequence true_topology_cut = (topology == "1g0p") ? "true_n_protons == 0" : "true_n_protons == 1";
+  selection_cut += reco_topology_cut;
+  signal_cut += true_topology_cut;
   ana::tools::analysis_tree my_analysis_tree(fileLocation+"/"+fileName, directoryName,
                                              selection_cut, signal_cut,
                                              selTreeName, sigTreeName,
                                              sig_cats, sig_cats);
-                                             //sel_cats, sel_cats);
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~VARIABLE~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~BINS~~~~MIN~~~~~MAX~~~~~TITLE
-  my_analysis_tree.add_variable("true_gOre_topology",                                2,    -0.5,    1.5,  "True Single Shower Topology");
-  my_analysis_tree.add_variable("reco_gOre_topology",                                2,    -0.5,    1.5,  "Reconstucted Single Shower Topology");
+  //my_analysis_tree.add_variable("true_gOre_topology",                                2,    -0.5,    1.5,  "True Single Shower Topology");
+  //my_analysis_tree.add_variable("reco_gOre_topology",                                2,    -0.5,    1.5,  "Reconstucted Single Shower Topology");
   my_analysis_tree.add_variable("reco_flash_total_pe",                              50,     0, 100000,    "Total Flash PE");
-  my_analysis_tree.add_variable("true_n_primary_showers",                            6,     0,      6,    "True Primary Showers above Threshold");
-  my_analysis_tree.add_variable("reco_n_primary_showers",                            6,     0,      6,    "Primary Showers above Threshold");
-  my_analysis_tree.add_variable("true_n_secondary_showers",                          6,     0,      6,    "True Secondary Showers above Threshold");
-  my_analysis_tree.add_variable("reco_n_secondary_showers",                          6,     0,      6,    "Secondary Showers above Threshold");
+  //my_analysis_tree.add_variable("true_n_primary_showers",                            6,     0,      6,    "True Primary Showers above Threshold");
+  //my_analysis_tree.add_variable("reco_n_primary_showers",                            6,     0,      6,    "Primary Showers above Threshold");
+  //my_analysis_tree.add_variable("true_n_secondary_showers",                          6,     0,      6,    "True Secondary Showers above Threshold");
+  //my_analysis_tree.add_variable("reco_n_secondary_showers",                          6,     0,      6,    "Secondary Showers above Threshold");
   my_analysis_tree.add_variable("true_n_protons",                                    6,     0,      6,    "True Protons above Threshold");
   my_analysis_tree.add_variable("reco_n_protons",                                    6,     0,      6,    "Protons above Threshold");
   my_analysis_tree.add_variable("true_vertex_x",                                    50,  -400,    400,    "True Vertex X (cm)");
@@ -301,13 +340,14 @@ int run_analysis(const std::string& fileName,
   my_analysis_tree.add_variable("reco_vertex_x",                                    50,  -400,    400,    "Vertex X (cm)");
   my_analysis_tree.add_variable("reco_vertex_y",                                    50,  -200,    200,    "Vertex Y (cm)");
   my_analysis_tree.add_variable("reco_vertex_z",                                    50, -1000,   1000,    "Vertex Z (cm)");
-  my_analysis_tree.add_variable("true_xy_wall_dist",                                50,     0,    200,    "True Minimum Distance from Vertex to X-/Y-side Detector Wall");
-  my_analysis_tree.add_variable("true_z_wall_dist",                                 50,     0,   1000,    "True Minimum Distance from Vertex to Z-side Detector Wall");
-  my_analysis_tree.add_variable("reco_xy_wall_dist",                                50,     0,    200,    "Minimum Distance from Vertex to X-/Y-side Detector Wall");
-  my_analysis_tree.add_variable("reco_z_wall_dist",                                 50,     0,   1000,    "Minimum Distance from Vertex to Z-side Detector Wall");
+  //my_analysis_tree.add_variable("true_xy_wall_dist",                                50,     0,    200,    "True Minimum Distance from Vertex to X-/Y-side Detector Wall");
+  //my_analysis_tree.add_variable("true_z_wall_dist",                                 50,     0,   1000,    "True Minimum Distance from Vertex to Z-side Detector Wall");
+  //my_analysis_tree.add_variable("reco_xy_wall_dist",                                50,     0,    200,    "Minimum Distance from Vertex to X-/Y-side Detector Wall");
+  //my_analysis_tree.add_variable("reco_z_wall_dist",                                 50,     0,   1000,    "Minimum Distance from Vertex to Z-side Detector Wall");
   my_analysis_tree.add_variable("reco_gOre_gap",                                    50,     0,    100,    "#gamma-candiate Distance from Vertex (cm)");
   my_analysis_tree.add_variable("reco_pion_mass",                                   50,     0,    250,    "Reconstructed Neutral Pion Mass Peak (MeV/c^{2}_{})");
-  my_analysis_tree.add_variable("reco_delta_mass",                                  50,   800,   1800,    "Reconstructed M_{#Delta} Resonance Peak (MeV/c^{2}_{})");
+  my_analysis_tree.add_variable("reco_delta_mass_P",                                50,   900,   1800,    "Reconstructed M_{#Delta} Resonance Peak (MeV/c^{2}_{})");
+  my_analysis_tree.add_variable("reco_delta_mass_N",                                50,   900,   1800,    "Reconstructed M_{#Delta} Resonance Peak (MeV/c^{2}_{})");
   //my_analysis_tree.add_variable("true_detla_mass",                                  50,   800,   1800,    "True M_{#Delta} Resonance Peak (MeV/c^{2}_{})");
   my_analysis_tree.add_variable("true_interaction_mode",                            15,    -1.5,   13.5,  "GENIE Interaction Mode");
   my_analysis_tree.add_variable("true_interaction_type",                           101,   999.5, 1100.5,  "GENIE Interaction Type");
@@ -316,7 +356,7 @@ int run_analysis(const std::string& fileName,
   my_analysis_tree.add_variable("true_category",                                     9,    -0.5,    8.5,  "Topological Truth Category"); 
   my_analysis_tree.add_variable("reco_leading_primary_gOre_primary_softmax",       100,     0,      1,    "Shower Primary Softmax");
   my_analysis_tree.add_variable("reco_leading_primary_gOre_photon_softmax",         50,     0,      1,    "Shower Photon Softmax");
-  my_analysis_tree.add_variable("reco_leading_primary_gOre_electron_softmax",       50,     0,      1,    "Shower Electron Softmax");
+  //my_analysis_tree.add_variable("reco_leading_primary_gOre_electron_softmax",       50,     0,      1,    "Shower Electron Softmax");
   my_analysis_tree.add_variable("reco_leading_primary_gOre_start_dedx",             50,     0,     25,    "Shower Start dE/dx (MeV/cm)");
   my_analysis_tree.add_variable("true_leading_primary_gOre_azimuthal_angle",        50,    -3.14,   3.14, "True Shower Azimuthal Angle (rad)");
   my_analysis_tree.add_variable("reco_leading_primary_gOre_azimuthal_angle",        50,    -3.14,   3.14, "Shower Azimuthal Angle (rad)");
@@ -332,7 +372,7 @@ int run_analysis(const std::string& fileName,
   my_analysis_tree.add_variable("reco_leading_primary_gOre_iou",                   100,     0,      1,    "Shower IoU");
   my_analysis_tree.add_variable("reco_subleading_primary_gOre_primary_softmax",    100,     0,      1,    "Subleading Shower Primary Softmax");
   my_analysis_tree.add_variable("reco_subleading_primary_gOre_photon_softmax",      50,     0,      1,    "Subleading Shower Photon Softmax");
-  my_analysis_tree.add_variable("reco_subleading_primary_gOre_electron_softmax",    50,     0,      1,    "Subleading Shower Electron Softmax");
+  //my_analysis_tree.add_variable("reco_subleading_primary_gOre_electron_softmax",    50,     0,      1,    "Subleading Shower Electron Softmax");
   my_analysis_tree.add_variable("reco_subleading_primary_gOre_start_dedx",          50,     0,     25,    "Subleading Shower Start dE/dx (MeV/cm)");
   my_analysis_tree.add_variable("true_subleading_primary_gOre_azimuthal_angle",     50,    -3.14,   3.14, "True Subleading Shower Azimuthal Angle (rad)");
   my_analysis_tree.add_variable("reco_subleading_primary_gOre_azimuthal_angle",     50,    -3.14,   3.14, "Subleading Shower Azimuthal Angle (rad)");
@@ -346,10 +386,22 @@ int run_analysis(const std::string& fileName,
   my_analysis_tree.add_variable("reco_subleading_primary_gOre_directional_spread", 100,     0,      1,    "Subleading Shower Directional Spread");
   my_analysis_tree.add_variable("true_subleading_primary_gOre_iou",                100,     0,      1,    "True Subleading Shower IoU");
   my_analysis_tree.add_variable("reco_subleading_primary_gOre_iou",                100,     0,      1,    "Subleading Shower IoU");
+  my_analysis_tree.add_variable("reco_leading_primary_proton_primary_softmax",     100,     0,      1,    "Leading Proton Primary Softmax");
+  my_analysis_tree.add_variable("reco_leading_primary_proton_proton_softmax",       50,     0,      1,    "Leading Proton Photon Softmax");
+  my_analysis_tree.add_variable("true_leading_primary_proton_azimuthal_angle",      50,    -3.14,   3.14, "True Proton Azimuthal Angle (rad)");
+  my_analysis_tree.add_variable("reco_leading_primary_proton_azimuthal_angle",      50,    -3.14,   3.14, "Proton Azimuthal Angle (rad)");
+  my_analysis_tree.add_variable("true_leading_primary_proton_polar_angle",          50,     0,      3.14, "True Proton Polar Angle (rad)");
+  my_analysis_tree.add_variable("reco_leading_primary_proton_polar_angle",          50,     0,      3.14, "Proton Polar Angle (rad)");
+  my_analysis_tree.add_variable("true_leading_primary_proton_ke",                   50,     0,   1000,    "True Proton KE (MeV)");
+  my_analysis_tree.add_variable("reco_leading_primary_proton_ke",                   50,     0,   1000,    "Proton KE (MeV)");
+  my_analysis_tree.add_variable("true_leading_primary_proton_dpT",                 100,     0,   1000,    "True Proton Transverse Momentum (MeV/c)");
+  my_analysis_tree.add_variable("reco_leading_primary_proton_dpT",                 100,     0,   1000,    "Proton Transverse Momentum (MeV/c)");
+  my_analysis_tree.add_variable("true_leading_primary_proton_length",              100,     0,    200,    "True Proton Length (cm)");
+  my_analysis_tree.add_variable("reco_leading_primary_proton_length",              100,     0,    200,    "Proton Length (cm)");
 
   //my_analysis_tree.add_variable("(reco_leading_primary_gOre_ke-true_leading_primary_gOre_ke)/true_leading_primary_gOre_ke", 100, -1, 1, "(KE_{reco} - KE_{true})/KE_{true}");
-  std::string var_delta_mass_N = "sqrt(2*reco_leading_primary_gOre_ke*(sqrt((0.01*reco_flash_total_pe)^2+(939.56542194)^2)-(0.01*reco_flash_total_pe)*sqrt(1 - (reco_leading_primary_gOre_dpT/reco_leading_primary_gOre_ke)^2))+(939.56542194)^2)";
-  my_analysis_tree.add_variable(var_delta_mass_N, 50, 800, 1800, "Reconstructed M_{#Delta} Resonance Peak (MeV/c^{2}_{})"); 
+  //std::string var_delta_mass_N = "sqrt(2*reco_leading_primary_gOre_ke*(sqrt((0.01*reco_flash_total_pe)^2+(939.56542194)^2)-(0.01*reco_flash_total_pe)*sqrt(1 - (reco_leading_primary_gOre_dpT/reco_leading_primary_gOre_ke)^2))+(939.56542194)^2)";
+  //my_analysis_tree.add_variable(var_delta_mass_N, 50, 800, 1800, "Reconstructed M_{#Delta} Resonance Peak (MeV/c^{2}_{})"); 
 
   std::string pdf_suffix = ".pdf";
   ana::tools::cut_sequence cut;
@@ -363,6 +415,7 @@ int run_analysis(const std::string& fileName,
   // but we do this for completeness
   std::cout << "//*** TOPOLOGY ***//" << std::endl;
   cut += "reco_gOre_topology == 1";
+  cut += reco_topology_cut;
   try_call(cut.string(), [&my_analysis_tree, &cut]{ my_analysis_tree.report_on_cut(cut); });
   //*** ENERGY THRESH ***/
   //std::tie(cut, truth_cut) = optimize_threshold(my_analysis_tree, cut, truth_cut, "reco_leading_primary_gOre_ke", "true_leading_primary_gOre_ke", 0, 500, sample, pdf_suffix);
@@ -521,23 +574,24 @@ int run_analysis(const std::string& fileName,
        [&my_analysis_tree, &var, &cut]{ return my_analysis_tree.plot_var_sig(var, cut); });
     std::string pdfName = "plots/"+sample+"/"+var+pdf_suffix;
     std::string pdfName_sig = "plots/"+sample+"/signal_"+var+pdf_suffix;
-    if (var == var_delta_mass_N)
-    {
-      pdfName = "plots/"+sample+"/reco_delta_mass_neutron_approx"+pdf_suffix;
-      pdfName_sig = "plots/"+sample+"/signal_reco_delta_mass_neutron_approx"+pdf_suffix;
-    }
+    //if (var == var_delta_mass_N)
+    //{
+    //  pdfName = "plots/"+sample+"/reco_delta_mass_neutron_approx"+pdf_suffix;
+    //  pdfName_sig = "plots/"+sample+"/signal_reco_delta_mass_neutron_approx"+pdf_suffix;
+    //}
     // some vars use alphanumeric labels
     if (var == "true_interaction_type" ||
         var == "true_interaction_mode" ||
         var == "true_baryon_res_code"  ||
         var == "true_mc_category"       )
     {
-      std::function<std::string(double)> get_label = (var == "true_interaction_type") ? [](const int& code){ return (genie_inttypes.count(code) == 1) ? genie_inttypes.at(code) : ""; }
-                                                   : (var == "true_interaction_mode") ? [](const int& code){ return genie_modes.at(code); }
-                                                   : (var == "true_baryon_res_code")  ? [](const int& code){ return res_codes.at(code); }
-                                                   : (var == "true_mc_category")      ? [](const int& code){ return mc_cats.at(code); }
-                                                   : (var == "true_category")         ? [](const int& code){ return sel_cats.at(code).first; }
-                                                   :                                    [](const int& code){ return std::to_string(code); };
+      using StrFromDouble = std::function<std::string(double)>;
+      StrFromDouble get_label = (var == "true_interaction_type") ? StrFromDouble([](const int& code){ return (genie_inttypes.count(code) == 1) ? genie_inttypes.at(code) : ""; })
+                              : (var == "true_interaction_mode") ? StrFromDouble([](const int& code){ return genie_modes.at(code); })
+                              : (var == "true_baryon_res_code")  ? StrFromDouble([](const int& code){ return res_codes.at(code); })
+                              : (var == "true_mc_category")      ? StrFromDouble([&mc_cats](const int& code){ return mc_cats.at(code); })
+                              : (var == "true_category")         ? StrFromDouble([](const int& code){ return sel_cats.at(code).first; })
+                              :                                    StrFromDouble([](const int& code){ return std::to_string(code); });
       size_t nBins = var_plot.hists.front()->GetXaxis()->GetNbins();
       for (size_t bin = 1; bin < nBins + 1; ++bin)
       {
@@ -573,16 +627,16 @@ int run_analysis(const std::string& fileName,
   }
 
   // try res peak plots
-  auto delta_mass_P =
-    try_call("delta_mass_P",
-       [&my_analysis_tree, &cut]{ return my_analysis_tree.plot_var_sel("reco_delta_mass", cut.with_addition("reco_n_protons == 1")); });
-  delta_mass_P.stack->SetTitle("1#gamma1p");
-  delta_mass_P.PrintPreliminary("plots/"+sample+"/delta_mass_P.pdf");
-  auto delta_mass_N =
-    try_call("delta_mass_N",
-       [&my_analysis_tree, &cut, &var_delta_mass_N]{ return my_analysis_tree.plot_var_sel(var_delta_mass_N, cut.with_addition("reco_n_protons == 0")); });
-  delta_mass_N.stack->SetTitle("1#gamma0p");
-  delta_mass_N.PrintPreliminary("plots/"+sample+"/delta_mass_N.pdf");
+  //auto delta_mass_P =
+  //  try_call("delta_mass_P",
+  //     [&my_analysis_tree, &cut]{ return my_analysis_tree.plot_var_sel("reco_delta_mass", cut.with_addition("reco_n_protons == 1")); });
+  //delta_mass_P.stack->SetTitle("1#gamma1p");
+  //delta_mass_P.PrintPreliminary("plots/"+sample+"/delta_mass_P.pdf");
+  //auto delta_mass_N =
+  //  try_call("delta_mass_N",
+  //     [&my_analysis_tree, &cut, &var_delta_mass_N]{ return my_analysis_tree.plot_var_sel(var_delta_mass_N, cut.with_addition("reco_n_protons == 0")); });
+  //delta_mass_N.stack->SetTitle("1#gamma0p");
+  //delta_mass_N.PrintPreliminary("plots/"+sample+"/delta_mass_N.pdf");
 
   return 0;
 }
@@ -598,12 +652,15 @@ int main(int argc, char* argv[])
     die("Must pass in the name of the ROOT file to analyze. Bail.");
   if (not (argc > 2))
     die("Must give name of sample in file to process");
+  if (not (argc > 3))
+    die("Must give the name of the topology used");
   const std::string suffix = ".root";
   const std::string fileName(argv[1]);
   const std::string sampleName(argv[2]);
+  const std::string topology(argv[3]);
   if (fileName.compare(fileName.size() - suffix.size(), fileName.size(), suffix) != 0)
     die("File must be a ROOT file (.root extension). Bail.");
   std::string sampleBase = fileName.substr(0, fileName.size() - suffix.size());
-  ret = try_call("Run gOre Analysis", run_analysis, fileName, sampleBase, sampleName, "gOre", "gOre", optimize_cuts);
+  ret = try_call("Run gOre Analysis", run_analysis, fileName, sampleBase, sampleName, topology, "gOre", "gOre", optimize_cuts);
   return ret;
 }
