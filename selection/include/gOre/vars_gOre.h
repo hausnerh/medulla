@@ -592,18 +592,19 @@ namespace vars::gOre
    * @details The fiducialization is being a pain, so focus on FSI topology and mode/interaction tyoe
    * 0: NC ∆->Nγ
    * 1: NC Other Single Photon
-   * 2: NC π0
-   * 3: NC Charged π
-   * 4: Other NC
-   * 5: CC-Electron
-   * 6: Other CC
-   * 7: Non-neutrino
+   * 2: NC π0 (∆ Res)
+   * 3: NC π0 (Other)
+   * 4: NC Charged π
+   * 5: Other NC
+   * 6: CC-Electron
+   * 7: Other CC
+   * 8: Non-neutrino
    **/
   template <class T>
     double mc_category(const T& obj, std::vector<double> params = {GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY,
                                                                    GORE_FID_THRESH_X_POS, GORE_FID_THRESH_X_NEG, GORE_FID_THRESH_Y_POS, GORE_FID_THRESH_Y_NEG, GORE_FID_THRESH_Z_POS, GORE_FID_THRESH_Z_NEG})
     {
-      double cat(7);
+      double cat(8);
       bool isnc = obj.isnc;
       caf::genie_interaction_mode_ genie_mode = obj.genie_mode;
       caf::genie_interaction_type_ genie_inttype = obj.genie_inttype;
@@ -620,16 +621,18 @@ namespace vars::gOre
         cat = 0;
       else if (isnc && is_single_photon_topology)
         cat = 1;
-      else if (isnc && topology.has_pi0())
+      else if (is_nc_delta_res && topology.has_pi0())
         cat = 2;
-      else if (isnc && topology.has_pi_pm())
+      else if (isnc && topology.has_pi0())
         cat = 3;
-      else if (isnc)
+      else if (isnc && topology.has_pi_pm())
         cat = 4;
-      else if (not isnc && topology.count_with_antiparticles(11) > 0)
+      else if (isnc)
         cat = 5;
-      else if (is_nu)
+      else if (not isnc && topology.count_with_antiparticles(11) > 0)
         cat = 6;
+      else if (is_nu)
+        cat = 7;
       return cat;
     }
   REGISTER_VAR_SCOPE(RegistrationScope::MCTruth, mc_category, mc_category);

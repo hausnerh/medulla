@@ -182,8 +182,8 @@ inline std::vector<std::tuple<std::string, std::string, bool, double, double>> v
   //{"reco_n_protons == 0", "reco_gOre_score", false, -1, 1}
   //{"reco_n_protons == 0", "reco_flash_total_pe", false, 0, 20000},
   {"reco_pion_mass > 0", "reco_pion_mass", true, 0, 300},
-  {"reco_subleading_primary_gOre_ke > 0", "reco_subleading_primary_gOre_primary_softmax", true, 0, 1},
-  {"reco_subleading_primary_gOre_ke > 0", "reco_subleading_primary_gOre_ke", true, 0, 25}
+  {"reco_subleading_primary_gOre_shower_ke > 0", "reco_subleading_primary_gOre_primary_softmax", true, 0, 1},
+  {"reco_subleading_primary_gOre_shower_ke > 0", "reco_subleading_primary_gOre_shower_ke", true, 0, 25}
 };
 
 std::tuple<ana::tools::cut_sequence, ana::tools::cut_sequence> optimize_threshold(ana::tools::analysis_tree& the_analysis_tree, // NOT CONST TO UPDATE SIGNAL DEFS
@@ -281,21 +281,23 @@ int run_analysis(const std::string& fileName,
       {"NC #Delta#rightarrowN#gamma (1#gamma0p)",      "(true_mc_category == 0) && (true_n_protons == 0)"},
       {"NC #Delta#rightarrowN#gamma (Other Topology)", "(true_mc_category == 0) && (true_n_protons != 0)"},
       {"Other NC 1#gammaXp Post-FSI",                  "true_mc_category == 1"},
-      {"NC #pi^{0}_{}",                                "true_mc_category == 2"},
-      {"NC #pi^{+/-}_{}",                              "true_mc_category == 3"},
-      {"Other NC",                                     "true_mc_category == 4"},
-      {"CC e",                                         "true_mc_category == 5"},
-      {"Other CC",                                     "true_mc_category == 6"}
+      {"NC #pi^{0}_{} (#Delta Res)",                   "true_mc_category == 2"},
+      {"NC #pi^{0}_{} (Other)",                        "true_mc_category == 3"},
+      {"NC #pi^{+/-}_{}",                              "true_mc_category == 4"},
+      {"Other NC",                                     "true_mc_category == 5"},
+      {"CC e",                                         "true_mc_category == 6"},
+      {"Other CC",                                     "true_mc_category == 7"}
     }) :
     std::vector<std::pair<std::string, ana::tools::cut_sequence>>({
       {"NC #Delta#rightarrowN#gamma (1#gamma1p)",      "(true_mc_category == 0) && (true_n_protons == 1)"},
       {"NC #Delta#rightarrowN#gamma (Other Topology)", "(true_mc_category == 0) && (true_n_protons != 1)"},
       {"Other NC 1#gammaXp Post-FSI",                  "true_mc_category == 1"},
-      {"NC #pi^{0}_{}",                                "true_mc_category == 2"},
-      {"NC #pi^{+/-}_{}",                              "true_mc_category == 3"},
-      {"Other NC",                                     "true_mc_category == 4"},
-      {"CC e",                                         "true_mc_category == 5"},
-      {"Other CC",                                     "true_mc_category == 6"}
+      {"NC #pi^{0}_{} (#Delta Res)",                   "true_mc_category == 2"},
+      {"NC #pi^{0}_{} (Other)",                        "true_mc_category == 3"},
+      {"NC #pi^{+/-}_{}",                              "true_mc_category == 4"},
+      {"Other NC",                                     "true_mc_category == 5"},
+      {"CC e",                                         "true_mc_category == 6"},
+      {"Other CC",                                     "true_mc_category == 7"}
     });
   const std::map<int, std::string> mc_cats =
   {
@@ -306,7 +308,8 @@ int run_analysis(const std::string& fileName,
     {4, sig_cats.at(4).first},
     {5, sig_cats.at(5).first},
     {6, sig_cats.at(6).first},
-    {7, sig_cats.at(7).first}
+    {7, sig_cats.at(7).first},
+    {8, sig_cats.at(8).first}
   };
 
   // setup analysis tree
@@ -362,10 +365,10 @@ int run_analysis(const std::string& fileName,
   my_analysis_tree.add_variable("reco_leading_primary_gOre_azimuthal_angle",        50,    -3.14,   3.14, "Shower Azimuthal Angle (rad)");
   my_analysis_tree.add_variable("true_leading_primary_gOre_polar_angle",            50,     0,      3.14, "True Shower Polar Angle (rad)");
   my_analysis_tree.add_variable("reco_leading_primary_gOre_polar_angle",            50,     0,      3.14, "Shower Polar Angle (rad)");
-  my_analysis_tree.add_variable("true_leading_primary_gOre_ke",                     50,     0,   1000,    "True Shower KE (MeV)");
-  my_analysis_tree.add_variable("reco_leading_primary_gOre_ke",                     50,     0,   1000,    "Shower KE (MeV)");
-  my_analysis_tree.add_variable("true_leading_primary_gOre_dpT",                   100,     0,   1000,    "True Shower Transverse Momentum (MeV/c)");
-  my_analysis_tree.add_variable("reco_leading_primary_gOre_dpT",                   100,     0,   1000,    "Shower Transverse Momentum (MeV/c)");
+  my_analysis_tree.add_variable("true_leading_primary_gOre_shower_ke",              50,     0,   1000,    "True Shower KE (MeV)");
+  my_analysis_tree.add_variable("reco_leading_primary_gOre_shower_ke",              50,     0,   1000,    "Shower KE (MeV)");
+  my_analysis_tree.add_variable("true_leading_primary_gOre_shower_dpT",            100,     0,   1000,    "True Shower Transverse Momentum (MeV/c)");
+  my_analysis_tree.add_variable("reco_leading_primary_gOre_shower_dpT",            100,     0,   1000,    "Shower Transverse Momentum (MeV/c)");
   my_analysis_tree.add_variable("reco_leading_primary_gOre_axial_spread",           75,    -0.5,    1,    "Shower Axial Spread");
   my_analysis_tree.add_variable("reco_leading_primary_gOre_directional_spread",    100,     0,      1,    "Shower Directional Spread");
   my_analysis_tree.add_variable("true_leading_primary_gOre_iou",                   100,     0,      1,    "True Shower IoU");
@@ -378,10 +381,10 @@ int run_analysis(const std::string& fileName,
   my_analysis_tree.add_variable("reco_subleading_primary_gOre_azimuthal_angle",     50,    -3.14,   3.14, "Subleading Shower Azimuthal Angle (rad)");
   my_analysis_tree.add_variable("true_subleading_primary_gOre_polar_angle",         50,     0,      3.14, "True Subleading Shower Polar Angle (rad)");
   my_analysis_tree.add_variable("reco_subleading_primary_gOre_polar_angle",         50,     0,      3.14, "Subleading Shower Polar Angle (rad)");
-  my_analysis_tree.add_variable("true_subleading_primary_gOre_ke",                  25,     0,     25,    "True Subleading Shower KE (MeV)");
-  my_analysis_tree.add_variable("reco_subleading_primary_gOre_ke",                  25,     0,     25,    "Subleading Shower KE (MeV)");
-  my_analysis_tree.add_variable("true_subleading_primary_gOre_dpT",                 25,     0,     25,    "True Subleading Shower Transverse Momentum (MeV/c)");
-  my_analysis_tree.add_variable("reco_subleading_primary_gOre_dpT",                 25,     0,     25,    "Subleading Shower Transverse Momentum (MeV/c)");
+  my_analysis_tree.add_variable("true_subleading_primary_gOre_shower_ke",           25,     0,     25,    "True Subleading Shower KE (MeV)");
+  my_analysis_tree.add_variable("reco_subleading_primary_gOre_shower_ke",           25,     0,     25,    "Subleading Shower KE (MeV)");
+  my_analysis_tree.add_variable("true_subleading_primary_gOre_shower_dpT",          25,     0,     25,    "True Subleading Shower Transverse Momentum (MeV/c)");
+  my_analysis_tree.add_variable("reco_subleading_primary_gOre_shower_dpT",          25,     0,     25,    "Subleading Shower Transverse Momentum (MeV/c)");
   my_analysis_tree.add_variable("reco_subleading_primary_gOre_axial_spread",        75,    -0.5,    1,    "Subleading Shower Axial Spread");
   my_analysis_tree.add_variable("reco_subleading_primary_gOre_directional_spread", 100,     0,      1,    "Subleading Shower Directional Spread");
   my_analysis_tree.add_variable("true_subleading_primary_gOre_iou",                100,     0,      1,    "True Subleading Shower IoU");
@@ -398,10 +401,6 @@ int run_analysis(const std::string& fileName,
   my_analysis_tree.add_variable("reco_leading_primary_proton_dpT",                 100,     0,   1000,    "Proton Transverse Momentum (MeV/c)");
   my_analysis_tree.add_variable("true_leading_primary_proton_length",              100,     0,    200,    "True Proton Length (cm)");
   my_analysis_tree.add_variable("reco_leading_primary_proton_length",              100,     0,    200,    "Proton Length (cm)");
-
-  //my_analysis_tree.add_variable("(reco_leading_primary_gOre_ke-true_leading_primary_gOre_ke)/true_leading_primary_gOre_ke", 100, -1, 1, "(KE_{reco} - KE_{true})/KE_{true}");
-  //std::string var_delta_mass_N = "sqrt(2*reco_leading_primary_gOre_ke*(sqrt((0.01*reco_flash_total_pe)^2+(939.56542194)^2)-(0.01*reco_flash_total_pe)*sqrt(1 - (reco_leading_primary_gOre_dpT/reco_leading_primary_gOre_ke)^2))+(939.56542194)^2)";
-  //my_analysis_tree.add_variable(var_delta_mass_N, 50, 800, 1800, "Reconstructed M_{#Delta} Resonance Peak (MeV/c^{2}_{})"); 
 
   std::string pdf_suffix = ".pdf";
   ana::tools::cut_sequence cut;
@@ -436,20 +435,20 @@ int run_analysis(const std::string& fileName,
   {
     for (auto const& [var, upper, lw_end, up_end] : vars_to_optimize)
       cut = optimize_cut(my_analysis_tree, cut, var, upper, lw_end, up_end, sample, pdf_suffix);
-    auto plot_gOre_ke_electron_cuts = 
-      try_call("plot_gOre_ke_electron_cuts",
-        [&my_analysis_tree, &cut]{ return my_analysis_tree.plot_var_sel("reco_leading_primary_gOre_ke", cut); });
-    plot_gOre_ke_electron_cuts.PrintPreliminary("plots/"+sample+"/electron_cuts_reco_leading_primary_gOre_ke"+pdf_suffix);
+    auto plot_gOre_shower_ke_electron_cuts = 
+      try_call("plot_gOre_shower_ke_electron_cuts",
+        [&my_analysis_tree, &cut]{ return my_analysis_tree.plot_var_sel("reco_leading_primary_gOre_shower_ke", cut); });
+    plot_gOre_shower_ke_electron_cuts.PrintPreliminary("plots/"+sample+"/electron_cuts_reco_leading_primary_gOre_shower_ke"+pdf_suffix);
     auto plot_n_protons_electron_cuts = 
       try_call("plot_n_protons_electron_cuts",
         [&my_analysis_tree, &cut]{ return my_analysis_tree.plot_var_sel("reco_n_protons", cut); });
     plot_n_protons_electron_cuts.PrintPreliminary("plots/"+sample+"/electron_cuts_reco_n_protons"+pdf_suffix);
     for (auto const& [condition, var, upper, lw_end, up_end] : vars_to_optimize_with_condition)
       cut = optimize_conditional_cut(my_analysis_tree, cut, condition, var, upper, lw_end, up_end, sample, pdf_suffix);
-    auto plot_gOre_ke_pion_cuts = 
-      try_call("plot_gOre_ke_pion_cuts",
-        [&my_analysis_tree, &cut]{ return my_analysis_tree.plot_var_sel("reco_leading_primary_gOre_ke", cut); });
-    plot_gOre_ke_pion_cuts.PrintPreliminary("plots/"+sample+"/pion_cuts_reco_leading_primary_gOre_ke"+pdf_suffix);
+    auto plot_gOre_shower_ke_pion_cuts = 
+      try_call("plot_gOre_shower_ke_pion_cuts",
+        [&my_analysis_tree, &cut]{ return my_analysis_tree.plot_var_sel("reco_leading_primary_gOre_shower_ke", cut); });
+    plot_gOre_shower_ke_pion_cuts.PrintPreliminary("plots/"+sample+"/pion_cuts_reco_leading_primary_gOre_shower_ke"+pdf_suffix);
     auto plot_n_protons_pion_cuts = 
       try_call("plot_n_protons_pion_cuts",
         [&my_analysis_tree, &cut]{ return my_analysis_tree.plot_var_sel("reco_n_protons", cut); });
@@ -523,8 +522,8 @@ int run_analysis(const std::string& fileName,
 
     auto precut_subleading_primary_gOre_ke =
       try_call("subleading_primary_gOre_ke",
-         [&my_analysis_tree, &cut]{ return my_analysis_tree.plot_var_sel("reco_subleading_primary_gOre_ke", cut); });
-    precut_subleading_primary_gOre_ke.PrintPreliminary("plots/"+sample+"/precut_subleading_primary_gOre_ke"+pdf_suffix);
+         [&my_analysis_tree, &cut]{ return my_analysis_tree.plot_var_sel("reco_subleading_primary_gOre_shower_ke", cut); });
+    precut_subleading_primary_gOre_ke.PrintPreliminary("plots/"+sample+"/precut_subleading_primary_gOre_shower_ke"+pdf_suffix);
 
     auto precut_pion_mass =
       try_call("pion_mass",
@@ -548,13 +547,13 @@ int run_analysis(const std::string& fileName,
 
     std::cout << "//*** Pion Rejection ***//" << std::endl;
     cut.add_conditional_cut("reco_pion_mass > 0", "reco_pion_mass < 94.2");
-    cut.add_conditional_cut("reco_subleading_primary_gOre_ke > 0", "reco_subleading_primary_gOre_ke < 6.8");
+    cut.add_conditional_cut("reco_subleading_primary_gOre_shower_ke > 0", "reco_subleading_primary_gOre_shower_ke < 6.8");
     try_call(cut.string(), [&my_analysis_tree, &cut]{ my_analysis_tree.report_on_cut(cut); });
 
     auto postcut_subleading_primary_gOre_ke =
-      try_call("subleading_primary_gOre_ke",
-         [&my_analysis_tree, &cut]{ return my_analysis_tree.plot_var_sel("reco_subleading_primary_gOre_ke", cut); });
-    postcut_subleading_primary_gOre_ke.PrintPreliminary("plots/"+sample+"/postcut_subleading_primary_gOre_ke"+pdf_suffix);
+      try_call("subleading_primary_gOre_shower_ke",
+         [&my_analysis_tree, &cut]{ return my_analysis_tree.plot_var_sel("reco_subleading_primary_gOre_shower_ke", cut); });
+    postcut_subleading_primary_gOre_ke.PrintPreliminary("plots/"+sample+"/postcut_subleading_primary_gOre_shower_ke"+pdf_suffix);
 
     auto postcut_pion_mass =
       try_call("pion_mass",
