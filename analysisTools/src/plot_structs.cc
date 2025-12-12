@@ -109,6 +109,10 @@ namespace ana::tools
     err->SetLineStyle(0);
     err->SetLineWidth(0);
     err->SetMarkerStyle(0);
+
+    double max = std::ceil(err->GetMaximum() + std::sqrt(err->GetMaximum()));
+    stack->GetYaxis()->SetRangeUser(0, max);
+    canvas->Update();
   }
 
   /**
@@ -142,6 +146,9 @@ namespace ana::tools
     SetStatUncertainty();
     legend->AddEntry(err.get(), "Statistical Uncertainty", "f");
     err->Draw("E2,same");
+    double max = std::ceil(err->GetMaximum() + std::sqrt(err->GetMaximum()));
+    stack->SetMaximum(max);
+    canvas->Update();
     Print(file_name);
   }
 

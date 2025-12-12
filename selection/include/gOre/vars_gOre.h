@@ -554,6 +554,83 @@ namespace vars::gOre
   REGISTER_VAR_SCOPE(RegistrationScope::Both, delta_mass_N, delta_mass_N);
 
   //*** TRUTH ONLY VARS ***//
+
+  /**
+   * @brief The Delta baryon mass square splitting for 1g0p
+   * @tparam T The type of the interaction (MC Truth only)
+   * @param obj the interaction
+   * @return double the Delta baryon mass
+   **/
+  template <class T>
+    double delta_mass_N_MC(const T& obj, std::vector<double> params = {GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY,
+                                                                        GORE_FID_THRESH_X_POS, GORE_FID_THRESH_X_NEG, GORE_FID_THRESH_Y_POS, GORE_FID_THRESH_Y_NEG, GORE_FID_THRESH_Z_POS, GORE_FID_THRESH_Z_NEG})
+    {
+      double mass = kNoMatchValue;
+      bool isnc = obj.isnc;
+      caf::genie_interaction_mode_ genie_mode = obj.genie_mode;
+      caf::genie_interaction_type_ genie_inttype = obj.genie_inttype;
+      int resnum = obj.resnum;
+      // is NC ∆ res
+      bool is_nc_delta_res = isnc && (resnum == 0);
+      if (not is_nc_delta_res)
+        return mass;
+      // post-FSI primary particles
+      core::gOre::mc_topology topology(obj.prim, params);
+      // single photon topology (1γ and maybe some nucleons)
+      // here want only 1γ0p
+      bool is_single_photon_topology = topology.single_photon() && topology.only_photons_and_nucleons();
+      bool no_protons = (topology.count_with_antiparticles(2212) == 0);
+      if ((not is_single_photon_topology) || (not no_protons))
+        return mass;
+
+      // take the first neutron, which is probably the right one
+      utilities::three_vector p_gamma_vec   = topology.get(  22, 0).momentum();
+      utilities::three_vector p_neutron_vec = topology.get(2112, 0).momentum();
+      double p_gamma   = utilities::magnitude(p_gamma_vec);
+      double p_neutron = utilities::magnitude(p_neutron_vec);
+      double cosTh = utilities::dot_product(p_gamma_vec, p_neutron_vec) / (p_gamma * p_neutron);
+     
+      // what is the delta mass?
+      mass = std::sqrt(2.*p_gamma*(std::sqrt(p_neutron*p_neutron + NEUTRON_MASS*NEUTRON_MASS) - p_neutron*cosTh) + NEUTRON_MASS*NEUTRON_MASS);
+      return mass; 
+    }
+  REGISTER_VAR_SCOPE(RegistrationScope::MCTruth, delta_mass_N_MC, delta_mass_N_MC);
+
+  /**
+   * @brief The neutron momentum in MC truth
+   * @tparam T The type of the interaction (MC Truth only)
+   * @param obj the interaction
+   * @return double the Delta neutron momentum
+   **/
+  template <class T>
+    double neutron_momentum(const T& obj, std::vector<double> params = {GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY,
+                                                                        GORE_FID_THRESH_X_POS, GORE_FID_THRESH_X_NEG, GORE_FID_THRESH_Y_POS, GORE_FID_THRESH_Y_NEG, GORE_FID_THRESH_Z_POS, GORE_FID_THRESH_Z_NEG})
+    {
+      double momentum = kNoMatchValue;
+      bool isnc = obj.isnc;
+      caf::genie_interaction_mode_ genie_mode = obj.genie_mode;
+      caf::genie_interaction_type_ genie_inttype = obj.genie_inttype;
+      int resnum = obj.resnum;
+      // is NC ∆ res
+      bool is_nc_delta_res = isnc && (resnum == 0);
+      if (not is_nc_delta_res)
+        return momentum;
+      // post-FSI primary particles
+      core::gOre::mc_topology topology(obj.prim, params);
+      // single photon topology (1γ and maybe some nucleons)
+      // here want only 1γ0p
+      bool is_single_photon_topology = topology.single_photon() && topology.only_photons_and_nucleons();
+      bool no_protons = (topology.count_with_antiparticles(2212) == 0);
+      if ((not is_single_photon_topology) || (not no_protons))
+        return momentum;
+
+      // take the first neutron, which is probably the right one
+      utilities::three_vector p_neutron_vec = topology.get(2112, 0).momentum();
+      momentum = utilities::magnitude(p_neutron_vec);
+      return momentum;
+    }
+  REGISTER_VAR_SCOPE(RegistrationScope::MCTruth, neutron_momentum, neutron_momentum);
+    
   /**
    * @brief get the resonance number from the MC Truth
    * @details from genie::EResonance enum (I think)

@@ -172,8 +172,8 @@ inline std::vector<std::tuple<std::string, bool, double, double>> vars_to_optimi
   {"reco_leading_primary_gOre_start_dedx",         false,  0,     5},
   {"reco_leading_primary_gOre_axial_spread",       false, -0.5,   1},
   {"reco_leading_primary_gOre_directional_spread", true,   0,     1},
-  {"reco_leading_primary_gOre_photon_softmax",     false,  0,     1},
-  {"reco_gOre_gap",                                false,  0,   100}
+  {"reco_leading_primary_gOre_photon_softmax",     false,  0,     1}
+  //{"reco_gOre_gap",                                false,  0,   100}
 };
 
 inline std::vector<std::tuple<std::string, std::string, bool, double, double>> vars_to_optimize_with_condition =
@@ -183,7 +183,8 @@ inline std::vector<std::tuple<std::string, std::string, bool, double, double>> v
   //{"reco_n_protons == 0", "reco_flash_total_pe", false, 0, 20000},
   {"reco_pion_mass > 0", "reco_pion_mass", true, 0, 300},
   {"reco_subleading_primary_gOre_shower_ke > 0", "reco_subleading_primary_gOre_primary_softmax", true, 0, 1},
-  {"reco_subleading_primary_gOre_shower_ke > 0", "reco_subleading_primary_gOre_shower_ke", true, 0, 25}
+  {"reco_subleading_primary_gOre_shower_ke > 0", "reco_subleading_primary_gOre_shower_ke", true, 0, 25},
+  {"reco_n_protons >= 1", "reco_gOre_gap", false, 0, 100}
 };
 
 std::tuple<ana::tools::cut_sequence, ana::tools::cut_sequence> optimize_threshold(ana::tools::analysis_tree& the_analysis_tree, // NOT CONST TO UPDATE SIGNAL DEFS
@@ -349,13 +350,15 @@ int run_analysis(const std::string& fileName,
   //my_analysis_tree.add_variable("reco_z_wall_dist",                                 50,     0,   1000,    "Minimum Distance from Vertex to Z-side Detector Wall");
   my_analysis_tree.add_variable("reco_gOre_gap",                                    50,     0,    100,    "#gamma-candiate Distance from Vertex (cm)");
   my_analysis_tree.add_variable("reco_pion_mass",                                   50,     0,    250,    "Reconstructed Neutral Pion Mass Peak (MeV/c^{2}_{})");
-  my_analysis_tree.add_variable("reco_delta_mass_P",                                50,   900,   1800,    "Reconstructed M_{#Delta} Resonance Peak (MeV/c^{2}_{})");
-  my_analysis_tree.add_variable("reco_delta_mass_N",                                50,   900,   1800,    "Reconstructed M_{#Delta} Resonance Peak (MeV/c^{2}_{})");
+  my_analysis_tree.add_variable("reco_delta_mass_P",                                25,   950,   1600,    "Reconstructed M_{#Delta} Resonance Peak (MeV/c^{2}_{})");
+  my_analysis_tree.add_variable("reco_delta_mass_N",                                25,   950,   1600,    "Reconstructed M_{#Delta} Resonance Peak (MeV/c^{2}_{})");
+  my_analysis_tree.add_variable("true_delta_mass_P",                                25,   950,   1600,    "True M_{#Delta} Resonance Peak (MeV/c^{2}_{})");
+  my_analysis_tree.add_variable("true_delta_mass_N",                                25,   950,   1600,    "True M_{#Delta} Resonance Peak (MeV/c^{2}_{})");
   //my_analysis_tree.add_variable("true_detla_mass",                                  50,   800,   1800,    "True M_{#Delta} Resonance Peak (MeV/c^{2}_{})");
   my_analysis_tree.add_variable("true_interaction_mode",                            15,    -1.5,   13.5,  "GENIE Interaction Mode");
   my_analysis_tree.add_variable("true_interaction_type",                           101,   999.5, 1100.5,  "GENIE Interaction Type");
   my_analysis_tree.add_variable("true_baryon_res_code",                             19,    -1.5,   17.5,  "Resonance Number");
-  my_analysis_tree.add_variable("true_mc_category",                                  7,    -0.5,    6.5,  "MC Truth Category"); 
+  my_analysis_tree.add_variable("true_mc_category",                                  8,    -0.5,    7.5,  "MC Truth Category"); 
   my_analysis_tree.add_variable("true_category",                                     9,    -0.5,    8.5,  "Topological Truth Category"); 
   my_analysis_tree.add_variable("reco_leading_primary_gOre_primary_softmax",       100,     0,      1,    "Shower Primary Softmax");
   my_analysis_tree.add_variable("reco_leading_primary_gOre_photon_softmax",         50,     0,      1,    "Shower Photon Softmax");
@@ -582,13 +585,21 @@ int run_analysis(const std::string& fileName,
     if (var == "true_interaction_type" ||
         var == "true_interaction_mode" ||
         var == "true_baryon_res_code"  ||
-        var == "true_mc_category"       )
+        var == "true_mc_category"      ||
+        var == "true_category"          )
     {
       using StrFromDouble = std::function<std::string(double)>;
       StrFromDouble get_label = (var == "true_interaction_type") ? StrFromDouble([](const int& code){ return (genie_inttypes.count(code) == 1) ? genie_inttypes.at(code) : ""; })
                               : (var == "true_interaction_mode") ? StrFromDouble([](const int& code){ return genie_modes.at(code); })
                               : (var == "true_baryon_res_code")  ? StrFromDouble([](const int& code){ return res_codes.at(code); })
-                              : (var == "true_mc_category")      ? StrFromDouble([&mc_cats](const int& code){ return mc_cats.at(code); })
+                              : (var == "true_mc_category")      ? StrFromDouble([&mc_cats](const int& code){
+                                                                                                              if (code == 0)
+                                                                                                              {
+                                                                                                                return std::string("NC #Delta#rightarrowN#gamma");
+                                                                                                              }
+                                                                                                              else
+                                                                                                                return mc_cats.at(code + 1);
+                                                                                                            })
                               : (var == "true_category")         ? StrFromDouble([](const int& code){ return sel_cats.at(code).first; })
                               :                                    StrFromDouble([](const int& code){ return std::to_string(code); });
       size_t nBins = var_plot.hists.front()->GetXaxis()->GetNbins();
@@ -621,8 +632,31 @@ int run_analysis(const std::string& fileName,
       var_plot.canvas->Update();
       var_plot_sig.canvas->Update();
     }
-    var_plot.PrintPreliminary(pdfName);
-    var_plot_sig.PrintPreliminary(pdfName_sig);
+    // if Delta mass plot draw a line for the mass value of 1232 MeV/c^2
+    if (var.find("delta") != std::string::npos)
+    {
+      var_plot.canvas->cd();
+      var_plot.canvas->Update();
+      double max = std::ceil(var_plot.stack->GetMaximum() + std::sqrt(var_plot.stack->GetMaximum()));
+      TLine massLine(1232, 0, 1232, max);
+      massLine.SetLineColor(kBlack);
+      massLine.SetLineStyle(kDashed);
+      massLine.Draw();
+      var_plot.PrintPreliminary(pdfName);
+      var_plot_sig.canvas->cd();
+      var_plot_sig.canvas->Update();
+      double max_sig = std::ceil(var_plot_sig.stack->GetMaximum() + std::sqrt(var_plot_sig.stack->GetMaximum()));
+      TLine massLine_sig(1232, 0, 1232, max_sig);
+      massLine_sig.SetLineColor(kBlack);
+      massLine_sig.SetLineStyle(kDashed);
+      massLine_sig.Draw();
+      var_plot_sig.PrintPreliminary(pdfName_sig);
+    }
+    else
+    {
+      var_plot.PrintPreliminary(pdfName);
+      var_plot_sig.PrintPreliminary(pdfName_sig);
+    }
   }
 
   // try res peak plots

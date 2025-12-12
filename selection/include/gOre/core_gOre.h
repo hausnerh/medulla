@@ -72,6 +72,7 @@ namespace core::gOre
       {
         pdg_code = particle.pdg;
         gen_energy = particle.genE * 1000.; // convert from GeV to MeV
+        gen_momentum = {particle.genp.x * 1000., particle.genp.y * 1000., particle.genp.z * 1000.}; // convert from GeV to MeV
         start = {particle.start.x, particle.start.y, particle.start.z};
         contained = particle.contained;
       }
@@ -84,6 +85,11 @@ namespace core::gOre
       double energy() const
       {
         return gen_energy;
+      }
+      /** @brief the particles momentum vector (at generation) in MeV/c **/
+      utilities::three_vector momentum() const
+      {
+        return gen_momentum;
       }
       /** @brief the starting location of the particle in detector coordinates (cm) **/
       utilities::three_vector get_start() const
@@ -185,10 +191,11 @@ namespace core::gOre
         return true;
       }
     private:
-      int pdg_code;                   ///< particle's PDG code 
-      double gen_energy;              ///< particle's energy at generation
-      utilities::three_vector start;  ///< where the particle was generated
-      bool contained;                 ///< was the particle contained?
+      int pdg_code;                         ///< particle's PDG code 
+      double gen_energy;                    ///< particle's energy at generation
+      utilities::three_vector gen_momentum; ///< particle's momentum at generation
+      utilities::three_vector start;        ///< where the particle was generated
+      bool contained;                       ///< was the particle contained?
   };
 
   /**
@@ -332,6 +339,17 @@ namespace core::gOre
       bool is_contained() const
       {
         return contained;
+      }
+      /** @brief get the nth particle with pid **/
+      mc_topo_particle get(const int& pdg, const size_t& idx)
+      {
+        if (idx >= count(pdg))
+        {
+          std::string err_msg = "Indexing topology out of range.\nAsked for " + std::to_string(pdg)
+                              + " at index " + std::to_string(idx) + ", but there are only " + std::to_string(count(pdg));
+          throw std::runtime_error(err_msg.c_str());
+        }
+        return particles_by_pdg.at(pdg).at(idx);
       }
     private:
       std::unordered_map<int, std::vector<mc_topo_particle>> particles_by_pdg; ///< A map of the PDG codes to the particles
