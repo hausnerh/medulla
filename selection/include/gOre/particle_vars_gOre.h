@@ -34,7 +34,7 @@ namespace pvars::gOre
    * 1. the pion mass peak correction
    * 2. removal of an outdated shower correction factor
    * 3. a new shower correction factor to replace the old
-   * The pion mass correction is different for data & MC
+   * The pion mass correction is different for data & MC, but just do MC for now
    * @tparam T the type of particle (true or reco)
    * @param p the selected particle
    * @return double the correction factor for the shower kinetic energy
@@ -43,14 +43,7 @@ namespace pvars::gOre
     double corr_ke(const T& p)
     {
       double corr = 134.9768;
-      if constexpr (std::is_same_v<T, caf::SRParticleTruthDLPProxy>)
-      {
-        corr /= 130.68;
-      }
-      else
-      {
-        corr /= 130.79;
-      }
+      corr /= 130.68;
       corr /= 1.2359;
       corr /= 0.82;
       return corr;

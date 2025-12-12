@@ -630,6 +630,45 @@ namespace vars::gOre
       return momentum;
     }
   REGISTER_VAR_SCOPE(RegistrationScope::MCTruth, neutron_momentum, neutron_momentum);
+
+  /**
+   * @brief Neutron CosTh
+   * @tparam T the type of interaction (MC Truth only)
+   * @param obj the interaction of interest
+   * @param params the thresholds
+   * @return double the cosine of the angle between the photon and neutron in the 1g0p events
+   **/
+  template <class T>
+    double neutron_cosTh(const T& obj, std::vector<double> params = {GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY,
+                                                                     GORE_FID_THRESH_X_POS, GORE_FID_THRESH_X_NEG, GORE_FID_THRESH_Y_POS, GORE_FID_THRESH_Y_NEG, GORE_FID_THRESH_Z_POS, GORE_FID_THRESH_Z_NEG})
+    {
+      double cosTh = kNoMatchValue;
+      bool isnc = obj.isnc;
+      caf::genie_interaction_mode_ genie_mode = obj.genie_mode;
+      caf::genie_interaction_type_ genie_inttype = obj.genie_inttype;
+      int resnum = obj.resnum;
+      // is NC ∆ res
+      bool is_nc_delta_res = isnc && (resnum == 0);
+      if (not is_nc_delta_res)
+        return cosTh;
+      // post-FSI primary particles
+      core::gOre::mc_topology topology(obj.prim, params);
+      // single photon topology (1γ and maybe some nucleons)
+      // here want only 1γ0p
+      bool is_single_photon_topology = topology.single_photon() && topology.only_photons_and_nucleons();
+      bool no_protons = (topology.count_with_antiparticles(2212) == 0);
+      if ((not is_single_photon_topology) || (not no_protons))
+        return cosTh;
+
+      // take the first neutron, which is probably the right one
+      utilities::three_vector p_gamma_vec   = topology.get(  22, 0).momentum();
+      utilities::three_vector p_neutron_vec = topology.get(2112, 0).momentum();
+      double p_gamma   = utilities::magnitude(p_gamma_vec);
+      double p_neutron = utilities::magnitude(p_neutron_vec);
+      cosTh = utilities::dot_product(p_gamma_vec, p_neutron_vec) / (p_gamma * p_neutron);
+      return cosTh;
+    }
+  REGISTER_VAR_SCOPE(RegistrationScope::MCTruth, neutron_cosTh, neutron_cosTh);
     
   /**
    * @brief get the resonance number from the MC Truth

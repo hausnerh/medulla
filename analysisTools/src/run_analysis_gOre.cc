@@ -354,6 +354,7 @@ int run_analysis(const std::string& fileName,
   my_analysis_tree.add_variable("reco_delta_mass_N",                                25,   950,   1600,    "Reconstructed M_{#Delta} Resonance Peak (MeV/c^{2}_{})");
   my_analysis_tree.add_variable("true_delta_mass_P",                                25,   950,   1600,    "True M_{#Delta} Resonance Peak (MeV/c^{2}_{})");
   my_analysis_tree.add_variable("true_delta_mass_N",                                25,   950,   1600,    "True M_{#Delta} Resonance Peak (MeV/c^{2}_{})");
+  my_analysis_tree.add_variable("true_delta_mass_N_MC",                             25,   950,   1600,    "True M_{#Delta} Resonance Peak (MeV/c^{2}_{})");
   //my_analysis_tree.add_variable("true_detla_mass",                                  50,   800,   1800,    "True M_{#Delta} Resonance Peak (MeV/c^{2}_{})");
   my_analysis_tree.add_variable("true_interaction_mode",                            15,    -1.5,   13.5,  "GENIE Interaction Mode");
   my_analysis_tree.add_variable("true_interaction_type",                           101,   999.5, 1100.5,  "GENIE Interaction Type");
@@ -404,6 +405,7 @@ int run_analysis(const std::string& fileName,
   my_analysis_tree.add_variable("reco_leading_primary_proton_dpT",                 100,     0,   1000,    "Proton Transverse Momentum (MeV/c)");
   my_analysis_tree.add_variable("true_leading_primary_proton_length",              100,     0,    200,    "True Proton Length (cm)");
   my_analysis_tree.add_variable("reco_leading_primary_proton_length",              100,     0,    200,    "Proton Length (cm)");
+  my_analysis_tree.add_variable("true_neutron_momentum",                            50,     0,   1000,    "True Neutron Momentum (MeV/c)");
 
   std::string pdf_suffix = ".pdf";
   ana::tools::cut_sequence cut;
