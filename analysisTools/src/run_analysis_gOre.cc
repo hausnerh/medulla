@@ -406,6 +406,7 @@ int run_analysis(const std::string& fileName,
   my_analysis_tree.add_variable("true_leading_primary_proton_length",              100,     0,    200,    "True Proton Length (cm)");
   my_analysis_tree.add_variable("reco_leading_primary_proton_length",              100,     0,    200,    "Proton Length (cm)");
   my_analysis_tree.add_variable("true_neutron_momentum",                            50,     0,   1000,    "True Neutron Momentum (MeV/c)");
+  my_analysis_tree.add_variable("true_neutron_cosTh",                               50,     0,      1,    "True Photon-Neutron cos#Theta");
 
   std::string pdf_suffix = ".pdf";
   ana::tools::cut_sequence cut;

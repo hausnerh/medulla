@@ -24,8 +24,10 @@ fiducial_zdist_pos = 50 # cm
 fiducial_zdist_neg = 50 # cm
 pion_mass_threshold = 0.4 # fraction of π0 mass
 photon_vertex_resolution = 150 # cm
-flash_pe_neutron_scaling = 0.01
-angle_neutron_scaling = 1.0
+#flash_pe_neutron_scaling = 0.01
+flash_pe_neutron_scaling = 0.19
+#angle_neutron_scaling = 1.0
+angle_neutron_scaling = 1.31
 
 [[category]] # contained, fiducial, single photon
 cuts = [

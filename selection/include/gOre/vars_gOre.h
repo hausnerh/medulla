@@ -547,7 +547,8 @@ namespace vars::gOre
       auto const& gamma  = obj.particles.at(idx_gamma);
       double p_gamma   = pvars::gOre::shower_p(gamma);
       double p_neutron = params[0]*vars::flash_total_pe(obj);
-      double cosTh = params[1]*std::sqrt(1 - std::pow(pvars::gOre::shower_dpT(gamma) / p_gamma, 2.0));
+      //double cosTh = params[1]*std::sqrt(1 - std::pow(pvars::gOre::shower_dpT(gamma) / p_gamma, 2.0));
+      couble cosTh = std::cos(params[1]*pvars::polar_angle(p_gamma));
       mass = std::sqrt(2.*p_gamma*(std::sqrt(p_neutron*p_neutron + NEUTRON_MASS*NEUTRON_MASS) - p_neutron*cosTh) + NEUTRON_MASS*NEUTRON_MASS);
       return mass;
     }
