@@ -554,6 +554,28 @@ namespace vars::gOre
     }
   REGISTER_VAR_SCOPE(RegistrationScope::Both, delta_mass_N, delta_mass_N);
 
+  /**
+   * @brief cosine of the photon-proton opening angle (1g1p)
+   **/
+  template <class T>
+    double opening_costh(const T& obj)
+    {
+      double cosTh = -999.9;
+      size_t idx_gamma = selectors::gOre::leading_primary_gOre(obj);
+      size_t idx_proton = selectors::gOre::leading_primary_proton(obj);
+      if (idx_gamma == kNoMatch || idx_proton == kNoMatch)
+        return cosTh;
+      auto const& gamma  = obj.particles.at(idx_gamma);
+      auto const& proton = obj.particles.at(idx_proton);
+      double p_gamma  = pvars::gOre::shower_p(gamma);
+      double p_proton = pvars::p(proton);
+      utilities::three_vector dir_gamma  = utilities::to_three_vector(gamma.start_dir);
+      utilities::three_vector dir_proton = utilities::to_three_vector(proton.start_dir);
+      cosTh = utilities::dot_product(dir_gamma, dir_proton);
+      return cosTh;
+    }
+  REGISTER_VAR_SCOPE(RegistrationScope::Both, opening_costh, opening_costh);
+
   //*** TRUTH ONLY VARS ***//
 
   /**
@@ -581,7 +603,8 @@ namespace vars::gOre
       // here want only 1γ0p
       bool is_single_photon_topology = topology.single_photon() && topology.only_photons_and_nucleons();
       bool no_protons = (topology.count_with_antiparticles(2212) == 0);
-      if ((not is_single_photon_topology) || (not no_protons))
+      bool yes_neutrons = (topology.count_with_antiparticles(2112) > 0);
+      if ((not is_single_photon_topology) || (not no_protons) || (not yes_neutrons))
         return mass;
 
       // take the first neutron, which is probably the right one
@@ -622,7 +645,8 @@ namespace vars::gOre
       // here want only 1γ0p
       bool is_single_photon_topology = topology.single_photon() && topology.only_photons_and_nucleons();
       bool no_protons = (topology.count_with_antiparticles(2212) == 0);
-      if ((not is_single_photon_topology) || (not no_protons))
+      bool yes_neutrons = (topology.count_with_antiparticles(2112) > 0);
+      if ((not is_single_photon_topology) || (not no_protons) || (not yes_neutrons))
         return momentum;
 
       // take the first neutron, which is probably the right one
@@ -658,7 +682,8 @@ namespace vars::gOre
       // here want only 1γ0p
       bool is_single_photon_topology = topology.single_photon() && topology.only_photons_and_nucleons();
       bool no_protons = (topology.count_with_antiparticles(2212) == 0);
-      if ((not is_single_photon_topology) || (not no_protons))
+      bool yes_neutrons = (topology.count_with_antiparticles(2112) > 0);
+      if ((not is_single_photon_topology) || (not no_protons) || (not yes_neutrons))
         return cosTh;
 
       // take the first neutron, which is probably the right one
