@@ -88,128 +88,128 @@ xlabel = 'Reconstructed Containment'
 
 [variables.reco_flash_total_pe]
 key = 'reco_flash_total_pe'
-range = [0, 100000]
+range = [0.0, 100000.0]
 nbins = 50
 xlabel = 'Total Flash PE'
 
 [variables.true_opening_costh]
 key = 'true_opening_costh'
-range = [-1, 1]
+range = [-1.0, 1.0]
 nbins = 50
 xlabel = 'True Opening Angle'
 
 [variables.reco_opening_costh]
 key = 'reco_opening_costh'
-range = [-1, 1]
+range = [-1.0, 1.0]
 nbins = 50
 xlabel = 'Reconstructed Opening Angle'
 
 [variables.true_n_protons]
 key = 'true_n_protons'
-range = [0, 6]
+range = [0.0, 6.0]
 nbins = 6
 xlabel = 'True Protons above Threshold'
 
 [variables.reco_n_protons]
 key = 'reco_n_protons'
-range = [0, 6]
+range = [0.0, 6.0]
 nbins = 6
 xlabel = 'Protons above Threshold'
 
 [variables.true_vertex_x]
 key = 'true_vertex_x'
-range = [-400, 400]
+range = [-400.0, 400.0]
 nbins = 50
 xlabel = 'True Vertex X [cm]'
 
 [variables.true_vertex_y]
 key = 'true_vertex_y'
-range = [-200, 200]
+range = [-200.0, 200.0]
 nbins = 50
 xlabel = 'True Vertex Y [cm]'
 
 [variables.true_vertex_z]
 key = 'true_vertex_z'
-range = [-1000, 1000]
+range = [-1000.0, 1000.0]
 nbins = 50
 xlabel = 'True Vertex Z [cm]'
 
 [variables.reco_vertex_x]
 key = 'reco_vertex_x'
-range = [-400, 400]
+range = [-400.0, 400.0]
 nbins = 50
 xlabel = 'Vertex X [cm]'
 
 [variables.reco_vertex_y]
 key = 'reco_vertex_y'
-range = [-200, 200]
+range = [-200.0, 200.0]
 nbins = 50
 xlabel = 'Vertex Y [cm]'
 
 [variables.reco_vertex_z]
 key = 'reco_vertex_z'
-range = [-1000, 1000]
+range = [-1000.0, 1000.0]
 nbins = 50
 xlabel = 'Vertex Z [cm]'
 
 [variables.reco_gOre_gap]
 key = 'reco_gOre_gap'
-range = [0, 100]
+range = [0.0, 100.0]
 nbins = 50
 xlabel = '$\gamma$-candidate Distance from Vertex [cm]'
 
 [variables.reco_pion_mass]
 key = 'reco_pion_mass'
-range = [0, 250]
+range = [0.0, 250.0]
 nbins = 50
 xlabel = 'Reconstructed $\pi^0$ Mass Peak [MeV/$c^2$]'
 
 [variables.reco_delta_mass_P]
 key = 'reco_delta_mass_P'
-range = [950, 1600]
+range = [950.0, 1600.0]
 nbins = 25
 xlabel = 'Reconstructed $M_\Delta$ Peak [MeV/$c^2$]'
 
 [variables.reco_delta_mass_N]
 key = 'reco_delta_mass_N'
-range = [950, 1600]
+range = [950.0, 1600.0]
 nbins = 25
 xlabel = 'Reconstructed $M_\Delta$ Peak [MeV/$c^2$]'
 
 [variables.true_delta_mass_P]
 key = 'true_delta_mass_P'
-range = [950, 1600]
+range = [950.0, 1600.0]
 nbins = 25
 xlabel = 'True $M_\Delta$ Peak [MeV/$c^2$]'
 
 [variables.true_delta_mass_N]
 key = 'true_delta_mass_N'
-range = [950, 1600]
+range = [950.0, 1600.0]
 nbins = 25
 xlabel = 'True $M_\Delta$ Peak [MeV/$c^2$]'
 
 [variables.true_delta_mass_N_MC]
 key = 'true_delta_mass_N_MC'
-range = [950, 1600]
+range = [950.0, 1600.0]
 nbins = 25
 xlabel = 'True $M_\Delta$ Peak [MeV/$c^2$]'
 
 # Composite kinematics: |M_Delta - 1232 MeV| (precomputed)
 [variables.reco_delta_mass_P_dev]
 key = 'reco_delta_mass_P_dev'
-range = [0, 300]
+range = [0.0, 300.0]
 nbins = 50
 xlabel = '$|\mathrm{Reco}\; M_\Delta - 1232\;\mathrm{MeV}/c^2|$'
 
 [variables.true_neutron_momentum]
 key = 'true_neutron_momentum'
-range = [0, 1000]
+range = [0.0, 1000.0]
 nbins = 50
 xlabel = 'True Neutron Momentum [MeV/c]'
 
 [variables.true_neutron_cosTh]
 key = 'true_neutron_cosTh'
-range = [0, 1]
+range = [0.0, 1.0]
 nbins = 50
 xlabel = 'True Photon-Neutron $\cos\Theta$'
 
@@ -217,67 +217,67 @@ xlabel = 'True Photon-Neutron $\cos\Theta$'
 
 [variables.reco_leading_primary_gOre_primary_softmax]
 key = 'reco_leading_primary_gOre_primary_softmax'
-range = [0.99, 1]
+range = [0.99, 1.0]
 nbins = 100
 xlabel = 'Shower Primary Softmax'
 
 [variables.reco_leading_primary_gOre_photon_softmax]
 key = 'reco_leading_primary_gOre_photon_softmax'
-range = [0, 1]
+range = [0.0, 1.0]
 nbins = 50
 xlabel = 'Shower Photon Softmax'
 
 [variables.reco_leading_primary_gOre_start_dedx]
 key = 'reco_leading_primary_gOre_start_dedx'
-range = [0, 25]
+range = [0.0, 25.0]
 nbins = 50
 xlabel = 'Shower Start dE/dx [MeV/cm]'
 
 [variables.reco_leading_primary_gOre_axial_spread]
 key = 'reco_leading_primary_gOre_axial_spread'
-range = [-0.5, 1]
+range = [-0.5, 1.0]
 nbins = 75
 xlabel = 'Shower Axial Spread'
 
 [variables.reco_leading_primary_gOre_directional_spread]
 key = 'reco_leading_primary_gOre_directional_spread'
-range = [0, 1]
+range = [0.0, 1.0]
 nbins = 100
 xlabel = 'Shower Directional Spread'
 
 [variables.reco_leading_primary_gOre_iou]
 key = 'reco_leading_primary_gOre_iou'
-range = [0, 1]
+range = [0.0, 1.0]
 nbins = 100
 xlabel = 'Shower IoU'
 
 [variables.true_leading_primary_gOre_iou]
 key = 'true_leading_primary_gOre_iou'
-range = [0, 1]
+range = [0.0, 1.0]
 nbins = 100
 xlabel = 'True Shower IoU'
 
 [variables.reco_leading_primary_gOre_shower_ke]
 key = 'reco_leading_primary_gOre_shower_ke'
-range = [0, 1000]
+range = [0.0, 1000.0]
 nbins = 50
 xlabel = 'Shower KE [MeV]'
 
 [variables.true_leading_primary_gOre_shower_ke]
 key = 'true_leading_primary_gOre_shower_ke'
-range = [0, 1000]
+range = [0.0, 1000.0]
 nbins = 50
 xlabel = 'True Shower KE [MeV]'
 
 [variables.reco_leading_primary_gOre_shower_dpT]
 key = 'reco_leading_primary_gOre_shower_dpT'
-range = [0, 1000]
+range = [0.0, 1000.0]
 nbins = 100
 xlabel = 'Shower Transverse Momentum [MeV/c]'
 
 [variables.true_leading_primary_gOre_shower_dpT]
 key = 'true_leading_primary_gOre_shower_dpT'
-range = [0, 1000]
+range = [0.0, 1000.0]
 nbins = 100
 xlabel = 'True Shower Transverse Momentum [MeV/c]'
 
@@ -295,13 +295,13 @@ xlabel = 'True Shower Azimuthal Angle [rad]'
 
 [variables.reco_leading_primary_gOre_polar_angle]
 key = 'reco_leading_primary_gOre_polar_angle'
-range = [0, 3.14]
+range = [0.0, 3.14]
 nbins = 50
 xlabel = 'Shower Polar Angle [rad]'
 
 [variables.true_leading_primary_gOre_polar_angle]
 key = 'true_leading_primary_gOre_polar_angle'
-range = [0, 3.14]
+range = [0.0, 3.14]
 nbins = 50
 xlabel = 'True Shower Polar Angle [rad]'
 
@@ -309,67 +309,67 @@ xlabel = 'True Shower Polar Angle [rad]'
 
 [variables.reco_subleading_primary_gOre_shower_ke]
 key = 'reco_subleading_primary_gOre_shower_ke'
-range = [0, 25]
+range = [0.0, 25.0]
 nbins = 25
 xlabel = 'Subleading Shower KE [MeV]'
 
 [variables.true_subleading_primary_gOre_shower_ke]
 key = 'true_subleading_primary_gOre_shower_ke'
-range = [0, 25]
+range = [0.0, 25.0]
 nbins = 25
 xlabel = 'True Subleading Shower KE [MeV]'
 
 [variables.reco_subleading_primary_gOre_primary_softmax]
 key = 'reco_subleading_primary_gOre_primary_softmax'
-range = [0, 1]
+range = [0.0, 1.0]
 nbins = 100
 xlabel = 'Subleading Shower Primary Softmax'
 
 [variables.reco_subleading_primary_gOre_photon_softmax]
 key = 'reco_subleading_primary_gOre_photon_softmax'
-range = [0, 1]
+range = [0.0, 1.0]
 nbins = 50
 xlabel = 'Subleading Shower Photon Softmax'
 
 [variables.reco_subleading_primary_gOre_start_dedx]
 key = 'reco_subleading_primary_gOre_start_dedx'
-range = [0, 25]
+range = [0.0, 25.0]
 nbins = 50
 xlabel = 'Subleading Shower Start dE/dx [MeV/cm]'
 
 [variables.reco_subleading_primary_gOre_axial_spread]
 key = 'reco_subleading_primary_gOre_axial_spread'
-range = [-0.5, 1]
+range = [-0.5, 1.0]
 nbins = 75
 xlabel = 'Subleading Shower Axial Spread'
 
 [variables.reco_subleading_primary_gOre_directional_spread]
 key = 'reco_subleading_primary_gOre_directional_spread'
-range = [0, 1]
+range = [0.0, 1.0]
 nbins = 100
 xlabel = 'Subleading Shower Directional Spread'
 
 [variables.reco_subleading_primary_gOre_iou]
 key = 'reco_subleading_primary_gOre_iou'
-range = [0, 1]
+range = [0.0, 1.0]
 nbins = 100
 xlabel = 'Subleading Shower IoU'
 
 [variables.true_subleading_primary_gOre_iou]
 key = 'true_subleading_primary_gOre_iou'
-range = [0, 1]
+range = [0.0, 1.0]
 nbins = 100
 xlabel = 'True Subleading Shower IoU'
 
 [variables.reco_subleading_primary_gOre_shower_dpT]
 key = 'reco_subleading_primary_gOre_shower_dpT'
-range = [0, 25]
+range = [0.0, 25.0]
 nbins = 25
 xlabel = 'Subleading Shower Transverse Momentum [MeV/c]'
 
 [variables.true_subleading_primary_gOre_shower_dpT]
 key = 'true_subleading_primary_gOre_shower_dpT'
-range = [0, 25]
+range = [0.0, 25.0]
 nbins = 25
 xlabel = 'True Subleading Shower Transverse Momentum [MeV/c]'
 
@@ -387,13 +387,13 @@ xlabel = 'True Subleading Shower Azimuthal Angle [rad]'
 
 [variables.reco_subleading_primary_gOre_polar_angle]
 key = 'reco_subleading_primary_gOre_polar_angle'
-range = [0, 3.14]
+range = [0.0, 3.14]
 nbins = 50
 xlabel = 'Subleading Shower Polar Angle [rad]'
 
 [variables.true_subleading_primary_gOre_polar_angle]
 key = 'true_subleading_primary_gOre_polar_angle'
-range = [0, 3.14]
+range = [0.0, 3.14]
 nbins = 50
 xlabel = 'True Subleading Shower Polar Angle [rad]'
 
@@ -401,49 +401,49 @@ xlabel = 'True Subleading Shower Polar Angle [rad]'
 
 [variables.reco_leading_primary_proton_primary_softmax]
 key = 'reco_leading_primary_proton_primary_softmax'
-range = [0, 1]
+range = [0.0, 1.0]
 nbins = 100
 xlabel = 'Leading Proton Primary Softmax'
 
 [variables.reco_leading_primary_proton_proton_softmax]
 key = 'reco_leading_primary_proton_proton_softmax'
-range = [0, 1]
+range = [0.0, 1.0]
 nbins = 50
 xlabel = 'Leading Proton Softmax'
 
 [variables.reco_leading_primary_proton_ke]
 key = 'reco_leading_primary_proton_ke'
-range = [0, 1000]
+range = [0.0, 1000.0]
 nbins = 50
 xlabel = 'Proton KE [MeV]'
 
 [variables.true_leading_primary_proton_ke]
 key = 'true_leading_primary_proton_ke'
-range = [0, 1000]
+range = [0.0, 1000.0]
 nbins = 50
 xlabel = 'True Proton KE [MeV]'
 
 [variables.reco_leading_primary_proton_dpT]
 key = 'reco_leading_primary_proton_dpT'
-range = [0, 1000]
+range = [0.0, 1000.0]
 nbins = 100
 xlabel = 'Proton Transverse Momentum [MeV/c]'
 
 [variables.true_leading_primary_proton_dpT]
 key = 'true_leading_primary_proton_dpT'
-range = [0, 1000]
+range = [0.0, 1000.0]
 nbins = 100
 xlabel = 'True Proton Transverse Momentum [MeV/c]'
 
 [variables.reco_leading_primary_proton_length]
 key = 'reco_leading_primary_proton_length'
-range = [0, 200]
+range = [0.0, 200.0]
 nbins = 100
 xlabel = 'Proton Length [cm]'
 
 [variables.true_leading_primary_proton_length]
 key = 'true_leading_primary_proton_length'
-range = [0, 200]
+range = [0.0, 200.0]
 nbins = 100
 xlabel = 'True Proton Length [cm]'
 
@@ -461,13 +461,13 @@ xlabel = 'True Proton Azimuthal Angle [rad]'
 
 [variables.reco_leading_primary_proton_polar_angle]
 key = 'reco_leading_primary_proton_polar_angle'
-range = [0, 3.14]
+range = [0.0, 3.14]
 nbins = 50
 xlabel = 'Proton Polar Angle [rad]'
 
 [variables.true_leading_primary_proton_polar_angle]
 key = 'true_leading_primary_proton_polar_angle'
-range = [0, 3.14]
+range = [0.0, 3.14]
 nbins = 50
 xlabel = 'True Proton Polar Angle [rad]'
 
