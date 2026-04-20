@@ -211,7 +211,7 @@ xlabel = 'True Neutron Momentum [MeV/c]'
 key = 'true_neutron_cosTh'
 range = [0, 1]
 nbins = 50
-xlabel = r'True Photon-Neutron $\cos\Theta$'
+xlabel = 'True Photon-Neutron $\cos\Theta$'
 
 # --- Leading shower ---
 
