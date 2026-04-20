@@ -1,0 +1,879 @@
+# Reproduce run_analysis_gOre_NEW.cc final-cut plots for 1g1p with a
+# total systematic uncertainty band. Input is the output of run_systematics
+# on `gOre_1g0p_1g1p_1gNp.root` (tree events/cvext/selected_1g1p +
+# selected_1g1p_multisimTree/multisigmaTree universe weight dirs).
+
+[[this_includes]]
+file = 'configurations/common/styles.toml'
+
+[output]
+path = '/exp/icarus/app/users/hhausner/plots/gOre_1g1p'
+
+[analysis]
+ordinate_sample = 'mc'
+category_branch = 'gOre_category_idx'
+category_assignment = [[0], [1], [2], [3], [4], [5], [6], [7], [8]]
+category_labels = [
+  'NC $\Delta{\to}N\gamma$ (1$\gamma$1p)',
+  'NC $\Delta{\to}N\gamma$ (Other Topo.)',
+  'Other NC 1$\gamma$Xp Post-FSI',
+  'NC $\pi^0$ ($\Delta$ Res)',
+  'NC $\pi^0$ (Other)',
+  'NC $\pi^{\pm}$',
+  'Other NC',
+  'CC e',
+  'Other CC',
+]
+category_colors = ['C0', 'C9', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7']
+category_types = ['histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram']
+
+[samples.mc]
+key = 'cvext'
+exposure_type = 'pot'
+trees = ['selected_1g1p']
+systematics = ['selected_1g1p_multisimTree', 'selected_1g1p_multisigmaTree']
+print_sys = true
+
+# run_analysis_gOre_NEW.cc:655-658 maps true_mc_category==0 into 2 bins
+# split by true_n_protons. Express as a single flat category index:
+#   base = true_mc_category + 1  (gives 1 for cat==0, 2..8 for cat 1..7)
+#   subtract (cat==0 & protons==1) to move 1g1p signal events to index 0
+[samples.mc.precompute]
+gOre_category_idx = "(true_mc_category + 1) - ((true_mc_category == 0) & (true_n_protons == 1))"
+reco_delta_mass_P_dev = "abs(reco_delta_mass_P - 1232)"
+
+# Final-cut state in run_analysis_gOre_NEW.cc:
+#   baseline (fiducial / containment / flash / gOre_topology / single_proton)
+#   is already applied by the selection binary — only stage-2 pi0 rejection
+#   and stage-3 e/gamma separation remain. Cut values from lines 263-271.
+presel = "(reco_subleading_primary_gOre_shower_ke <= 0) & (reco_leading_primary_gOre_primary_softmax > 0.9991) & (reco_leading_primary_proton_primary_softmax > 0.9513) & (reco_delta_mass_P_dev < 59.7) & (reco_leading_primary_gOre_start_dedx > 4.07) & (reco_leading_primary_gOre_directional_spread < 0.037) & (reco_leading_primary_gOre_photon_softmax > 0.9225)"
+
+# Collapse every per-knob covariance into one "total" band per variable.
+# Covariance key produced: `total_<variable_name>` (systematic.py:275).
+[[systematic_recipe]]
+name = 'total'
+label = 'Total syst.'
+pattern = '.*'
+
+# -----------------------------------------------------------------------------
+# Variables — mirror run_analysis_gOre_NEW.cc:358-433.
+# Categorical vars (true_interaction_type/_mode, true_baryon_res_code,
+# true_mc_category, true_category) omitted — they need per-bin text labels
+# that spineplot's Variable class does not support.
+# -----------------------------------------------------------------------------
+
+[variables.reco_gOre_topology]
+key = 'reco_gOre_topology'
+range = [-0.5, 1.5]
+nbins = 2
+xlabel = 'Reconstructed gOre Topology'
+
+[variables.reco_flash]
+key = 'reco_flash'
+range = [-0.5, 1.5]
+nbins = 2
+xlabel = 'Reconstructed Flash'
+
+[variables.reco_fiducial]
+key = 'reco_fiducial'
+range = [-0.5, 1.5]
+nbins = 2
+xlabel = 'Reconstructed Fiducial'
+
+[variables.reco_containment]
+key = 'reco_containment'
+range = [-0.5, 1.5]
+nbins = 2
+xlabel = 'Reconstructed Containment'
+
+[variables.reco_flash_total_pe]
+key = 'reco_flash_total_pe'
+range = [0, 100000]
+nbins = 50
+xlabel = 'Total Flash PE'
+
+[variables.true_opening_costh]
+key = 'true_opening_costh'
+range = [-1, 1]
+nbins = 50
+xlabel = 'True Opening Angle'
+
+[variables.reco_opening_costh]
+key = 'reco_opening_costh'
+range = [-1, 1]
+nbins = 50
+xlabel = 'Reconstructed Opening Angle'
+
+[variables.true_n_protons]
+key = 'true_n_protons'
+range = [0, 6]
+nbins = 6
+xlabel = 'True Protons above Threshold'
+
+[variables.reco_n_protons]
+key = 'reco_n_protons'
+range = [0, 6]
+nbins = 6
+xlabel = 'Protons above Threshold'
+
+[variables.true_vertex_x]
+key = 'true_vertex_x'
+range = [-400, 400]
+nbins = 50
+xlabel = 'True Vertex X [cm]'
+
+[variables.true_vertex_y]
+key = 'true_vertex_y'
+range = [-200, 200]
+nbins = 50
+xlabel = 'True Vertex Y [cm]'
+
+[variables.true_vertex_z]
+key = 'true_vertex_z'
+range = [-1000, 1000]
+nbins = 50
+xlabel = 'True Vertex Z [cm]'
+
+[variables.reco_vertex_x]
+key = 'reco_vertex_x'
+range = [-400, 400]
+nbins = 50
+xlabel = 'Vertex X [cm]'
+
+[variables.reco_vertex_y]
+key = 'reco_vertex_y'
+range = [-200, 200]
+nbins = 50
+xlabel = 'Vertex Y [cm]'
+
+[variables.reco_vertex_z]
+key = 'reco_vertex_z'
+range = [-1000, 1000]
+nbins = 50
+xlabel = 'Vertex Z [cm]'
+
+[variables.reco_gOre_gap]
+key = 'reco_gOre_gap'
+range = [0, 100]
+nbins = 50
+xlabel = '$\gamma$-candidate Distance from Vertex [cm]'
+
+[variables.reco_pion_mass]
+key = 'reco_pion_mass'
+range = [0, 250]
+nbins = 50
+xlabel = 'Reconstructed $\pi^0$ Mass Peak [MeV/$c^2$]'
+
+[variables.reco_delta_mass_P]
+key = 'reco_delta_mass_P'
+range = [950, 1600]
+nbins = 25
+xlabel = 'Reconstructed $M_\Delta$ Peak [MeV/$c^2$]'
+
+[variables.reco_delta_mass_N]
+key = 'reco_delta_mass_N'
+range = [950, 1600]
+nbins = 25
+xlabel = 'Reconstructed $M_\Delta$ Peak [MeV/$c^2$]'
+
+[variables.true_delta_mass_P]
+key = 'true_delta_mass_P'
+range = [950, 1600]
+nbins = 25
+xlabel = 'True $M_\Delta$ Peak [MeV/$c^2$]'
+
+[variables.true_delta_mass_N]
+key = 'true_delta_mass_N'
+range = [950, 1600]
+nbins = 25
+xlabel = 'True $M_\Delta$ Peak [MeV/$c^2$]'
+
+[variables.true_delta_mass_N_MC]
+key = 'true_delta_mass_N_MC'
+range = [950, 1600]
+nbins = 25
+xlabel = 'True $M_\Delta$ Peak [MeV/$c^2$]'
+
+# Composite kinematics: |M_Delta - 1232 MeV| (precomputed)
+[variables.reco_delta_mass_P_dev]
+key = 'reco_delta_mass_P_dev'
+range = [0, 300]
+nbins = 50
+xlabel = '$|\mathrm{Reco}\; M_\Delta - 1232\;\mathrm{MeV}/c^2|$'
+
+[variables.true_neutron_momentum]
+key = 'true_neutron_momentum'
+range = [0, 1000]
+nbins = 50
+xlabel = 'True Neutron Momentum [MeV/c]'
+
+[variables.true_neutron_cosTh]
+key = 'true_neutron_cosTh'
+range = [0, 1]
+nbins = 50
+xlabel = r'True Photon-Neutron $\cos\Theta$'
+
+# --- Leading shower ---
+
+[variables.reco_leading_primary_gOre_primary_softmax]
+key = 'reco_leading_primary_gOre_primary_softmax'
+range = [0.99, 1]
+nbins = 100
+xlabel = 'Shower Primary Softmax'
+
+[variables.reco_leading_primary_gOre_photon_softmax]
+key = 'reco_leading_primary_gOre_photon_softmax'
+range = [0, 1]
+nbins = 50
+xlabel = 'Shower Photon Softmax'
+
+[variables.reco_leading_primary_gOre_start_dedx]
+key = 'reco_leading_primary_gOre_start_dedx'
+range = [0, 25]
+nbins = 50
+xlabel = 'Shower Start dE/dx [MeV/cm]'
+
+[variables.reco_leading_primary_gOre_axial_spread]
+key = 'reco_leading_primary_gOre_axial_spread'
+range = [-0.5, 1]
+nbins = 75
+xlabel = 'Shower Axial Spread'
+
+[variables.reco_leading_primary_gOre_directional_spread]
+key = 'reco_leading_primary_gOre_directional_spread'
+range = [0, 1]
+nbins = 100
+xlabel = 'Shower Directional Spread'
+
+[variables.reco_leading_primary_gOre_iou]
+key = 'reco_leading_primary_gOre_iou'
+range = [0, 1]
+nbins = 100
+xlabel = 'Shower IoU'
+
+[variables.true_leading_primary_gOre_iou]
+key = 'true_leading_primary_gOre_iou'
+range = [0, 1]
+nbins = 100
+xlabel = 'True Shower IoU'
+
+[variables.reco_leading_primary_gOre_shower_ke]
+key = 'reco_leading_primary_gOre_shower_ke'
+range = [0, 1000]
+nbins = 50
+xlabel = 'Shower KE [MeV]'
+
+[variables.true_leading_primary_gOre_shower_ke]
+key = 'true_leading_primary_gOre_shower_ke'
+range = [0, 1000]
+nbins = 50
+xlabel = 'True Shower KE [MeV]'
+
+[variables.reco_leading_primary_gOre_shower_dpT]
+key = 'reco_leading_primary_gOre_shower_dpT'
+range = [0, 1000]
+nbins = 100
+xlabel = 'Shower Transverse Momentum [MeV/c]'
+
+[variables.true_leading_primary_gOre_shower_dpT]
+key = 'true_leading_primary_gOre_shower_dpT'
+range = [0, 1000]
+nbins = 100
+xlabel = 'True Shower Transverse Momentum [MeV/c]'
+
+[variables.reco_leading_primary_gOre_azimuthal_angle]
+key = 'reco_leading_primary_gOre_azimuthal_angle'
+range = [-3.14, 3.14]
+nbins = 50
+xlabel = 'Shower Azimuthal Angle [rad]'
+
+[variables.true_leading_primary_gOre_azimuthal_angle]
+key = 'true_leading_primary_gOre_azimuthal_angle'
+range = [-3.14, 3.14]
+nbins = 50
+xlabel = 'True Shower Azimuthal Angle [rad]'
+
+[variables.reco_leading_primary_gOre_polar_angle]
+key = 'reco_leading_primary_gOre_polar_angle'
+range = [0, 3.14]
+nbins = 50
+xlabel = 'Shower Polar Angle [rad]'
+
+[variables.true_leading_primary_gOre_polar_angle]
+key = 'true_leading_primary_gOre_polar_angle'
+range = [0, 3.14]
+nbins = 50
+xlabel = 'True Shower Polar Angle [rad]'
+
+# --- Subleading shower ---
+
+[variables.reco_subleading_primary_gOre_shower_ke]
+key = 'reco_subleading_primary_gOre_shower_ke'
+range = [0, 25]
+nbins = 25
+xlabel = 'Subleading Shower KE [MeV]'
+
+[variables.true_subleading_primary_gOre_shower_ke]
+key = 'true_subleading_primary_gOre_shower_ke'
+range = [0, 25]
+nbins = 25
+xlabel = 'True Subleading Shower KE [MeV]'
+
+[variables.reco_subleading_primary_gOre_primary_softmax]
+key = 'reco_subleading_primary_gOre_primary_softmax'
+range = [0, 1]
+nbins = 100
+xlabel = 'Subleading Shower Primary Softmax'
+
+[variables.reco_subleading_primary_gOre_photon_softmax]
+key = 'reco_subleading_primary_gOre_photon_softmax'
+range = [0, 1]
+nbins = 50
+xlabel = 'Subleading Shower Photon Softmax'
+
+[variables.reco_subleading_primary_gOre_start_dedx]
+key = 'reco_subleading_primary_gOre_start_dedx'
+range = [0, 25]
+nbins = 50
+xlabel = 'Subleading Shower Start dE/dx [MeV/cm]'
+
+[variables.reco_subleading_primary_gOre_axial_spread]
+key = 'reco_subleading_primary_gOre_axial_spread'
+range = [-0.5, 1]
+nbins = 75
+xlabel = 'Subleading Shower Axial Spread'
+
+[variables.reco_subleading_primary_gOre_directional_spread]
+key = 'reco_subleading_primary_gOre_directional_spread'
+range = [0, 1]
+nbins = 100
+xlabel = 'Subleading Shower Directional Spread'
+
+[variables.reco_subleading_primary_gOre_iou]
+key = 'reco_subleading_primary_gOre_iou'
+range = [0, 1]
+nbins = 100
+xlabel = 'Subleading Shower IoU'
+
+[variables.true_subleading_primary_gOre_iou]
+key = 'true_subleading_primary_gOre_iou'
+range = [0, 1]
+nbins = 100
+xlabel = 'True Subleading Shower IoU'
+
+[variables.reco_subleading_primary_gOre_shower_dpT]
+key = 'reco_subleading_primary_gOre_shower_dpT'
+range = [0, 25]
+nbins = 25
+xlabel = 'Subleading Shower Transverse Momentum [MeV/c]'
+
+[variables.true_subleading_primary_gOre_shower_dpT]
+key = 'true_subleading_primary_gOre_shower_dpT'
+range = [0, 25]
+nbins = 25
+xlabel = 'True Subleading Shower Transverse Momentum [MeV/c]'
+
+[variables.reco_subleading_primary_gOre_azimuthal_angle]
+key = 'reco_subleading_primary_gOre_azimuthal_angle'
+range = [-3.14, 3.14]
+nbins = 50
+xlabel = 'Subleading Shower Azimuthal Angle [rad]'
+
+[variables.true_subleading_primary_gOre_azimuthal_angle]
+key = 'true_subleading_primary_gOre_azimuthal_angle'
+range = [-3.14, 3.14]
+nbins = 50
+xlabel = 'True Subleading Shower Azimuthal Angle [rad]'
+
+[variables.reco_subleading_primary_gOre_polar_angle]
+key = 'reco_subleading_primary_gOre_polar_angle'
+range = [0, 3.14]
+nbins = 50
+xlabel = 'Subleading Shower Polar Angle [rad]'
+
+[variables.true_subleading_primary_gOre_polar_angle]
+key = 'true_subleading_primary_gOre_polar_angle'
+range = [0, 3.14]
+nbins = 50
+xlabel = 'True Subleading Shower Polar Angle [rad]'
+
+# --- Leading proton ---
+
+[variables.reco_leading_primary_proton_primary_softmax]
+key = 'reco_leading_primary_proton_primary_softmax'
+range = [0, 1]
+nbins = 100
+xlabel = 'Leading Proton Primary Softmax'
+
+[variables.reco_leading_primary_proton_proton_softmax]
+key = 'reco_leading_primary_proton_proton_softmax'
+range = [0, 1]
+nbins = 50
+xlabel = 'Leading Proton Softmax'
+
+[variables.reco_leading_primary_proton_ke]
+key = 'reco_leading_primary_proton_ke'
+range = [0, 1000]
+nbins = 50
+xlabel = 'Proton KE [MeV]'
+
+[variables.true_leading_primary_proton_ke]
+key = 'true_leading_primary_proton_ke'
+range = [0, 1000]
+nbins = 50
+xlabel = 'True Proton KE [MeV]'
+
+[variables.reco_leading_primary_proton_dpT]
+key = 'reco_leading_primary_proton_dpT'
+range = [0, 1000]
+nbins = 100
+xlabel = 'Proton Transverse Momentum [MeV/c]'
+
+[variables.true_leading_primary_proton_dpT]
+key = 'true_leading_primary_proton_dpT'
+range = [0, 1000]
+nbins = 100
+xlabel = 'True Proton Transverse Momentum [MeV/c]'
+
+[variables.reco_leading_primary_proton_length]
+key = 'reco_leading_primary_proton_length'
+range = [0, 200]
+nbins = 100
+xlabel = 'Proton Length [cm]'
+
+[variables.true_leading_primary_proton_length]
+key = 'true_leading_primary_proton_length'
+range = [0, 200]
+nbins = 100
+xlabel = 'True Proton Length [cm]'
+
+[variables.reco_leading_primary_proton_azimuthal_angle]
+key = 'reco_leading_primary_proton_azimuthal_angle'
+range = [-3.14, 3.14]
+nbins = 50
+xlabel = 'Proton Azimuthal Angle [rad]'
+
+[variables.true_leading_primary_proton_azimuthal_angle]
+key = 'true_leading_primary_proton_azimuthal_angle'
+range = [-3.14, 3.14]
+nbins = 50
+xlabel = 'True Proton Azimuthal Angle [rad]'
+
+[variables.reco_leading_primary_proton_polar_angle]
+key = 'reco_leading_primary_proton_polar_angle'
+range = [0, 3.14]
+nbins = 50
+xlabel = 'Proton Polar Angle [rad]'
+
+[variables.true_leading_primary_proton_polar_angle]
+key = 'true_leading_primary_proton_polar_angle'
+range = [0, 3.14]
+nbins = 50
+xlabel = 'True Proton Polar Angle [rad]'
+
+# -----------------------------------------------------------------------------
+# Figures — one SimpleFigure per variable, each with the total syst band.
+# draw_error key = '<recipe_name>_<variable_name>' (systematic.py:275).
+# -----------------------------------------------------------------------------
+
+[[figure]]
+name = 'reco_gOre_topology'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'reco_gOre_topology', draw_kwargs = {draw_error = 'total_reco_gOre_topology'}}]
+
+[[figure]]
+name = 'reco_flash'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'reco_flash', draw_kwargs = {draw_error = 'total_reco_flash'}}]
+
+[[figure]]
+name = 'reco_fiducial'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'reco_fiducial', draw_kwargs = {draw_error = 'total_reco_fiducial'}}]
+
+[[figure]]
+name = 'reco_containment'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'reco_containment', draw_kwargs = {draw_error = 'total_reco_containment'}}]
+
+[[figure]]
+name = 'reco_flash_total_pe'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'reco_flash_total_pe', draw_kwargs = {draw_error = 'total_reco_flash_total_pe'}}]
+
+[[figure]]
+name = 'true_opening_costh'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'true_opening_costh', draw_kwargs = {draw_error = 'total_true_opening_costh'}}]
+
+[[figure]]
+name = 'reco_opening_costh'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'reco_opening_costh', draw_kwargs = {draw_error = 'total_reco_opening_costh'}}]
+
+[[figure]]
+name = 'true_n_protons'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'true_n_protons', draw_kwargs = {draw_error = 'total_true_n_protons'}}]
+
+[[figure]]
+name = 'reco_n_protons'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'reco_n_protons', draw_kwargs = {draw_error = 'total_reco_n_protons'}}]
+
+[[figure]]
+name = 'true_vertex_x'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'true_vertex_x', draw_kwargs = {draw_error = 'total_true_vertex_x'}}]
+
+[[figure]]
+name = 'true_vertex_y'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'true_vertex_y', draw_kwargs = {draw_error = 'total_true_vertex_y'}}]
+
+[[figure]]
+name = 'true_vertex_z'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'true_vertex_z', draw_kwargs = {draw_error = 'total_true_vertex_z'}}]
+
+[[figure]]
+name = 'reco_vertex_x'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'reco_vertex_x', draw_kwargs = {draw_error = 'total_reco_vertex_x'}}]
+
+[[figure]]
+name = 'reco_vertex_y'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'reco_vertex_y', draw_kwargs = {draw_error = 'total_reco_vertex_y'}}]
+
+[[figure]]
+name = 'reco_vertex_z'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'reco_vertex_z', draw_kwargs = {draw_error = 'total_reco_vertex_z'}}]
+
+[[figure]]
+name = 'reco_gOre_gap'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'reco_gOre_gap', draw_kwargs = {draw_error = 'total_reco_gOre_gap'}}]
+
+[[figure]]
+name = 'reco_pion_mass'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'reco_pion_mass', draw_kwargs = {draw_error = 'total_reco_pion_mass'}}]
+
+[[figure]]
+name = 'reco_delta_mass_P'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'reco_delta_mass_P', draw_kwargs = {draw_error = 'total_reco_delta_mass_P'}}]
+
+[[figure]]
+name = 'reco_delta_mass_N'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'reco_delta_mass_N', draw_kwargs = {draw_error = 'total_reco_delta_mass_N'}}]
+
+[[figure]]
+name = 'true_delta_mass_P'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'true_delta_mass_P', draw_kwargs = {draw_error = 'total_true_delta_mass_P'}}]
+
+[[figure]]
+name = 'true_delta_mass_N'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'true_delta_mass_N', draw_kwargs = {draw_error = 'total_true_delta_mass_N'}}]
+
+[[figure]]
+name = 'true_delta_mass_N_MC'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'true_delta_mass_N_MC', draw_kwargs = {draw_error = 'total_true_delta_mass_N_MC'}}]
+
+[[figure]]
+name = 'reco_delta_mass_P_dev'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'reco_delta_mass_P_dev', draw_kwargs = {draw_error = 'total_reco_delta_mass_P_dev'}}]
+
+[[figure]]
+name = 'true_neutron_momentum'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'true_neutron_momentum', draw_kwargs = {draw_error = 'total_true_neutron_momentum'}}]
+
+[[figure]]
+name = 'true_neutron_cosTh'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'true_neutron_cosTh', draw_kwargs = {draw_error = 'total_true_neutron_cosTh'}}]
+
+[[figure]]
+name = 'reco_leading_primary_gOre_primary_softmax'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'reco_leading_primary_gOre_primary_softmax', draw_kwargs = {draw_error = 'total_reco_leading_primary_gOre_primary_softmax'}}]
+
+[[figure]]
+name = 'reco_leading_primary_gOre_photon_softmax'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'reco_leading_primary_gOre_photon_softmax', draw_kwargs = {draw_error = 'total_reco_leading_primary_gOre_photon_softmax'}}]
+
+[[figure]]
+name = 'reco_leading_primary_gOre_start_dedx'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'reco_leading_primary_gOre_start_dedx', draw_kwargs = {draw_error = 'total_reco_leading_primary_gOre_start_dedx'}}]
+
+[[figure]]
+name = 'reco_leading_primary_gOre_axial_spread'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'reco_leading_primary_gOre_axial_spread', draw_kwargs = {draw_error = 'total_reco_leading_primary_gOre_axial_spread'}}]
+
+[[figure]]
+name = 'reco_leading_primary_gOre_directional_spread'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'reco_leading_primary_gOre_directional_spread', draw_kwargs = {draw_error = 'total_reco_leading_primary_gOre_directional_spread'}}]
+
+[[figure]]
+name = 'reco_leading_primary_gOre_iou'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'reco_leading_primary_gOre_iou', draw_kwargs = {draw_error = 'total_reco_leading_primary_gOre_iou'}}]
+
+[[figure]]
+name = 'true_leading_primary_gOre_iou'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'true_leading_primary_gOre_iou', draw_kwargs = {draw_error = 'total_true_leading_primary_gOre_iou'}}]
+
+[[figure]]
+name = 'reco_leading_primary_gOre_shower_ke'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'reco_leading_primary_gOre_shower_ke', draw_kwargs = {draw_error = 'total_reco_leading_primary_gOre_shower_ke'}}]
+
+[[figure]]
+name = 'true_leading_primary_gOre_shower_ke'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'true_leading_primary_gOre_shower_ke', draw_kwargs = {draw_error = 'total_true_leading_primary_gOre_shower_ke'}}]
+
+[[figure]]
+name = 'reco_leading_primary_gOre_shower_dpT'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'reco_leading_primary_gOre_shower_dpT', draw_kwargs = {draw_error = 'total_reco_leading_primary_gOre_shower_dpT'}}]
+
+[[figure]]
+name = 'true_leading_primary_gOre_shower_dpT'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'true_leading_primary_gOre_shower_dpT', draw_kwargs = {draw_error = 'total_true_leading_primary_gOre_shower_dpT'}}]
+
+[[figure]]
+name = 'reco_leading_primary_gOre_azimuthal_angle'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'reco_leading_primary_gOre_azimuthal_angle', draw_kwargs = {draw_error = 'total_reco_leading_primary_gOre_azimuthal_angle'}}]
+
+[[figure]]
+name = 'true_leading_primary_gOre_azimuthal_angle'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'true_leading_primary_gOre_azimuthal_angle', draw_kwargs = {draw_error = 'total_true_leading_primary_gOre_azimuthal_angle'}}]
+
+[[figure]]
+name = 'reco_leading_primary_gOre_polar_angle'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'reco_leading_primary_gOre_polar_angle', draw_kwargs = {draw_error = 'total_reco_leading_primary_gOre_polar_angle'}}]
+
+[[figure]]
+name = 'true_leading_primary_gOre_polar_angle'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'true_leading_primary_gOre_polar_angle', draw_kwargs = {draw_error = 'total_true_leading_primary_gOre_polar_angle'}}]
+
+[[figure]]
+name = 'reco_subleading_primary_gOre_shower_ke'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'reco_subleading_primary_gOre_shower_ke', draw_kwargs = {draw_error = 'total_reco_subleading_primary_gOre_shower_ke'}}]
+
+[[figure]]
+name = 'true_subleading_primary_gOre_shower_ke'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'true_subleading_primary_gOre_shower_ke', draw_kwargs = {draw_error = 'total_true_subleading_primary_gOre_shower_ke'}}]
+
+[[figure]]
+name = 'reco_subleading_primary_gOre_primary_softmax'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'reco_subleading_primary_gOre_primary_softmax', draw_kwargs = {draw_error = 'total_reco_subleading_primary_gOre_primary_softmax'}}]
+
+[[figure]]
+name = 'reco_subleading_primary_gOre_photon_softmax'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'reco_subleading_primary_gOre_photon_softmax', draw_kwargs = {draw_error = 'total_reco_subleading_primary_gOre_photon_softmax'}}]
+
+[[figure]]
+name = 'reco_subleading_primary_gOre_start_dedx'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'reco_subleading_primary_gOre_start_dedx', draw_kwargs = {draw_error = 'total_reco_subleading_primary_gOre_start_dedx'}}]
+
+[[figure]]
+name = 'reco_subleading_primary_gOre_axial_spread'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'reco_subleading_primary_gOre_axial_spread', draw_kwargs = {draw_error = 'total_reco_subleading_primary_gOre_axial_spread'}}]
+
+[[figure]]
+name = 'reco_subleading_primary_gOre_directional_spread'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'reco_subleading_primary_gOre_directional_spread', draw_kwargs = {draw_error = 'total_reco_subleading_primary_gOre_directional_spread'}}]
+
+[[figure]]
+name = 'reco_subleading_primary_gOre_iou'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'reco_subleading_primary_gOre_iou', draw_kwargs = {draw_error = 'total_reco_subleading_primary_gOre_iou'}}]
+
+[[figure]]
+name = 'true_subleading_primary_gOre_iou'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'true_subleading_primary_gOre_iou', draw_kwargs = {draw_error = 'total_true_subleading_primary_gOre_iou'}}]
+
+[[figure]]
+name = 'reco_subleading_primary_gOre_shower_dpT'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'reco_subleading_primary_gOre_shower_dpT', draw_kwargs = {draw_error = 'total_reco_subleading_primary_gOre_shower_dpT'}}]
+
+[[figure]]
+name = 'true_subleading_primary_gOre_shower_dpT'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'true_subleading_primary_gOre_shower_dpT', draw_kwargs = {draw_error = 'total_true_subleading_primary_gOre_shower_dpT'}}]
+
+[[figure]]
+name = 'reco_subleading_primary_gOre_azimuthal_angle'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'reco_subleading_primary_gOre_azimuthal_angle', draw_kwargs = {draw_error = 'total_reco_subleading_primary_gOre_azimuthal_angle'}}]
+
+[[figure]]
+name = 'true_subleading_primary_gOre_azimuthal_angle'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'true_subleading_primary_gOre_azimuthal_angle', draw_kwargs = {draw_error = 'total_true_subleading_primary_gOre_azimuthal_angle'}}]
+
+[[figure]]
+name = 'reco_subleading_primary_gOre_polar_angle'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'reco_subleading_primary_gOre_polar_angle', draw_kwargs = {draw_error = 'total_reco_subleading_primary_gOre_polar_angle'}}]
+
+[[figure]]
+name = 'true_subleading_primary_gOre_polar_angle'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'true_subleading_primary_gOre_polar_angle', draw_kwargs = {draw_error = 'total_true_subleading_primary_gOre_polar_angle'}}]
+
+[[figure]]
+name = 'reco_leading_primary_proton_primary_softmax'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'reco_leading_primary_proton_primary_softmax', draw_kwargs = {draw_error = 'total_reco_leading_primary_proton_primary_softmax'}}]
+
+[[figure]]
+name = 'reco_leading_primary_proton_proton_softmax'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'reco_leading_primary_proton_proton_softmax', draw_kwargs = {draw_error = 'total_reco_leading_primary_proton_proton_softmax'}}]
+
+[[figure]]
+name = 'reco_leading_primary_proton_ke'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'reco_leading_primary_proton_ke', draw_kwargs = {draw_error = 'total_reco_leading_primary_proton_ke'}}]
+
+[[figure]]
+name = 'true_leading_primary_proton_ke'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'true_leading_primary_proton_ke', draw_kwargs = {draw_error = 'total_true_leading_primary_proton_ke'}}]
+
+[[figure]]
+name = 'reco_leading_primary_proton_dpT'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'reco_leading_primary_proton_dpT', draw_kwargs = {draw_error = 'total_reco_leading_primary_proton_dpT'}}]
+
+[[figure]]
+name = 'true_leading_primary_proton_dpT'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'true_leading_primary_proton_dpT', draw_kwargs = {draw_error = 'total_true_leading_primary_proton_dpT'}}]
+
+[[figure]]
+name = 'reco_leading_primary_proton_length'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'reco_leading_primary_proton_length', draw_kwargs = {draw_error = 'total_reco_leading_primary_proton_length'}}]
+
+[[figure]]
+name = 'true_leading_primary_proton_length'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'true_leading_primary_proton_length', draw_kwargs = {draw_error = 'total_true_leading_primary_proton_length'}}]
+
+[[figure]]
+name = 'reco_leading_primary_proton_azimuthal_angle'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'reco_leading_primary_proton_azimuthal_angle', draw_kwargs = {draw_error = 'total_reco_leading_primary_proton_azimuthal_angle'}}]
+
+[[figure]]
+name = 'true_leading_primary_proton_azimuthal_angle'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'true_leading_primary_proton_azimuthal_angle', draw_kwargs = {draw_error = 'total_true_leading_primary_proton_azimuthal_angle'}}]
+
+[[figure]]
+name = 'reco_leading_primary_proton_polar_angle'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'reco_leading_primary_proton_polar_angle', draw_kwargs = {draw_error = 'total_reco_leading_primary_proton_polar_angle'}}]
+
+[[figure]]
+name = 'true_leading_primary_proton_polar_angle'
+type = 'SimpleFigure'
+style = 'selected_icarus'
+artists = [{type = 'SpineSpectra1D', variable = 'true_leading_primary_proton_polar_angle', draw_kwargs = {draw_error = 'total_true_leading_primary_proton_polar_angle'}}]
