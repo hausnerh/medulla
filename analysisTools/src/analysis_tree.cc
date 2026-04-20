@@ -136,8 +136,7 @@ namespace ana::tools
     opt.efficiency_graph->SetBit(kCanDelete, false);
     opt.fom_graph = std::make_shared<TGraph>();
     opt.fom_graph->SetBit(kCanDelete, false);
-    opt.purity_efficiency_fom = std::make_shared<TMultiGraph>((var+"_threshold_epf").c_str(),
-                                                              (var+"_threshold_epf").c_str());
+    opt.purity_efficiency_fom = std::make_shared<TMultiGraph>((var+"_threshold_epf").c_str(), "");
     opt.purity_efficiency_fom->SetBit(kCanDelete, false);
     opt.is_upper_bound = false;
     unsigned int nSteps = 1000;
@@ -225,7 +224,7 @@ namespace ana::tools
       int bin = hist->FindBin(opt.limit);
       bin_height += hist->GetBinContent(bin);
       if (arrow_length == 0)
-        arrow_length = 5*(hist->GetXaxis()->GetTickLength());
+        arrow_length = 0.1*(hist->GetXaxis()->GetXmax() - hist->GetXaxis()->GetXmin());
     }
     lc.arrow = std::make_shared<TArrow>(opt.limit, bin_height,
                                         opt.limit + arrow_length, bin_height, 0.05, "|->");
@@ -455,9 +454,13 @@ namespace ana::tools
                                 const double& purity) const
   {
     double fom(0.0);
+    //if (selected_signal < 100)
+    // return fom;
+    //double purity_weight = (purity > 0.7) ? 1.0 : std::pow(purity / 0.7, 3);
     // by default to optimizing for signal over uncertainty
-    if (selected_signal + selected_background > 0)
-      fom = static_cast<double>(selected_signal) / std::sqrt(selected_signal + selected_background);
+    if (selected_signal > 0 && selected_background > 0)
+      //fom = static_cast<double>(selected_signal) / std::sqrt(selected_signal + selected_background);
+      fom = std::pow(purity, 0.5)*static_cast<double>(selected_signal) / std::sqrt(selected_signal + selected_background);
     return fom;
     //return std::sqrt(efficiency*purity);
   }
@@ -482,8 +485,7 @@ namespace ana::tools
     opt.efficiency_graph->SetBit(kCanDelete, false);
     opt.fom_graph = std::make_shared<TGraph>();
     opt.fom_graph->SetBit(kCanDelete, false);
-    opt.purity_efficiency_fom = std::make_shared<TMultiGraph>((var+"_lower_bound_epf").c_str(),
-                                                              (var+"_lower_bound_epf").c_str());
+    opt.purity_efficiency_fom = std::make_shared<TMultiGraph>((var+"_lower_bound_epf").c_str(), "");
     opt.purity_efficiency_fom->SetBit(kCanDelete, false);
     opt.is_upper_bound = false;
     unsigned int nSteps = 1000;
@@ -549,7 +551,7 @@ namespace ana::tools
       int bin = hist->FindBin(opt.limit);
       bin_height += hist->GetBinContent(bin);
       if (arrow_length == 0)
-        arrow_length = 5*(hist->GetXaxis()->GetTickLength());
+        arrow_length = 0.1*(hist->GetXaxis()->GetXmax() - hist->GetXaxis()->GetXmin());
     }
     lc.arrow = std::make_shared<TArrow>(opt.limit, bin_height,
                                         opt.limit + arrow_length, bin_height, 0.05, "|->");
@@ -594,8 +596,7 @@ namespace ana::tools
     opt.efficiency_graph->SetBit(kCanDelete, false);
     opt.fom_graph = std::make_shared<TGraph>();
     opt.fom_graph->SetBit(kCanDelete, false);
-    opt.purity_efficiency_fom = std::make_shared<TMultiGraph>((var+"_upper_bound_epf").c_str(),
-                                                              (var+"_upper_bound_epf").c_str());
+    opt.purity_efficiency_fom = std::make_shared<TMultiGraph>((var+"_upper_bound_epf").c_str(), "");
     opt.purity_efficiency_fom->SetBit(kCanDelete, false);
     opt.is_upper_bound = true;
     unsigned int nSteps = 1000;
@@ -661,7 +662,7 @@ namespace ana::tools
       int bin = hist->FindBin(opt.limit);
       bin_height += hist->GetBinContent(bin);
       if (arrow_length == 0)
-        arrow_length = 5*(hist->GetXaxis()->GetTickLength());
+        arrow_length = 0.1*(hist->GetXaxis()->GetXmax() - hist->GetXaxis()->GetXmin());
     }
     lc.arrow = std::make_shared<TArrow>(opt.limit, bin_height,
                                         opt.limit - arrow_length, bin_height, 0.05, "|->");
@@ -721,8 +722,7 @@ namespace ana::tools
     opt.efficiency_graph->SetBit(kCanDelete, false);
     opt.fom_graph = std::make_shared<TGraph>();
     opt.fom_graph->SetBit(kCanDelete, false);
-    opt.purity_efficiency_fom = std::make_shared<TMultiGraph>((var+"_lower_bound_when_"+condition+"_epf").c_str(),
-                                                              (var+"_lower_bound_when_"+condition+"_epf").c_str());
+    opt.purity_efficiency_fom = std::make_shared<TMultiGraph>((var+"_lower_bound_when_"+condition+"_epf").c_str(), "");
     opt.purity_efficiency_fom->SetBit(kCanDelete, false);
     opt.is_upper_bound = false;
     unsigned int nSteps = 1000;
@@ -789,7 +789,7 @@ namespace ana::tools
       int bin = hist->FindBin(opt.limit);
       bin_height += hist->GetBinContent(bin);
       if (arrow_length == 0)
-        arrow_length = 5*(hist->GetXaxis()->GetTickLength());
+        arrow_length = 0.1*(hist->GetXaxis()->GetXmax() - hist->GetXaxis()->GetXmin());
     }
     lc.arrow = std::make_shared<TArrow>(opt.limit, bin_height,
                                         opt.limit + arrow_length, bin_height, 0.05, "|->");
@@ -837,8 +837,7 @@ namespace ana::tools
     opt.efficiency_graph->SetBit(kCanDelete, false);
     opt.fom_graph = std::make_shared<TGraph>();
     opt.fom_graph->SetBit(kCanDelete, false);
-    opt.purity_efficiency_fom = std::make_shared<TMultiGraph>((var+"_upper_bound_when_"+condition+"_epf").c_str(),
-                                                              (var+"_upper_bound_when_"+condition+"_epf").c_str());
+    opt.purity_efficiency_fom = std::make_shared<TMultiGraph>((var+"_upper_bound_when_"+condition+"_epf").c_str(), "");
     opt.purity_efficiency_fom->SetBit(kCanDelete, false);
     opt.is_upper_bound = false;
     unsigned int nSteps = 1000;
@@ -905,7 +904,7 @@ namespace ana::tools
       int bin = hist->FindBin(opt.limit);
       bin_height += hist->GetBinContent(bin);
       if (arrow_length == 0)
-        arrow_length = 5*(hist->GetXaxis()->GetTickLength());
+        arrow_length = 0.1*(hist->GetXaxis()->GetXmax() - hist->GetXaxis()->GetXmin());
     }
     lc.arrow = std::make_shared<TArrow>(opt.limit, bin_height,
                                         opt.limit + arrow_length, bin_height, 0.05, "|->");

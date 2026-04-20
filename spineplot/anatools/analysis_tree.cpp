@@ -132,8 +132,7 @@ namespace ana::tools
     opt.efficiency_graph->SetBit(kCanDelete, false);
     opt.fom_graph = std::make_shared<TGraph>();
     opt.fom_graph->SetBit(kCanDelete, false);
-    opt.purity_efficiency_fom = std::make_shared<TMultiGraph>((var+"_threshold_epf").c_str(),
-                                                              (var+"_threshold_epf").c_str());
+    opt.purity_efficiency_fom = std::make_shared<TMultiGraph>((var+"_threshold_epf").c_str(), "");
     opt.purity_efficiency_fom->SetBit(kCanDelete, false);
     opt.is_upper_bound = false;
     unsigned int nSteps = 1000;
@@ -215,14 +214,14 @@ namespace ana::tools
     opt.legend->Draw("same");
     opt.line->Draw("same");
     double bin_height = 0;
-    double arrow_length = 0;
+    double arrow_length = 0.0005;
     for (TObject* obj : *static_cast<TList*>(lc.stack->GetHists()))
     {
       TH1* hist = static_cast<TH1*>(obj);
       int bin = hist->FindBin(opt.limit);
       bin_height += hist->GetBinContent(bin);
       if (arrow_length == 0)
-        arrow_length = 5*(hist->GetXaxis()->GetTickLength());
+        arrow_length = 0.05*(hist->GetXaxis()->GetXmax() - hist->GetXaxis()->GetXmin());
     }
     lc.arrow = std::make_shared<TArrow>(opt.limit, bin_height,
                                         opt.limit + arrow_length, bin_height, 0.05, "|->");
@@ -472,8 +471,7 @@ namespace ana::tools
     opt.efficiency_graph->SetBit(kCanDelete, false);
     opt.fom_graph = std::make_shared<TGraph>();
     opt.fom_graph->SetBit(kCanDelete, false);
-    opt.purity_efficiency_fom = std::make_shared<TMultiGraph>((var+"_lower_bound_epf").c_str(),
-                                                              (var+"_lower_bound_epf").c_str());
+    opt.purity_efficiency_fom = std::make_shared<TMultiGraph>((var+"_lower_bound_epf").c_str(), "");
     opt.purity_efficiency_fom->SetBit(kCanDelete, false);
     opt.is_upper_bound = false;
     unsigned int nSteps = 1000;
@@ -506,7 +504,7 @@ namespace ana::tools
     opt.purity_graph->SetLineColor(colors.at(1)->GetNumber());
     opt.efficiency_graph->SetLineColor(colors.at(2)->GetNumber());
     opt.fom_graph->SetLineColor(colors.at(3)->GetNumber());
-    opt.legend = std::make_shared<TLegend>(0.6, 0.6, 0.8, 0.8);
+    opt.legend = std::make_shared<TLegend>(0.7, 0.7, 0.8, 0.8);
     opt.legend->SetBit(kCanDelete, false);
     opt.legend->SetFillStyle(0);
     opt.legend->AddEntry(opt.purity_graph.get(), "Purity", "l");
@@ -529,14 +527,14 @@ namespace ana::tools
     opt.legend->Draw("same");
     opt.line->Draw("same");
     double bin_height = 0;
-    double arrow_length = 0;
+    double arrow_length = 0.0005;
     for (TObject* obj : *static_cast<TList*>(lc.stack->GetHists()))
     {
       TH1* hist = static_cast<TH1*>(obj);
       int bin = hist->FindBin(opt.limit);
       bin_height += hist->GetBinContent(bin);
       if (arrow_length == 0)
-        arrow_length = 5*(hist->GetXaxis()->GetTickLength());
+        arrow_length = 0.05*(hist->GetXaxis()->GetXmax() - hist->GetXaxis()->GetXmin());
     }
     lc.arrow = std::make_shared<TArrow>(opt.limit, bin_height,
                                         opt.limit + arrow_length, bin_height, 0.05, "|->");
@@ -581,8 +579,7 @@ namespace ana::tools
     opt.efficiency_graph->SetBit(kCanDelete, false);
     opt.fom_graph = std::make_shared<TGraph>();
     opt.fom_graph->SetBit(kCanDelete, false);
-    opt.purity_efficiency_fom = std::make_shared<TMultiGraph>((var+"_upper_bound_epf").c_str(),
-                                                              (var+"_upper_bound_epf").c_str());
+    opt.purity_efficiency_fom = std::make_shared<TMultiGraph>((var+"_upper_bound_epf").c_str(), "");
     opt.purity_efficiency_fom->SetBit(kCanDelete, false);
     opt.is_upper_bound = true;
     unsigned int nSteps = 1000;
@@ -615,7 +612,7 @@ namespace ana::tools
     opt.purity_graph->SetLineColor(colors.at(1)->GetNumber());
     opt.efficiency_graph->SetLineColor(colors.at(2)->GetNumber());
     opt.fom_graph->SetLineColor(colors.at(3)->GetNumber());
-    opt.legend = std::make_shared<TLegend>(0.6, 0.6, 0.8, 0.8);
+    opt.legend = std::make_shared<TLegend>(0.7, 0.7, 0.8, 0.8);
     opt.legend->SetBit(kCanDelete, false);
     opt.legend->SetFillStyle(0);
     opt.legend->AddEntry(opt.purity_graph.get(), "Purity", "l");
@@ -638,14 +635,14 @@ namespace ana::tools
     opt.legend->Draw("same");
     opt.line->Draw("same");
     double bin_height = 0;
-    double arrow_length = 0;
+    double arrow_length = 0.0005;
     for (TObject* obj : *static_cast<TList*>(lc.stack->GetHists()))
     {
       TH1* hist = static_cast<TH1*>(obj);
       int bin = hist->FindBin(opt.limit);
       bin_height += hist->GetBinContent(bin);
       if (arrow_length == 0)
-        arrow_length = 5*(hist->GetXaxis()->GetTickLength());
+        arrow_length = 0.05*(hist->GetXaxis()->GetXmax() - hist->GetXaxis()->GetXmin());
     }
     lc.arrow = std::make_shared<TArrow>(opt.limit, bin_height,
                                         opt.limit - arrow_length, bin_height, 0.05, "|->");

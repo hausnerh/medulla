@@ -35,7 +35,7 @@ namespace ana::tools
     canvas->GetBottomMargin();
 
     double x1 = 0.6;
-    double y1 = 0.45;
+    double y1 = 0.6;
     double x2 = 0.85;
     double y2 = 0.875;
 
@@ -87,6 +87,20 @@ namespace ana::tools
     prelimText->SetTextAlign(12);
     canvas->cd();
     prelimText->DrawLatex(margin, 0.95, "ICARUS Preliminary");
+  }
+
+  /**
+   * @brief Add Work In Progress to canvas
+   **/
+  void stack_canvas::WIP()
+  {
+    double margin = canvas->GetLeftMargin();
+    TLatex* WIPText = new TLatex();
+    WIPText->SetNDC();
+    WIPText->SetTextColor(kRed);
+    WIPText->SetTextAlign(12);
+    canvas->cd();
+    WIPText->DrawLatex(margin, 0.95, "ICARUS Work In Progress");
   }
  
   /**
@@ -151,18 +165,88 @@ namespace ana::tools
     canvas->Update();
     Print(file_name);
   }
+  /**
+   * @brief Print with Work In Progress label
+   **/
+  void stack_canvas::PrintWIP(const std::string& file_name)
+  {
+    WIP();
+    SetStatUncertainty();
+    legend->AddEntry(err.get(), "Statistical Uncertainty", "f");
+    err->Draw("E2,same");
+    double max = std::ceil(err->GetMaximum() + std::sqrt(err->GetMaximum()));
+    stack->SetMaximum(max);
+    canvas->Update();
+    Print(file_name);
+  }
+
+  /**
+   * @brief Find how best to draw the cut arrow
+   **/
+  void limit_canvas::ArrowPlace()
+  {
+    double limit = arrow->GetX1();
+    bool lowerBound = limit < arrow->GetX2();
+    // Set arrow length to be 5% of the x axis range
+    double arrow_length = (1 - lowerBound) * 0.05 * (stack->GetXaxis()->GetXmax() - stack->GetXaxis()->GetXmin());
+    arrow->SetX1(limit);
+    arrow->SetX2(limit + arrow_length);
+  }
+
+  /**
+   * @brief Print the canvas
+   * @details ROOT doesn't play nicely with std::strings, so this wraps the TCanvas::Print method
+   * so we can print our canvases without having to call c_str all the dang time
+   */
+  void limit_canvas::Print(const std::string& file_name)
+  {
+    this->ArrowPlace();
+    canvas->Update();
+    canvas->Print(file_name.c_str());
+  }
+    /**
+   * @brief Print with Preliminary label
+   **/
+  void limit_canvas::PrintPreliminary(const std::string& file_name)
+  {
+    Preliminary();
+    SetStatUncertainty();
+    legend->AddEntry(err.get(), "Statistical Uncertainty", "f");
+    err->Draw("E2,same");
+    double max = std::ceil(err->GetMaximum() + std::sqrt(err->GetMaximum()));
+    stack->SetMaximum(max);
+    this->ArrowPlace();
+    canvas->Update();
+    Print(file_name);
+  }
+  /**
+   * @brief Print with Work In Progress label
+   **/
+  void limit_canvas::PrintWIP(const std::string& file_name)
+  {
+    WIP();
+    SetStatUncertainty();
+    legend->AddEntry(err.get(), "Statistical Uncertainty", "f");
+    err->Draw("E2,same");
+    double max = std::ceil(err->GetMaximum() + std::sqrt(err->GetMaximum()));
+    stack->SetMaximum(max);
+    this->ArrowPlace();
+    canvas->Update();
+    Print(file_name);
+  }
 
   /**
    * @brief Find where to put the legend
    **/
   std::tuple<double, double, double, double> opt_canvas::LegendPlace() const
   {
-    double x1 = 0.6;
-    double y1 = 0.4;
-    double x2 = 0.85;
+    double x1 = 0.45;
+    double y1 = 0.6;
+    double x2 = 0.6;
     double y2 = 0.85;
     return std::tie(x1, y1, x2, y2);
   }
+
   /**
    * @brief Add Preliminary to canvas
    **/
@@ -176,6 +260,19 @@ namespace ana::tools
     canvas->cd();
     prelimText->DrawLatex(margin, 0.95, "ICARUS Preliminary");
   }
+  /**
+   * @brief Add Work In Progress to canvas
+   **/
+  void opt_canvas::WIP()
+  {
+    double margin = canvas->GetLeftMargin();
+    TLatex* WIPText = new TLatex();
+    WIPText->SetNDC();
+    WIPText->SetTextColor(kRed);
+    WIPText->SetTextAlign(12);
+    canvas->cd();
+    WIPText->DrawLatex(margin, 0.95, "ICARUS Work In Progress");
+  }
 
   /**
    * @brief Print the canvas
@@ -184,6 +281,7 @@ namespace ana::tools
    */
   void opt_canvas::Print(const std::string& file_name) const
   {
+    canvas->Update();
     canvas->Print(file_name.c_str());
   }
 
@@ -194,6 +292,15 @@ namespace ana::tools
   {
     canvas->Update();
     Preliminary();
+    Print(file_name);
+  }
+  /**
+   * @brief Print with Work In Progress label
+   **/
+  void opt_canvas::PrintWIP(const std::string& file_name)
+  {
+    canvas->Update();
+    WIP();
     Print(file_name);
   }
 

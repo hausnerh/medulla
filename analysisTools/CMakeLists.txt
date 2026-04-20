@@ -40,8 +40,12 @@ target_compile_features(anatools PRIVATE cxx_std_17)
 
 # Add analysis executable(s)
 add_executable(run_analysis_gOre src/run_analysis_gOre.cc)
+add_executable(run_analysis_gOre_NEW src/run_analysis_gOre_NEW.cc)
 target_link_libraries(run_analysis_gOre PRIVATE anatools)
+target_link_libraries(run_analysis_gOre_NEW PRIVATE anatools)
 target_include_directories(run_analysis_gOre PRIVATE . include/)
+target_include_directories(run_analysis_gOre_NEW PRIVATE . include/)
+
 
 # Optionally build documentation
 option(BUILD_DOCS "Build documentation" OFF)

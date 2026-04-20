@@ -52,9 +52,11 @@ namespace ana::tools
     std::tuple<double, double, double, double> LegendPlace() const;
     void ConstructLegend();
     void Preliminary();
+    void WIP();
     void SetStatUncertainty();
     void Print(const std::string& file_name) const;
     void PrintPreliminary(const std::string& file_name);
+    void PrintWIP(const std::string& file_name);
   };
 
   /**
@@ -71,6 +73,10 @@ namespace ana::tools
     std::shared_ptr<THStack> stack;
     std::vector<std::shared_ptr<TH1F>> hists;
     std::shared_ptr<TArrow> arrow;
+    void ArrowPlace();
+    void Print(const std::string& file_name);
+    void PrintPreliminary(const std::string& file_name);
+    void PrintWIP(const std::string& file_name);
   };
 
   /**
@@ -94,8 +100,10 @@ namespace ana::tools
     bool is_upper_bound; ///< false -> lower bound
     std::tuple<double, double, double, double> LegendPlace() const;
     void Preliminary();
+    void WIP();
     void Print(const std::string& file_name) const;
     void PrintPreliminary(const std::string& file_name);
+    void PrintWIP(const std::string& file_name);
   };
 
 }// end ana::tools namespace
