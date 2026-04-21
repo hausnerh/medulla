@@ -7,4 +7,4 @@ file = 'configurations/analyses/icarus/gOre_1g1p.toml'
 path = '/exp/icarus/app/users/hhausner/plots/gOre_1g1p/stage2_pi0_rej'
 
 [samples.mc]
-presel = "(reco_gOre_topology == 1) & (reco_n_protons == 1) & (reco_flash == 1) & (reco_fiducial == 1) & (reco_containment == 1) & (reco_subleading_primary_gOre_shower_ke <= 0) & (reco_leading_primary_gOre_primary_softmax > 0.9991) & (reco_leading_primary_proton_primary_softmax > 0.9513) & (reco_delta_mass_P_dev < 59.7)"
+presel = "(reco_gOre_topology == 1) & (reco_n_protons == 1) & (reco_flash == 1) & (reco_fiducial == 1) & (reco_containment == 1) & (reco_subleading_primary_gOre_shower_ke <= 0) & (reco_leading_primary_gOre_primary_softmax > 0.9991) & (reco_leading_primary_proton_primary_softmax > 0.9513) & (reco_delta_mass_P > 1172.3) & (reco_delta_mass_P < 1291.7)"
