@@ -480,400 +480,400 @@ xlabel = 'True Proton Polar Angle [rad]'
 name = 'reco_gOre_topology'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'reco_gOre_topology', draw_kwargs = {draw_error = 'total_reco_gOre_topology'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'reco_gOre_topology', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_flash'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'reco_flash', draw_kwargs = {draw_error = 'total_reco_flash'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'reco_flash', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_fiducial'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'reco_fiducial', draw_kwargs = {draw_error = 'total_reco_fiducial'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'reco_fiducial', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_containment'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'reco_containment', draw_kwargs = {draw_error = 'total_reco_containment'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'reco_containment', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_flash_total_pe'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'reco_flash_total_pe', draw_kwargs = {draw_error = 'total_reco_flash_total_pe'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'reco_flash_total_pe', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'true_opening_costh'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'true_opening_costh', draw_kwargs = {draw_error = 'total_true_opening_costh'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'true_opening_costh', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_opening_costh'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'reco_opening_costh', draw_kwargs = {draw_error = 'total_reco_opening_costh'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'reco_opening_costh', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'true_n_protons'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'true_n_protons', draw_kwargs = {draw_error = 'total_true_n_protons'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'true_n_protons', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_n_protons'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'reco_n_protons', draw_kwargs = {draw_error = 'total_reco_n_protons'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'reco_n_protons', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'true_vertex_x'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'true_vertex_x', draw_kwargs = {draw_error = 'total_true_vertex_x'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'true_vertex_x', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'true_vertex_y'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'true_vertex_y', draw_kwargs = {draw_error = 'total_true_vertex_y'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'true_vertex_y', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'true_vertex_z'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'true_vertex_z', draw_kwargs = {draw_error = 'total_true_vertex_z'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'true_vertex_z', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_vertex_x'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'reco_vertex_x', draw_kwargs = {draw_error = 'total_reco_vertex_x'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'reco_vertex_x', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_vertex_y'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'reco_vertex_y', draw_kwargs = {draw_error = 'total_reco_vertex_y'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'reco_vertex_y', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_vertex_z'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'reco_vertex_z', draw_kwargs = {draw_error = 'total_reco_vertex_z'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'reco_vertex_z', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_gOre_gap'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'reco_gOre_gap', draw_kwargs = {draw_error = 'total_reco_gOre_gap'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'reco_gOre_gap', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_pion_mass'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'reco_pion_mass', draw_kwargs = {draw_error = 'total_reco_pion_mass'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'reco_pion_mass', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_delta_mass_P'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'reco_delta_mass_P', draw_kwargs = {draw_error = 'total_reco_delta_mass_P'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'reco_delta_mass_P', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_delta_mass_N'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'reco_delta_mass_N', draw_kwargs = {draw_error = 'total_reco_delta_mass_N'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'reco_delta_mass_N', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'true_delta_mass_P'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'true_delta_mass_P', draw_kwargs = {draw_error = 'total_true_delta_mass_P'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'true_delta_mass_P', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'true_delta_mass_N'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'true_delta_mass_N', draw_kwargs = {draw_error = 'total_true_delta_mass_N'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'true_delta_mass_N', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'true_delta_mass_N_MC'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'true_delta_mass_N_MC', draw_kwargs = {draw_error = 'total_true_delta_mass_N_MC'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'true_delta_mass_N_MC', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_delta_mass_P_dev'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'reco_delta_mass_P_dev', draw_kwargs = {draw_error = 'total_reco_delta_mass_P_dev'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'reco_delta_mass_P_dev', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'true_neutron_momentum'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'true_neutron_momentum', draw_kwargs = {draw_error = 'total_true_neutron_momentum'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'true_neutron_momentum', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'true_neutron_cosTh'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'true_neutron_cosTh', draw_kwargs = {draw_error = 'total_true_neutron_cosTh'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'true_neutron_cosTh', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_leading_primary_gOre_primary_softmax'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'reco_leading_primary_gOre_primary_softmax', draw_kwargs = {draw_error = 'total_reco_leading_primary_gOre_primary_softmax'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'reco_leading_primary_gOre_primary_softmax', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_leading_primary_gOre_photon_softmax'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'reco_leading_primary_gOre_photon_softmax', draw_kwargs = {draw_error = 'total_reco_leading_primary_gOre_photon_softmax'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'reco_leading_primary_gOre_photon_softmax', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_leading_primary_gOre_start_dedx'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'reco_leading_primary_gOre_start_dedx', draw_kwargs = {draw_error = 'total_reco_leading_primary_gOre_start_dedx'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'reco_leading_primary_gOre_start_dedx', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_leading_primary_gOre_axial_spread'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'reco_leading_primary_gOre_axial_spread', draw_kwargs = {draw_error = 'total_reco_leading_primary_gOre_axial_spread'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'reco_leading_primary_gOre_axial_spread', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_leading_primary_gOre_directional_spread'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'reco_leading_primary_gOre_directional_spread', draw_kwargs = {draw_error = 'total_reco_leading_primary_gOre_directional_spread'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'reco_leading_primary_gOre_directional_spread', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_leading_primary_gOre_iou'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'reco_leading_primary_gOre_iou', draw_kwargs = {draw_error = 'total_reco_leading_primary_gOre_iou'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'reco_leading_primary_gOre_iou', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'true_leading_primary_gOre_iou'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'true_leading_primary_gOre_iou', draw_kwargs = {draw_error = 'total_true_leading_primary_gOre_iou'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'true_leading_primary_gOre_iou', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_leading_primary_gOre_shower_ke'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'reco_leading_primary_gOre_shower_ke', draw_kwargs = {draw_error = 'total_reco_leading_primary_gOre_shower_ke'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'reco_leading_primary_gOre_shower_ke', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'true_leading_primary_gOre_shower_ke'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'true_leading_primary_gOre_shower_ke', draw_kwargs = {draw_error = 'total_true_leading_primary_gOre_shower_ke'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'true_leading_primary_gOre_shower_ke', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_leading_primary_gOre_shower_dpT'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'reco_leading_primary_gOre_shower_dpT', draw_kwargs = {draw_error = 'total_reco_leading_primary_gOre_shower_dpT'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'reco_leading_primary_gOre_shower_dpT', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'true_leading_primary_gOre_shower_dpT'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'true_leading_primary_gOre_shower_dpT', draw_kwargs = {draw_error = 'total_true_leading_primary_gOre_shower_dpT'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'true_leading_primary_gOre_shower_dpT', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_leading_primary_gOre_azimuthal_angle'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'reco_leading_primary_gOre_azimuthal_angle', draw_kwargs = {draw_error = 'total_reco_leading_primary_gOre_azimuthal_angle'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'reco_leading_primary_gOre_azimuthal_angle', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'true_leading_primary_gOre_azimuthal_angle'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'true_leading_primary_gOre_azimuthal_angle', draw_kwargs = {draw_error = 'total_true_leading_primary_gOre_azimuthal_angle'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'true_leading_primary_gOre_azimuthal_angle', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_leading_primary_gOre_polar_angle'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'reco_leading_primary_gOre_polar_angle', draw_kwargs = {draw_error = 'total_reco_leading_primary_gOre_polar_angle'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'reco_leading_primary_gOre_polar_angle', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'true_leading_primary_gOre_polar_angle'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'true_leading_primary_gOre_polar_angle', draw_kwargs = {draw_error = 'total_true_leading_primary_gOre_polar_angle'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'true_leading_primary_gOre_polar_angle', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_subleading_primary_gOre_shower_ke'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'reco_subleading_primary_gOre_shower_ke', draw_kwargs = {draw_error = 'total_reco_subleading_primary_gOre_shower_ke'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'reco_subleading_primary_gOre_shower_ke', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'true_subleading_primary_gOre_shower_ke'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'true_subleading_primary_gOre_shower_ke', draw_kwargs = {draw_error = 'total_true_subleading_primary_gOre_shower_ke'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'true_subleading_primary_gOre_shower_ke', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_subleading_primary_gOre_primary_softmax'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'reco_subleading_primary_gOre_primary_softmax', draw_kwargs = {draw_error = 'total_reco_subleading_primary_gOre_primary_softmax'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'reco_subleading_primary_gOre_primary_softmax', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_subleading_primary_gOre_photon_softmax'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'reco_subleading_primary_gOre_photon_softmax', draw_kwargs = {draw_error = 'total_reco_subleading_primary_gOre_photon_softmax'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'reco_subleading_primary_gOre_photon_softmax', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_subleading_primary_gOre_start_dedx'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'reco_subleading_primary_gOre_start_dedx', draw_kwargs = {draw_error = 'total_reco_subleading_primary_gOre_start_dedx'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'reco_subleading_primary_gOre_start_dedx', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_subleading_primary_gOre_axial_spread'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'reco_subleading_primary_gOre_axial_spread', draw_kwargs = {draw_error = 'total_reco_subleading_primary_gOre_axial_spread'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'reco_subleading_primary_gOre_axial_spread', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_subleading_primary_gOre_directional_spread'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'reco_subleading_primary_gOre_directional_spread', draw_kwargs = {draw_error = 'total_reco_subleading_primary_gOre_directional_spread'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'reco_subleading_primary_gOre_directional_spread', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_subleading_primary_gOre_iou'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'reco_subleading_primary_gOre_iou', draw_kwargs = {draw_error = 'total_reco_subleading_primary_gOre_iou'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'reco_subleading_primary_gOre_iou', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'true_subleading_primary_gOre_iou'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'true_subleading_primary_gOre_iou', draw_kwargs = {draw_error = 'total_true_subleading_primary_gOre_iou'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'true_subleading_primary_gOre_iou', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_subleading_primary_gOre_shower_dpT'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'reco_subleading_primary_gOre_shower_dpT', draw_kwargs = {draw_error = 'total_reco_subleading_primary_gOre_shower_dpT'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'reco_subleading_primary_gOre_shower_dpT', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'true_subleading_primary_gOre_shower_dpT'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'true_subleading_primary_gOre_shower_dpT', draw_kwargs = {draw_error = 'total_true_subleading_primary_gOre_shower_dpT'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'true_subleading_primary_gOre_shower_dpT', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_subleading_primary_gOre_azimuthal_angle'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'reco_subleading_primary_gOre_azimuthal_angle', draw_kwargs = {draw_error = 'total_reco_subleading_primary_gOre_azimuthal_angle'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'reco_subleading_primary_gOre_azimuthal_angle', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'true_subleading_primary_gOre_azimuthal_angle'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'true_subleading_primary_gOre_azimuthal_angle', draw_kwargs = {draw_error = 'total_true_subleading_primary_gOre_azimuthal_angle'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'true_subleading_primary_gOre_azimuthal_angle', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_subleading_primary_gOre_polar_angle'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'reco_subleading_primary_gOre_polar_angle', draw_kwargs = {draw_error = 'total_reco_subleading_primary_gOre_polar_angle'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'reco_subleading_primary_gOre_polar_angle', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'true_subleading_primary_gOre_polar_angle'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'true_subleading_primary_gOre_polar_angle', draw_kwargs = {draw_error = 'total_true_subleading_primary_gOre_polar_angle'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'true_subleading_primary_gOre_polar_angle', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_leading_primary_proton_primary_softmax'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'reco_leading_primary_proton_primary_softmax', draw_kwargs = {draw_error = 'total_reco_leading_primary_proton_primary_softmax'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'reco_leading_primary_proton_primary_softmax', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_leading_primary_proton_proton_softmax'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'reco_leading_primary_proton_proton_softmax', draw_kwargs = {draw_error = 'total_reco_leading_primary_proton_proton_softmax'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'reco_leading_primary_proton_proton_softmax', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_leading_primary_proton_ke'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'reco_leading_primary_proton_ke', draw_kwargs = {draw_error = 'total_reco_leading_primary_proton_ke'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'reco_leading_primary_proton_ke', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'true_leading_primary_proton_ke'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'true_leading_primary_proton_ke', draw_kwargs = {draw_error = 'total_true_leading_primary_proton_ke'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'true_leading_primary_proton_ke', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_leading_primary_proton_dpT'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'reco_leading_primary_proton_dpT', draw_kwargs = {draw_error = 'total_reco_leading_primary_proton_dpT'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'reco_leading_primary_proton_dpT', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'true_leading_primary_proton_dpT'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'true_leading_primary_proton_dpT', draw_kwargs = {draw_error = 'total_true_leading_primary_proton_dpT'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'true_leading_primary_proton_dpT', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_leading_primary_proton_length'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'reco_leading_primary_proton_length', draw_kwargs = {draw_error = 'total_reco_leading_primary_proton_length'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'reco_leading_primary_proton_length', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'true_leading_primary_proton_length'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'true_leading_primary_proton_length', draw_kwargs = {draw_error = 'total_true_leading_primary_proton_length'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'true_leading_primary_proton_length', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_leading_primary_proton_azimuthal_angle'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'reco_leading_primary_proton_azimuthal_angle', draw_kwargs = {draw_error = 'total_reco_leading_primary_proton_azimuthal_angle'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'reco_leading_primary_proton_azimuthal_angle', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'true_leading_primary_proton_azimuthal_angle'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'true_leading_primary_proton_azimuthal_angle', draw_kwargs = {draw_error = 'total_true_leading_primary_proton_azimuthal_angle'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'true_leading_primary_proton_azimuthal_angle', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_leading_primary_proton_polar_angle'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'reco_leading_primary_proton_polar_angle', draw_kwargs = {draw_error = 'total_reco_leading_primary_proton_polar_angle'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'reco_leading_primary_proton_polar_angle', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'true_leading_primary_proton_polar_angle'
 type = 'SimpleFigure'
 style = 'selected_icarus'
-artists = [{type = 'SpineSpectra1D', variable = 'true_leading_primary_proton_polar_angle', draw_kwargs = {draw_error = 'total_true_leading_primary_proton_polar_angle'}}]
+artists = [{type = 'SpineSpectra1D', variable = 'true_leading_primary_proton_polar_angle', draw_kwargs = {draw_error = 'total'}}]
