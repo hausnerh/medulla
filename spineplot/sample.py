@@ -106,7 +106,33 @@ class Sample:
         
         if presel is not None:
             n_before = len(self._data)
-            self._presel_mask = self._data.eval(presel)
+            # Split top-level `&` clauses (respecting parentheses) and report
+            # cumulative survivors per-clause for debugging.
+            clauses, depth, buf = [], 0, ''
+            i = 0
+            while i < len(presel):
+                ch = presel[i]
+                if ch == '(':
+                    depth += 1
+                    buf += ch
+                elif ch == ')':
+                    depth -= 1
+                    buf += ch
+                elif ch == '&' and depth == 0:
+                    clauses.append(buf.strip())
+                    buf = ''
+                else:
+                    buf += ch
+                i += 1
+            if buf.strip():
+                clauses.append(buf.strip())
+            print(f'Sample `{self._name}` presel breakdown:')
+            cumulative = np.ones(len(self._data), dtype=bool)
+            for cl in clauses:
+                m = self._data.eval(cl).to_numpy(dtype=bool)
+                cumulative &= m
+                print(f'  after {cl}: {cumulative.sum()}/{len(self._data)} (this clause alone: {m.sum()})')
+            self._presel_mask = pd.Series(cumulative, index=self._data.index)
             self._data = self._data[self._presel_mask]
             print(f'Sample `{self._name}` presel: {n_before} -> {len(self._data)} events')
         else:
