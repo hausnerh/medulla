@@ -52,9 +52,11 @@ class Analysis:
         None
         """
         self._toml_path = toml_path
-        self._config = toml.load(self._toml_path)
-        for table in self._config.get('this_includes', []):
+        wrapper = toml.load(self._toml_path)
+        self._config = {}
+        for table in wrapper.get('this_includes', []):
             Analysis.handle_include(self._config, table)
+        Analysis.deep_merge(self._config, {k: v for k, v in wrapper.items() if k != 'this_includes'})
         rf = uproot.open(rf_path)
 
         # Load the output path
@@ -289,6 +291,15 @@ class Analysis:
 
         self._figures[figure].create()
         return self._figures[figure].figure
+
+    @staticmethod
+    def deep_merge(dst, src):
+        """Recursively merge `src` into `dst`; src values win."""
+        for k, v in src.items():
+            if k in dst and isinstance(dst[k], dict) and isinstance(v, dict):
+                Analysis.deep_merge(dst[k], v)
+            else:
+                dst[k] = v
 
     @staticmethod
     def handle_include(config, table):
