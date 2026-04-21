@@ -28,7 +28,7 @@ category_types = ['histogram', 'histogram', 'histogram', 'histogram', 'histogram
 key = 'cvext'
 exposure_type = 'pot'
 trees = ['selected_1g1p']
-systematics = ['selected_1g1p_multisimTree', 'selected_1g1p_multisigmaTree']
+systematics = ['selected_1g1p_multisimTree', 'selected_1g1p_multisigmaTree', 'selected_1g1p_variationTree']
 target_pot = 4.64e20
 print_sys = true
 
