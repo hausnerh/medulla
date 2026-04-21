@@ -105,8 +105,10 @@ class Sample:
             self._data[self._category_branch] = override_category
         
         if presel is not None:
+            n_before = len(self._data)
             self._presel_mask = self._data.eval(presel)
             self._data = self._data[self._presel_mask]
+            print(f'Sample `{self._name}` presel: {n_before} -> {len(self._data)} events')
         else:
             self._presel_mask = np.ones(len(self._data), dtype=bool)
 
