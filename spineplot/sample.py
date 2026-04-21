@@ -38,7 +38,8 @@ class Sample:
     """
     def __init__(self, name, rf, category_branch, key, exposure_type,
                  trees, systematics=None, override_exposure=None, precompute=None,
-                 presel=None, override_category=None, print_sys=False) -> None:
+                 presel=None, override_category=None, print_sys=False,
+                 target_pot=None) -> None:
         """
         Initializes the Sample object with the given name and key.
 
@@ -87,6 +88,9 @@ class Sample:
         self._file_handle = rf[f'events/{key}']
         self._exposure_pot = self._file_handle['POT'].to_numpy()[0][0]
         self._exposure_livetime = self._file_handle['Livetime'].to_numpy()[0][0]
+        self._real_exposure_pot = self._exposure_pot
+        self._real_exposure_livetime = self._exposure_livetime
+        self._target_pot = target_pot
         self._category_branch = category_branch
         self._print_sys = print_sys
 
@@ -201,8 +205,13 @@ class Sample:
         -------
         None.
         """
-        if target is None:
-            self._data['weight'] = 1
+        if self._target_pot is not None and self._exposure_type == 'pot':
+            # Rescale this sample's events to a user-specified target POT,
+            # and relabel the displayed exposure to match.
+            scale = self._target_pot / self._real_exposure_pot
+            self._exposure_pot = self._target_pot
+        elif target is None:
+            scale = 1
         elif self._exposure_type == 'pot':
             scale = target._exposure_pot / self._exposure_pot
         else:
@@ -211,7 +220,7 @@ class Sample:
         print(f"Setting weight for {self._name} to {scale:.2e}")
         self._data['weight'] = scale
         for syst in self._systematics.values():
-            syst.set_weight(scale)        
+            syst.set_weight(scale)
 
     def get_data(self, variables, with_mask=None) -> dict:
         """
