@@ -1,0 +1,10 @@
+# Stage 1: baseline (topology + n_protons + flash + fiducial + containment).
+# run_analysis_gOre_NEW.cc:463-467.
+[[this_includes]]
+file = 'configurations/analyses/icarus/gOre_1g1p.toml'
+
+[output]
+path = '/exp/icarus/app/users/hhausner/plots/gOre_1g1p/stage1_presel'
+
+[samples.mc]
+presel = "(reco_gOre_topology == 1) & (reco_n_protons == 1) & (reco_flash == 1) & (reco_fiducial == 1) & (reco_containment == 1)"
