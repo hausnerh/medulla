@@ -325,6 +325,13 @@ class Analysis:
         """
         with open(table['file'], 'r') as f:
             c = toml.load(f)
+            # Recursively resolve nested this_includes relative to this file.
+            nested = c.pop('this_includes', [])
+            resolved = {}
+            for nt in nested:
+                Analysis.handle_include(resolved, nt)
+            Analysis.deep_merge(resolved, c)
+            c = resolved
             if 'choose' in table.keys():
                 for key, value in table['choose'].items():
                     if key in config.keys():
@@ -332,8 +339,4 @@ class Analysis:
                     else:
                         config[key] = {v: c[key][v] for v in value}
             else:
-                for key, value in c.items():
-                    if key in config.keys():
-                        config[key].update(value)
-                    else:
-                        config[key] = value
+                Analysis.deep_merge(config, c)
