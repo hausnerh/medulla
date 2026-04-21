@@ -273,10 +273,11 @@ class Systematic:
                 msg = f'Variable {kvar} not found in all Systematic objects.'
                 raise ValueError(msg)
             new_systematic._covariances[f'{name}_{kvar}'] = np.sum(
-                [sys._covariances[f'{sys._name}_{kvar}'] for sys in systematics],
+                [np.nan_to_num(sys._covariances[f'{sys._name}_{kvar}'], nan=0.0) for sys in systematics],
                 axis=0
             )
-            new_systematic._std = np.sqrt(np.sum([sys._std**2 for sys in systematics]))
+            stds = [sys._std for sys in systematics if not np.isnan(sys._std)]
+            new_systematic._std = np.sqrt(np.sum([s**2 for s in stds])) if stds else 0.0
         
         return new_systematic
 
