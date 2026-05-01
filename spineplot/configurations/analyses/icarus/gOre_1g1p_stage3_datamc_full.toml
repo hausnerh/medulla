@@ -1,0 +1,53 @@
+# Stage 3 + offbeam + onbeam overlay (post-unblinding only).
+# Extends gOre_1g1p_stage3_datamc.toml — inherits the offbeam sample,
+# presel, hand-picked reco figures, normalize=true. This wrapper just
+# adds the onbeam sample and bumps category arrays from 10 → 11 entries.
+#
+# DO NOT RUN until:
+#   - selection TOML's [[sample]] name="onbeam" has disable=false
+#   - run_systematics has been re-executed against that selection
+#   - the analysis box is confirmed open for gOre 1γ1p (see pre-flight
+#     in gOre_1g1p_stage3_datamc.toml header).
+
+[[this_includes]]
+file = 'configurations/analyses/icarus/gOre_1g1p_stage3_datamc.toml'
+
+[output]
+path = '/exp/icarus/app/users/hhausner/plots/gOre_1g1p/stage3_egam_sep_datamc_full'
+
+# Re-replace [analysis] to push categories to 11 (onbeam at index 10,
+# scatter overlay).
+[analysis]
+ordinate_sample = 'mc'
+category_branch = 'gOre_category_idx'
+category_assignment = [[0], [1], [2], [3], [4], [5], [6], [7], [8], [9], [10]]
+category_labels = [
+  'NC $\Delta{\to}N\gamma$ (1$\gamma$1p)',
+  'NC $\Delta{\to}N\gamma$ (Other Topo.)',
+  'Other NC 1$\gamma$Xp Post-FSI',
+  'NC $\pi^0$ ($\Delta$ Res)',
+  'NC $\pi^0$ (Other)',
+  'NC $\pi^{\pm}$',
+  'Other NC',
+  'CC e',
+  'Other CC',
+  'Off-beam',
+  'Data (BNB)',
+]
+category_colors = ['C0', 'C9', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'dimgray', 'black']
+category_types  = ['histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'scatter']
+
+# Onbeam — same final-cut presel as MC. Scatter type, integrates to 1
+# under normalize=true. Sanity check (toggle normalize=false manually):
+# onbeam integral should equal MC+offbeam absolute prediction within stat
+# uncertainty. That is the canonical first post-box-opening check.
+[samples.onbeam]
+key = 'onbeam'
+exposure_type = 'pot'
+trees = ['selected_1g1p']
+presel = "(reco_gOre_topology == 1) & (reco_n_protons == 1) & (reco_flash == 1) & (reco_fiducial == 1) & (reco_containment == 1) & ~(reco_subleading_primary_gOre_shower_ke > 0) & (reco_leading_primary_gOre_primary_softmax > 0.9991) & (reco_leading_primary_proton_primary_softmax > 0.9513) & (reco_delta_mass_P > 1172.3) & (reco_delta_mass_P < 1291.7) & (reco_leading_primary_gOre_start_dedx > 4.07) & (reco_leading_primary_gOre_directional_spread < 0.037) & (reco_leading_primary_gOre_photon_softmax > 0.9225)"
+
+[samples.onbeam.precompute]
+gOre_category_idx     = "0*reco_gOre_topology + 10"
+reco_delta_mass_P_dev = "abs(reco_delta_mass_P - 1232)"
+n_selected_flag       = "0*reco_gOre_topology + 1"

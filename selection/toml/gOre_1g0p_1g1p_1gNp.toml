@@ -231,6 +231,28 @@ path = "/pnfs/icarus/persistent/users/mueller/production/simulation/var13p/*.fla
 ismc = true
 disable = false
 
+# -----------------------------------------------------------------------------
+# Data samples. Reco-level selection trees (selected_1g0p/1p/Np) have
+# sim_only=false and run for both MC and data. Truth-level branches read as
+# defaults / dummies for data — same pattern as icarus_disappearance.toml.
+# Signal trees (signal_1g*) are sim_only=true and auto-skip per
+# analysis.h:213.
+# UNBLINDING NOTE: do NOT run with `disable=false` for `onbeam` until the
+# analysis box is confirmed open for gOre 1γ1p. Verify production identity
+# (run range / SAM dataset) and group convener sign-off first.
+# -----------------------------------------------------------------------------
+[[sample]] # offbeam
+name = "offbeam"
+path = "/pnfs/icarus/persistent/users/mueller/production/data/offbeam/*.flat.root"
+ismc = false
+disable = false
+
+[[sample]] # onbeam (BLINDED — flip disable to false only after unblinding cleared)
+name = "onbeam"
+path = "/pnfs/icarus/persistent/users/mueller/production/data/onbeam/*.flat.root"
+ismc = false
+disable = true
+
 [[tree]] # selection (1γ0p)
 name = "selected_1g0p"
 sim_only = false

@@ -39,6 +39,11 @@ print_sys = true
 [samples.mc.precompute]
 gOre_category_idx = "(true_mc_category + 1) - ((true_mc_category == 0) & (true_n_protons == 1))"
 reco_delta_mass_P_dev = "abs(reco_delta_mass_P - 1232)"
+# Dummy 1-for-every-event branch, unique key from reco_gOre_topology so
+# the n_selected Variable gets its own slot in Systematic._variables and
+# its own covariance entry. Without this the cov key collides with
+# reco_gOre_topology (nbins=2) and yerr length mismatches at draw time.
+n_selected_flag = "0*reco_gOre_topology + 1"
 
 # Presel + output.path defined per-stage in wrapper configs:
 #   gOre_1g1p_stage1.toml (baseline only)
@@ -60,7 +65,7 @@ pattern = '.*'
 # -----------------------------------------------------------------------------
 
 [variables.n_selected]
-key = 'reco_gOre_topology'
+key = 'n_selected_flag'
 range = [0.5, 1.5]
 nbins = 1
 xlabel = 'Total Selected'
