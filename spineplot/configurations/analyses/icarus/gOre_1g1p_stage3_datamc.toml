@@ -29,8 +29,8 @@ path = '/exp/icarus/app/users/hhausner/plots/gOre_1g1p/stage3_egam_sep_datamc'
 # normalize=true at draw time then renders shape-only.
 [analysis]
 ordinate_sample = 'mc'
-category_branch = 'gOre_category_idx'
-category_assignment = [[0], [1], [2], [3], [4], [5], [6], [7], [8], [9]]
+category_branch = 'true_category'
+category_assignment = [[0], [1], [2], [3], [4], [5], [6], [7], [8], [10]]
 category_labels = [
   'NC $\Delta{\to}N\gamma$ (1$\gamma$1p)',
   'NC $\Delta{\to}N\gamma$ (Other Topo.)',
@@ -66,7 +66,11 @@ trees = ['selected_1g1p']
 presel = "(reco_gOre_topology == 1) & (reco_n_protons == 1) & (reco_flash == 1) & (reco_fiducial == 1) & (reco_containment == 1) & ~(reco_subleading_primary_gOre_shower_ke > 0) & (reco_leading_primary_gOre_primary_softmax > 0.9991) & (reco_leading_primary_proton_primary_softmax > 0.9513) & (reco_delta_mass_P > 1172.3) & (reco_delta_mass_P < 1291.7) & (reco_leading_primary_gOre_start_dedx > 4.07) & (reco_leading_primary_gOre_directional_spread < 0.037) & (reco_leading_primary_gOre_photon_softmax > 0.9225)"
 
 [samples.offbeam.precompute]
-gOre_category_idx     = "0*reco_gOre_topology + 9"
+# Selection's [[category]] index 9 = cosmic (`!neutrino`). Offbeam events
+# fall into that cat by default at the selection layer; we override to
+# 10 here so the spineplot category_assignment slot for "Off-beam" does
+# not collide with selection cat 9 (which goes unrendered for cvext MC).
+true_category         = "0*reco_gOre_topology + 10"
 reco_delta_mass_P_dev = "abs(reco_delta_mass_P - 1232)"
 n_selected_flag       = "0*reco_gOre_topology + 1"
 

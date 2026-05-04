@@ -8,7 +8,12 @@ file = 'configurations/common/styles.toml'
 
 [analysis]
 ordinate_sample = 'mc'
-category_branch = 'gOre_category_idx'
+# `true_category` is now produced directly by selection (`[[category]]`
+# blocks in `gOre_1g0p_1g1p_1gNp.toml` mix reco fiducial/containment
+# with mctruth NC/Δ-res/topology cuts). The old precompute remap of
+# `true_mc_category` × `true_n_protons` is retired — the indices below
+# already match the selection-side category order.
+category_branch = 'true_category'
 category_assignment = [[0], [1], [2], [3], [4], [5], [6], [7], [8]]
 category_labels = [
   'NC $\Delta{\to}N\gamma$ (1$\gamma$1p)',
@@ -31,13 +36,12 @@ trees = ['selected_1g1p']
 systematics = ['selected_1g1p_multisimTree', 'selected_1g1p_multisigmaTree', 'selected_1g1p_variationTree']
 target_pot = 4.64e20
 print_sys = true
+# Selection-side `[[category]]` index 9 (cosmic / `!neutrino`) is below
+# the assignment list and is dropped by spineplot. cvext is pure MC — no
+# real cosmic — so the drop is benign.
+fillna = 8
 
-# run_analysis_gOre_NEW.cc:655-658 maps true_mc_category==0 into 2 bins
-# split by true_n_protons. Express as a single flat category index:
-#   base = true_mc_category + 1  (gives 1 for cat==0, 2..8 for cat 1..7)
-#   subtract (cat==0 & protons==1) to move 1g1p signal events to index 0
 [samples.mc.precompute]
-gOre_category_idx = "(true_mc_category + 1) - ((true_mc_category == 0) & (true_n_protons == 1))"
 reco_delta_mass_P_dev = "abs(reco_delta_mass_P - 1232)"
 # Dummy 1-for-every-event branch, unique key from reco_gOre_topology so
 # the n_selected Variable gets its own slot in Systematic._variables and

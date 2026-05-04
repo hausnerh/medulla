@@ -274,11 +274,12 @@ path = "/pnfs/icarus/persistent/users/mueller/production/data/offbeam/*.flat.roo
 ismc = false
 disable = false
 
-[[sample]] # onbeam (BLINDED — flip disable to false only after unblinding cleared)
+[[sample]] # onbeam (10% unblinded subsample — paths under /data/onbeam/ are
+# the safe-to-look subset confirmed by user 2026-05-04)
 name = "onbeam"
 path = "/pnfs/icarus/persistent/users/mueller/production/data/onbeam/*.flat.root"
 ismc = false
-disable = true
+disable = false
 
 [[tree]] # selection (1γ0p)
 name = "selected_1g0p"
@@ -664,23 +665,26 @@ branch = [
   { name = "start_z",            type = "both_particle", selector = "leading_primary_proton" },
 ] 
 
-[[tree]] # signal (NC ∆->Nγ) 1g1p
-
-
+[[tree]] # signal (NC ∆->Nγ) 1g1p — definition mirrors `[[category]]` index 0
+# (NC + Δ res + 1γ topology + 1p) using upstream mctruth cuts.
+# `has_nc_delta_ng_interaction` event filter retired; superseded by the
+# mctruth + true fiducial/containment cuts below.
 name = "signal_1g1p"
 sim_only = true
 mode = "true"
 add_systematics = true
 cut = [
-    { name = "fiducial_cut",                type = "true"                                       },
-    { name = "containment_cut",             type = "true"                                       },
-    { name = "single_photon",               type = "true", parameters = [ "@gOre_threshold" ]   },
-    { name = "no_electrons",                type = "true", parameters = [ "@gOre_threshold" ]   },
-    { name = "no_muons",                    type = "true", parameters = [ "@muon_threshold" ]   },
-    { name = "no_charged_pions",            type = "true", parameters = [ "@pion_threshold" ]   },
-    { name = "single_proton",               type = "true", parameters = [ "@proton_threshold" ] },
-    { name = "trigger_emulation_cut",       type = "event", decrements_exposure = false         },
-    { name = "has_nc_delta_ng_interaction", type = "event", decrements_exposure = false         },
+    { name = "fiducial_cut",          type = "true"                                            },
+    { name = "containment_cut",       type = "true"                                            },
+    { name = "!iscc",                 type = "mctruth"                                         },
+    { name = "is_resonance",          type = "mctruth", parameters = [ 0 ]                     },
+    { name = "single_photon",         type = "mctruth", parameters = [ "@gOre_threshold" ]     },
+    { name = "no_charged_pions",      type = "mctruth", parameters = [ "@pion_threshold" ]     },
+    { name = "no_neutral_pions",      type = "mctruth"                                         },
+    { name = "no_electrons",          type = "mctruth", parameters = [ "@gOre_threshold" ]     },
+    { name = "no_muons",              type = "mctruth", parameters = [ "@muon_threshold" ]     },
+    { name = "single_proton",         type = "mctruth", parameters = [ "@proton_threshold" ]   },
+    { name = "trigger_emulation_cut", type = "event", decrements_exposure = false              },
 ]
 branch = [
   # MC Truth

@@ -1,0 +1,27 @@
+# Stage 3 Δ-mass-anti-cut sideband: π0-rich control region.
+# Mirror of `gOre_1g1p_stage3_datamc.toml` with the Δ resonance mass
+# window inverted — keeps every other selection cut identical.
+#
+# Original Δ-mass window (signal region):
+#   (reco_delta_mass_P > 1172.3) & (reco_delta_mass_P < 1291.7)
+# Sideband: complement of that window — events with reconstructed Δ
+# invariant mass FAR from 1232 MeV. Population is dominated by NC π0
+# (one photon misreconstructed / lost), so this region is for cross-
+# checking reconstruction modeling outside the signal box without
+# touching the unblinded box.
+#
+# Inherits: include from `gOre_1g1p_stage3_datamc.toml` → categories,
+# figures, off-beam overlay, sample plumbing, normalize=true.
+# Overrides: `[output] path` and the two `presel` strings (mc, offbeam).
+
+[[this_includes]]
+file = 'configurations/analyses/icarus/gOre_1g1p_stage3_datamc.toml'
+
+[output]
+path = '/exp/icarus/app/users/hhausner/plots/gOre_1g1p/stage3_egam_sep_datamc_sideband'
+
+[samples.mc]
+presel = "(reco_gOre_topology == 1) & (reco_n_protons == 1) & (reco_flash == 1) & (reco_fiducial == 1) & (reco_containment == 1) & ~(reco_subleading_primary_gOre_shower_ke > 0) & (reco_leading_primary_gOre_primary_softmax > 0.9991) & (reco_leading_primary_proton_primary_softmax > 0.9513) & ~((reco_delta_mass_P > 1172.3) & (reco_delta_mass_P < 1291.7)) & (reco_leading_primary_gOre_start_dedx > 4.07) & (reco_leading_primary_gOre_directional_spread < 0.037) & (reco_leading_primary_gOre_photon_softmax > 0.9225)"
+
+[samples.offbeam]
+presel = "(reco_gOre_topology == 1) & (reco_n_protons == 1) & (reco_flash == 1) & (reco_fiducial == 1) & (reco_containment == 1) & ~(reco_subleading_primary_gOre_shower_ke > 0) & (reco_leading_primary_gOre_primary_softmax > 0.9991) & (reco_leading_primary_proton_primary_softmax > 0.9513) & ~((reco_delta_mass_P > 1172.3) & (reco_delta_mass_P < 1291.7)) & (reco_leading_primary_gOre_start_dedx > 4.07) & (reco_leading_primary_gOre_directional_spread < 0.037) & (reco_leading_primary_gOre_photon_softmax > 0.9225)"
