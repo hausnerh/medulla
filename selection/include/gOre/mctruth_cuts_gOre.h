@@ -64,6 +64,36 @@ namespace mctruth::gOre
     REGISTER_CUT_SCOPE(RegistrationScope::MCTruth, no_muons, no_muons);
 
     /**
+     * @brief Cut for exactly one true final-state photon above threshold.
+     * @details Mirror of upstream `mctruth::no_photons` but counting ==1
+     * rather than ==0. Photons are massless: energy = `genE` (GeV)
+     * scaled to MeV. Needed for the NC Δ→Nγ signal definition (single
+     * primary photon, any number of nucleons). Upstream did not ship
+     * this because their CCQE example does not require it.
+     * @tparam T the type of the object to apply the cut on.
+     * @param obj the SRTrueInteraction to apply the cut on.
+     * @param params energy threshold in MeV. Defaults to 25 MeV (gOre
+     * analysis threshold).
+     * @return true if exactly one photon above threshold.
+     **/
+    template<typename T>
+    bool single_photon(const T & obj, std::vector<double> params={25.0,})
+    {
+        int count(0);
+        for(const auto & p : obj.prim)
+        {
+            if(p.pdg == 22)
+            {
+                double energy = 1000. * p.genE;
+                if(energy >= params.at(0))
+                    ++count;
+            }
+        }
+        return count == 1;
+    }
+    REGISTER_CUT_SCOPE(RegistrationScope::MCTruth, single_photon, single_photon);
+
+    /**
      * @brief Composite shortcut: NC + Δ resonance.
      * @details Convenience cut equivalent to `!iscc && is_resonance(0)`.
      * Useful when a TOML `[[category]]` block wants to keep the cut list
