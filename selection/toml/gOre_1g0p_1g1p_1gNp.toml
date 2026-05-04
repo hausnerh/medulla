@@ -29,78 +29,105 @@ flash_pe_neutron_scaling = 0.019
 #angle_neutron_scaling = 1.0
 angle_neutron_scaling = 1.31
 
-[[category]] # contained, fiducial, single photon
+# -----------------------------------------------------------------------------
+# Unified categories (truth-level, via upstream `[[category]]` mctruth syntax).
+# Mirrors the per-event `mc_category` MCTruth variable in `vars_gOre.h:746`,
+# AND folds in the spineplot precompute split of the 1γ1p signal by proton
+# multiplicity. Indices match `gOre_1g1p.toml` spineplot's `category_labels`:
+#   0: NC Δ→Nγ (1γ1p)
+#   1: NC Δ→Nγ (other topo)
+#   2: Other NC 1γXp post-FSI
+#   3: NC π0 (Δ res)
+#   4: NC π0 (other)
+#   5: NC π±
+#   6: Other NC
+#   7: CC νₑ
+#   8: Other CC
+#   9: Cosmic / unmatched
+# Selection writes the resulting label into the `category` branch
+# (`type="true"`); spineplot reads it directly — no `gOre_category_idx`
+# precompute remap needed. mctruth cuts auto-skip on data (nu_id<0); data
+# samples set their category via spineplot `override_category`.
+# -----------------------------------------------------------------------------
+[[category]] # 0: NC Δ→Nγ (1γ1p) — NC, Δ resonance, 1γ + 0 lepton + 0 charged π + 0 π0 + 1p
 cuts = [
-  { name = "neutrino"                                                 },
-  { name = "containment_cut"                                          },
-  { name = "fiducial_cut"                                             },
-  { name = "single_photon",        parameters = [ "@gOre_threshold" ] },
-  { name = "no_electrons",         parameters = [ "@gOre_threshold" ] },
-  { name = "no_muons",             parameters = [ "@muon_threshold" ] },
-  { name = "no_charged_pions",     parameters = [ "@pion_threshold" ] },
+  { name = "neutrino"                                                                  },
+  { name = "!iscc",            type = "mctruth"                                         },
+  { name = "is_resonance",     type = "mctruth", parameters = [ 0 ]                     },
+  { name = "single_photon",    type = "mctruth", parameters = [ "@gOre_threshold" ]     },
+  { name = "no_charged_pions", type = "mctruth", parameters = [ "@pion_threshold" ]     },
+  { name = "no_neutral_pions", type = "mctruth"                                         },
+  { name = "no_electrons",     type = "mctruth", parameters = [ "@gOre_threshold" ]     },
+  { name = "no_muons",         type = "mctruth", parameters = [ "@muon_threshold" ]     },
+  { name = "single_proton",    type = "mctruth", parameters = [ "@proton_threshold" ]   },
 ]
 
-[[category]] # single photon
+[[category]] # 1: NC Δ→Nγ (other proton multiplicity) — drop `single_proton` from cat 0
 cuts = [
-  { name = "neutrino"                                                 },
-  { name = "single_photon",        parameters = [ "@gOre_threshold" ] },
-  { name = "no_electrons",         parameters = [ "@gOre_threshold" ] },
-  { name = "no_muons",             parameters = [ "@muon_threshold" ] },
-  { name = "no_charged_pions",     parameters = [ "@pion_threshold" ] },
+  { name = "neutrino"                                                                  },
+  { name = "!iscc",            type = "mctruth"                                         },
+  { name = "is_resonance",     type = "mctruth", parameters = [ 0 ]                     },
+  { name = "single_photon",    type = "mctruth", parameters = [ "@gOre_threshold" ]     },
+  { name = "no_charged_pions", type = "mctruth", parameters = [ "@pion_threshold" ]     },
+  { name = "no_neutral_pions", type = "mctruth"                                         },
+  { name = "no_electrons",     type = "mctruth", parameters = [ "@gOre_threshold" ]     },
+  { name = "no_muons",         type = "mctruth", parameters = [ "@muon_threshold" ]     },
 ]
 
-[[category]] # contained, fiducial, single electron
+[[category]] # 2: Other NC 1γXp post-FSI — NC, NOT Δ res, single-photon topology
 cuts = [
-  { name = "neutrino"                                                 },
-  { name = "containment_cut"                                          },
-  { name = "fiducial_cut"                                             },
-  { name = "single_electron",      parameters = [ "@gOre_threshold" ] },
-  { name = "no_photons",           parameters = [ "@gOre_threshold" ] },
-  { name = "no_muons",             parameters = [ "@muon_threshold" ] },
-  { name = "no_charged_pions",     parameters = [ "@pion_threshold" ] },
+  { name = "neutrino"                                                                  },
+  { name = "!iscc",            type = "mctruth"                                         },
+  { name = "!is_resonance",    type = "mctruth", parameters = [ 0 ]                     },
+  { name = "single_photon",    type = "mctruth", parameters = [ "@gOre_threshold" ]     },
+  { name = "no_charged_pions", type = "mctruth", parameters = [ "@pion_threshold" ]     },
+  { name = "no_neutral_pions", type = "mctruth"                                         },
+  { name = "no_electrons",     type = "mctruth", parameters = [ "@gOre_threshold" ]     },
+  { name = "no_muons",         type = "mctruth", parameters = [ "@muon_threshold" ]     },
 ]
 
-[[category]] # single electron
+[[category]] # 3: NC π0 (Δ res) — NC, Δ resonance, has at least one neutral pion
 cuts = [
-  { name = "neutrino"                                                 },
-  { name = "single_electron",      parameters = [ "@gOre_threshold" ] },
-  { name = "no_photons",           parameters = [ "@gOre_threshold" ] },
-  { name = "no_muons",             parameters = [ "@muon_threshold" ] },
-  { name = "no_charged_pions",     parameters = [ "@pion_threshold" ] },
+  { name = "neutrino"                                                                  },
+  { name = "!iscc",             type = "mctruth"                                        },
+  { name = "is_resonance",      type = "mctruth", parameters = [ 0 ]                    },
+  { name = "!no_neutral_pions", type = "mctruth"                                        },
 ]
 
-[[category]] # contained, fiducial, dual photon
+[[category]] # 4: NC π0 (other) — NC, has neutral pion (catches non-Δ; cat 3 already consumed Δ res)
 cuts = [
-  { name = "neutrino"                                                 },
-  { name = "containment_cut"                                          },
-  { name = "fiducial_cut"                                             },
-  { name = "dual_photon",          parameters = [ "@gOre_threshold" ] },
-  { name = "no_electrons",         parameters = [ "@gOre_threshold" ] },
-  { name = "no_muons",             parameters = [ "@muon_threshold" ] },
-  { name = "no_charged_pions",     parameters = [ "@pion_threshold" ] },
+  { name = "neutrino"                                                                  },
+  { name = "!iscc",             type = "mctruth"                                        },
+  { name = "!no_neutral_pions", type = "mctruth"                                        },
 ]
 
-[[category]] # dual photon
+[[category]] # 5: NC π± — NC, has charged pion above threshold
 cuts = [
-  { name = "neutrino"                                                 },
-  { name = "dual_photon",          parameters = [ "@gOre_threshold" ] },
-  { name = "no_electrons",         parameters = [ "@gOre_threshold" ] },
-  { name = "no_muons",             parameters = [ "@muon_threshold" ] },
-  { name = "no_charged_pions",     parameters = [ "@pion_threshold" ] },
+  { name = "neutrino"                                                                  },
+  { name = "!iscc",             type = "mctruth"                                        },
+  { name = "!no_charged_pions", type = "mctruth", parameters = [ "@pion_threshold" ]    },
 ]
 
-[[category]] # NC
+[[category]] # 6: Other NC
 cuts = [
-  { name = "neutrino" },
-  { name = "!iscc"    },
+  { name = "neutrino"                                                                  },
+  { name = "!iscc",             type = "mctruth"                                        },
 ]
 
-[[category]] # CC
+[[category]] # 7: CC νₑ — CC with at least one final-state electron
 cuts = [
-  { name = "neutrino" },
+  { name = "neutrino"                                                                  },
+  { name = "iscc",              type = "mctruth"                                        },
+  { name = "!no_electrons",     type = "mctruth", parameters = [ "@gOre_threshold" ]    },
 ]
 
-[[category]] # cosmic
+[[category]] # 8: Other CC
+cuts = [
+  { name = "neutrino"                                                                  },
+  { name = "iscc",              type = "mctruth"                                        },
+]
+
+[[category]] # 9: Cosmic / unmatched
 cuts = [
   { name = "!neutrino" },
 ]

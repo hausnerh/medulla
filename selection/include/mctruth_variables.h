@@ -1,5 +1,5 @@
 /**
- * @file mctruth.h
+ * @file mctruth_variables.h
  * @brief Definitions of analysis variables which can extract information from
  * the SRTrueInteraction object.
  * @details This file contains definitions of analysis variables which can be
@@ -9,11 +9,13 @@
  * object to an SRTrueInteraction object is handled upstream in the SpineVar
  * functions.
  * @author mueller@fnal.gov
+ * @author rvizarr@fnal.gov
  */
-#ifndef MCTRUTH_H
-#define MCTRUTH_H
+#ifndef MCTRUTH_VARIABLES_H
+#define MCTRUTH_VARIABLES_H
 #include "sbnanaobj/StandardRecord/Proxy/SRProxy.h"
 #include "sbnanaobj/StandardRecord/SRTrueInteraction.h"
+#include "sbnanaobj/StandardRecord/SRVector3D.h"
 
 #include "framework.h"
 
@@ -38,6 +40,20 @@ namespace mctruth
         double neutrino_energy(const T & obj) { return obj.E; }
     REGISTER_VAR_SCOPE(RegistrationScope::MCTruth, neutrino_energy, neutrino_energy);
 
+   /**
+     * @brief Variable for the true interaction energy transfer.
+     * @details This variable is intended to provide the true energy
+     * transfer from the neutrino to the hadronic system. This is
+     * defined in the lab frame.
+     * @tparam T the type of the object to apply the variable on.
+     * @param obj the SRTrueInteraction to apply the variable on.
+     * @return the true energy transfer into the hadronic system
+     * in the lab frame.
+     */
+    template<typename T>
+        double energy_transfer(const T & obj) { return obj.q0_lab; }
+    REGISTER_VAR_SCOPE(RegistrationScope::MCTruth, energy_transfer, energy_transfer);
+  
     /**
      * @brief Variable for the true neutrino baseline.
      * @details This variable is intended to provide the true baseline of the
@@ -111,5 +127,31 @@ namespace mctruth
     template<typename T>
         double interaction_type(const T & obj) { return obj.genie_inttype; }
     REGISTER_VAR_SCOPE(RegistrationScope::MCTruth, interaction_type, interaction_type);
+
+    /**
+     * @brief Variable for the true off-axis angle of the neutrino.
+     * @details This variable is intended to provide the true off-axis angle of
+     * the parent neutrino that produced the interaction. The off-axis angle is
+     * calculated as the angle between the neutrino momentum vector and the
+     * beam axis (defined as the z-axis in both SBND and ICARUS).
+     * @tparam T the type of the object to apply the variable on.
+     * @param obj the SRTrueInteraction to apply the variable on.
+     * @return the true off-axis angle of the neutrino in degrees.
+     */
+    template<typename T>
+    double off_axis_angle(const T & obj)
+    {
+        const auto & neutrino_momentum = obj.momentum;
+        double mag = std::sqrt(
+            neutrino_momentum.x * neutrino_momentum.x +
+            neutrino_momentum.y * neutrino_momentum.y +
+            neutrino_momentum.z * neutrino_momentum.z
+        );
+        return 180./3.141592653589793 * std::acos(
+            neutrino_momentum.z / mag
+        );
+    }
+    REGISTER_VAR_SCOPE(RegistrationScope::MCTruth, off_axis_angle, off_axis_angle);
+
 } // namespace mctruth
 #endif

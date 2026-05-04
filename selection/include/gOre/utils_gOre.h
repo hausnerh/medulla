@@ -14,7 +14,8 @@
 #define PIDFUNC pvars::pid
 
 // SPINE includes
-#include "include/mctruth.h"
+#include "include/mctruth_variables.h"
+#include "include/mctruth_cuts.h"
 #include "include/variables.h"
 #include "include/muon2024/variables_muon2024.h"
 #include "include/cuts.h"

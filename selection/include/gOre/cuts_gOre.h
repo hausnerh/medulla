@@ -11,6 +11,7 @@
 #include "include/particle_variables.h"
 
 #include "include/gOre/core_gOre.h"
+#include "include/gOre/mctruth_cuts_gOre.h"
 
 /**
  * @namespace cuts::gOre
