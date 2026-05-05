@@ -33,7 +33,16 @@ category_types = ['histogram', 'histogram', 'histogram', 'histogram', 'histogram
 key = 'cvext'
 exposure_type = 'pot'
 trees = ['selected_1g1p']
-systematics = ['selected_1g1p_multisimTree', 'selected_1g1p_multisigmaTree', 'selected_1g1p_variationTree']
+# `selected_1g1p_variationTree` removed 2026-05-05: present in the
+# systematics TOML's `table_types` list but absent from the produced
+# `output_systematics_jobid####.root` files (and from the hadded
+# `output_gOre_systematics_all.root`). Likely cause: per-batch
+# `events/cv/selected_1g1p` has too few entries to seed the detsys
+# spline, so `DetsysCalculator` populates nothing for variation. Detsys
+# band is therefore missing from the syst total until systematics is
+# re-run on the hadded selection output (where cv has the full sample
+# rather than a single batch slice).
+systematics = ['selected_1g1p_multisimTree', 'selected_1g1p_multisigmaTree']
 target_pot = 4.64e20
 print_sys = true
 # Selection-side `[[category]]` index 9 (cosmic / `!neutrino`) is below
