@@ -33,16 +33,20 @@ category_types = ['histogram', 'histogram', 'histogram', 'histogram', 'histogram
 key = 'cvext'
 exposure_type = 'pot'
 trees = ['selected_1g1p']
-# `selected_1g1p_variationTree` removed 2026-05-05: present in the
-# systematics TOML's `table_types` list but absent from the produced
-# `output_systematics_jobid####.root` files (and from the hadded
-# `output_gOre_systematics_all.root`). Likely cause: per-batch
-# `events/cv/selected_1g1p` has too few entries to seed the detsys
-# spline, so `DetsysCalculator` populates nothing for variation. Detsys
-# band is therefore missing from the syst total until systematics is
-# re-run on the hadded selection output (where cv has the full sample
-# rather than a single batch slice).
-systematics = ['selected_1g1p_multisimTree', 'selected_1g1p_multisigmaTree']
+# `selected_1g1p_variationTree` was temporarily removed 2026-05-05 because
+# the per-batch systematics outputs (`output_systematics_jobid####.root`)
+# lacked the tree — per-batch `events/cv/selected_1g1p` was too sparse for
+# `DetsysCalculator` to seed the detsys splines, so variation Systematic
+# objects never populated and the tree was never written. Restored
+# 2026-05-07 after a one-shot `run_systematics` over the **hadded**
+# selection (`output_gOre_all.root`, written via
+# `systematics/toml/gOre_1g1p_rerun.toml`); cv with the full sample fits
+# splines and the variation tree is present in
+# `output_gOre_systematics_v2.root`. Spineplot input must be v2 (or a
+# symlink pointing at v2) for this list to resolve. If a future run
+# regresses to per-batch failure, drop the third entry again and rerun
+# this comment block's history.
+systematics = ['selected_1g1p_multisimTree', 'selected_1g1p_multisigmaTree', 'selected_1g1p_variationTree']
 target_pot = 4.64e20
 print_sys = true
 # Selection-side `[[category]]` index 9 (cosmic / `!neutrino`) is below
