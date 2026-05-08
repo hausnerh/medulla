@@ -42,7 +42,10 @@ category_labels = [
   'Other CC',
   'Data (BNB)',
 ]
-category_colors = ['C0', 'C9', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'black']
+# Wong palette + magenta accent (see header of `gOre_1g1p.toml` for the
+# full key). Cats 0..8 use Wong indices 1..9; data slot consumes
+# Wong index 0 (black).
+category_colors = ['#E69900', '#59B3E6', '#009980', '#F2E640', '#0073B3', '#CC6600', '#CC99B3', '#9980CC', '#E6338C', '#000000']
 category_types  = ['histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'scatter']
 
 # Reapply MC final-cut presel (deep_merge of [samples.mc] dict will keep

@@ -26,7 +26,21 @@ category_labels = [
   'CC e',
   'Other CC',
 ]
-category_colors = ['C0', 'C9', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7']
+# Wong color-blind-safe palette (order = Wong index, kept as-is):
+#   0 Black           RGB(0.00, 0.00, 0.00)  #000000  ← reserved for data overlay
+#   1 Orange          RGB(0.90, 0.60, 0.00)  #E69900
+#   2 Sky Blue        RGB(0.35, 0.70, 0.90)  #59B3E6
+#   3 Bluish Green    RGB(0.00, 0.60, 0.50)  #009980
+#   4 Yellow          RGB(0.95, 0.90, 0.25)  #F2E640
+#   5 Blue            RGB(0.00, 0.45, 0.70)  #0073B3
+#   6 Vermillion      RGB(0.80, 0.40, 0.00)  #CC6600
+#   7 Reddish Purple  RGB(0.80, 0.60, 0.70)  #CC99B3
+#   8 Extra Purple    RGB(0.60, 0.50, 0.80)  #9980CC
+#   9 Magenta accent  RGB(0.90, 0.20, 0.55)  #E6338C  ← extra high-contrast
+# 9 MC categories (cats 0..8) consume indices 1..9 of the palette, in
+# order. Data overlay (added in datamc wrappers) consumes index 0
+# (black) so it stays maximally clear against any colored category.
+category_colors = ['#E69900', '#59B3E6', '#009980', '#F2E640', '#0073B3', '#CC6600', '#CC99B3', '#9980CC', '#E6338C']
 category_types = ['histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram']
 
 [samples.mc]

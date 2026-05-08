@@ -1,0 +1,28 @@
+# Stage 1 sideband: baseline reco + Δ-mass anti-cut.
+# Companion of `gOre_1g1p_stage1_datamc.toml`. Stage 1 has no mass cut
+# in its own right; this file layers the complement of the signal-region
+# Δ-mass window on top of the baseline reco selection so the π0-rich
+# control region is exposed at the loosest signal selection. Useful for
+# validating reco modelling outside the signal box without burning into
+# the post-π0-rejection statistics.
+#
+# Original Δ-mass window (signal region):
+#   (reco_delta_mass_P > 1172.3) & (reco_delta_mass_P < 1291.7)
+# Sideband: complement of that window — events with reconstructed Δ
+# invariant mass FAR from 1232 MeV, plus the loosest reco baseline.
+#
+# Inherits: include from `gOre_1g1p_stage3_datamc.toml` → categories,
+# figures, onbeam plumbing, normalize=true.
+# Overrides: `[output] path` and the two `presel` strings (mc, onbeam).
+
+[[this_includes]]
+file = 'configurations/analyses/icarus/gOre_1g1p_stage3_datamc.toml'
+
+[output]
+path = '/exp/icarus/app/users/hhausner/plots/gOre_1g1p/stage1_presel_datamc_sideband'
+
+[samples.mc]
+presel = "(reco_gOre_topology == 1) & (reco_n_protons == 1) & (reco_flash == 1) & (reco_fiducial == 1) & (reco_containment == 1) & ~((reco_delta_mass_P > 1172.3) & (reco_delta_mass_P < 1291.7))"
+
+[samples.onbeam]
+presel = "(reco_gOre_topology == 1) & (reco_n_protons == 1) & (reco_flash == 1) & (reco_fiducial == 1) & (reco_containment == 1) & ~((reco_delta_mass_P > 1172.3) & (reco_delta_mass_P < 1291.7))"

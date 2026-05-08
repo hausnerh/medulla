@@ -1,0 +1,27 @@
+# Stage 2 sideband: baseline + π0 rejection, with the Δ-mass window
+# inverted. Companion of `gOre_1g1p_stage2_datamc.toml`. The stage 2
+# selection already contains the Δ-mass cut; this file flips the sign
+# on that single cut and keeps every other selection identical.
+#
+# Original Δ-mass window (signal region):
+#   (reco_delta_mass_P > 1172.3) & (reco_delta_mass_P < 1291.7)
+# Sideband: complement of that window — events with reconstructed Δ
+# invariant mass FAR from 1232 MeV. Population is dominated by NC π0
+# (one photon misreconstructed / lost), so this region is for cross-
+# checking reconstruction modeling outside the signal box.
+#
+# Inherits: include from `gOre_1g1p_stage3_datamc.toml` → categories,
+# figures, onbeam plumbing, normalize=true.
+# Overrides: `[output] path` and the two `presel` strings (mc, onbeam).
+
+[[this_includes]]
+file = 'configurations/analyses/icarus/gOre_1g1p_stage3_datamc.toml'
+
+[output]
+path = '/exp/icarus/app/users/hhausner/plots/gOre_1g1p/stage2_pi0_rej_datamc_sideband'
+
+[samples.mc]
+presel = "(reco_gOre_topology == 1) & (reco_n_protons == 1) & (reco_flash == 1) & (reco_fiducial == 1) & (reco_containment == 1) & ~(reco_subleading_primary_gOre_shower_ke > 0) & (reco_leading_primary_gOre_primary_softmax > 0.9991) & (reco_leading_primary_proton_primary_softmax > 0.9513) & ~((reco_delta_mass_P > 1172.3) & (reco_delta_mass_P < 1291.7))"
+
+[samples.onbeam]
+presel = "(reco_gOre_topology == 1) & (reco_n_protons == 1) & (reco_flash == 1) & (reco_fiducial == 1) & (reco_containment == 1) & ~(reco_subleading_primary_gOre_shower_ke > 0) & (reco_leading_primary_gOre_primary_softmax > 0.9991) & (reco_leading_primary_proton_primary_softmax > 0.9513) & ~((reco_delta_mass_P > 1172.3) & (reco_delta_mass_P < 1291.7))"
