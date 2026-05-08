@@ -1,21 +1,20 @@
-# Stage 3 + offbeam overlay, area-normalized for shape comparison.
+# Stage 3 + onbeam (10% subsample) overlay, area-normalized for shape
+# comparison. Offbeam dropped 2026-05-07 — its POT==0 caused
+# `Sample.set_weight` to compute `scale = inf`, which crushed the MC
+# band visually via figure-axis autoscaling and produced empty offbeam
+# bins after `normalize=true` (`inf/inf == NaN` → matplotlib drops).
+# With only onbeam and MC, scaling is finite and the band renders.
+#
 # Standalone from gOre_1g1p_stage3.toml — does NOT extend it, because
-# Analysis.deep_merge wholesale-replaces lists (`figure`, `category_*`)
-# rather than merging element-by-element. So this wrapper redeclares the
-# subset of figures + 11-entry category arrays explicitly.
+# Analysis.deep_merge wholesale-replaces lists (`figure`, `category_*`).
+# This wrapper redeclares the subset of figures + 10-entry category
+# arrays explicitly.
 #
-# Onbeam is INTENTIONALLY excluded. Selection TOML has
-# [[sample]] name="onbeam" disable=true; flip to false ONLY after the
-# analysis box is opened for gOre 1γ1p. A sister wrapper
-# (gOre_1g1p_stage3_datamc_full.toml) adds onbeam on top of this one.
-#
-# Pre-unblinding pre-flight (do BEFORE flipping onbeam disable):
-#   1. Identify the production at /pnfs/.../data/onbeam/ — record run
-#      range / SAM dataset / POMS campaign tag.
-#   2. Cross-reference with ICARUS analysis-group bookkeeping that the
-#      box is open for this analysis.
-#   3. Get convener sign-off; document decision in commit message.
-#   4. If uncertain: stay on this wrapper (offbeam-only) until cleared.
+# Sister wrappers `gOre_1g1p_stage3_datamc_full.toml` and
+# `gOre_1g1p_stage3_datamc_full_sideband.toml` are now redundant — they
+# only added onbeam on top of an offbeam-only base; with offbeam gone,
+# the "full" variants and this base differ only in the (deprecated)
+# offbeam slot. Either delete them or leave as no-op aliases.
 
 [[this_includes]]
 file = 'configurations/analyses/icarus/gOre_1g1p.toml'
@@ -24,9 +23,9 @@ file = 'configurations/analyses/icarus/gOre_1g1p.toml'
 path = '/exp/icarus/app/users/hhausner/plots/gOre_1g1p/stage3_egam_sep_datamc'
 
 # Replace base [analysis] block to extend categories from 9 → 10 entries
-# (offbeam at index 9, plotted as a grey histogram stacked beneath MC).
-# ordinate stays 'mc' so MC's target_pot still drives absolute scaling;
-# normalize=true at draw time then renders shape-only.
+# (onbeam at index 10, plotted as a black scatter overlay). Ordinate
+# stays 'mc' so MC's target_pot drives absolute scaling; normalize=true
+# at draw time renders shape-only.
 [analysis]
 ordinate_sample = 'mc'
 category_branch = 'true_category'
@@ -41,34 +40,32 @@ category_labels = [
   'Other NC',
   'CC e',
   'Other CC',
-  'Off-beam',
+  'Data (BNB)',
 ]
-category_colors = ['C0', 'C9', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'dimgray']
-category_types  = ['histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram']
+category_colors = ['C0', 'C9', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'black']
+category_types  = ['histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'scatter']
 
 # Reapply MC final-cut presel (deep_merge of [samples.mc] dict will keep
 # the systematics / target_pot / precompute fields from base + stage3).
 [samples.mc]
 presel = "(reco_gOre_topology == 1) & (reco_n_protons == 1) & (reco_flash == 1) & (reco_fiducial == 1) & (reco_containment == 1) & ~(reco_subleading_primary_gOre_shower_ke > 0) & (reco_leading_primary_gOre_primary_softmax > 0.9991) & (reco_leading_primary_proton_primary_softmax > 0.9513) & (reco_delta_mass_P > 1172.3) & (reco_delta_mass_P < 1291.7) & (reco_leading_primary_gOre_start_dedx > 4.07) & (reco_leading_primary_gOre_directional_spread < 0.037) & (reco_leading_primary_gOre_photon_softmax > 0.9225)"
 
-# Offbeam — same final-cut presel as MC. No systematics (data has no
-# weight universes). No target_pot or override_exposure: set_weight on
-# off-ordinate samples uses scale = ordinate.exposure_pot / self.exposure_pot,
-# so offbeam events get rescaled to the MC target POT for absolute checks
-# (rendered shape-only after normalize=true). Per-sample precompute injects
-# the category column + the dummy keys figures reference (data has no
-# true_mc_category / true_n_protons truth branches; the MC formula would
-# raise at sample.py:104).
-[samples.offbeam]
-key = 'offbeam'
+# Onbeam — same final-cut presel as MC. No systematics (data has no
+# weight universes). exposure_pot is the 10% subsample POT (set_weight
+# computes scale = MC target_pot / onbeam_pot ≈ 23.9 → finite).
+# Per-sample precompute injects the category column and the dummy keys
+# figures reference (data has no true_mc_category / true_n_protons truth
+# branches; the MC formula would raise at sample.py:104).
+[samples.onbeam]
+key = 'onbeam'
 exposure_type = 'pot'
 trees = ['selected_1g1p']
 presel = "(reco_gOre_topology == 1) & (reco_n_protons == 1) & (reco_flash == 1) & (reco_fiducial == 1) & (reco_containment == 1) & ~(reco_subleading_primary_gOre_shower_ke > 0) & (reco_leading_primary_gOre_primary_softmax > 0.9991) & (reco_leading_primary_proton_primary_softmax > 0.9513) & (reco_delta_mass_P > 1172.3) & (reco_delta_mass_P < 1291.7) & (reco_leading_primary_gOre_start_dedx > 4.07) & (reco_leading_primary_gOre_directional_spread < 0.037) & (reco_leading_primary_gOre_photon_softmax > 0.9225)"
 
-[samples.offbeam.precompute]
-# Selection's [[category]] index 9 = cosmic (`!neutrino`). Offbeam events
-# fall into that cat by default at the selection layer; we override to
-# 10 here so the spineplot category_assignment slot for "Off-beam" does
+[samples.onbeam.precompute]
+# Selection's [[category]] index 9 = cosmic (`!neutrino`). Onbeam events
+# fall into that cat by default at the selection layer; override to 10
+# here so the spineplot category_assignment slot for "Data (BNB)" does
 # not collide with selection cat 9 (which goes unrendered for cvext MC).
 true_category         = "0*reco_gOre_topology + 10"
 reco_delta_mass_P_dev = "abs(reco_delta_mass_P - 1232)"
@@ -81,10 +78,10 @@ n_selected_flag       = "0*reco_gOre_topology + 1"
 # either no shape information after final cut (single bin / always-1) or
 # they reference branches absent from data trees.
 #
-# Each MC stack and the offbeam histogram are area-normalized
-# independently to integrate to 1. Syst band on MC stack is jacobian-
-# transformed correctly (Systematic.transform_as in spectra1d.py:247
-# handles normalize=True via the bin-fraction jacobian on lines 316-320).
+# Each MC stack and the onbeam scatter are area-normalized independently
+# to integrate to 1. Syst band on MC stack is jacobian-transformed
+# correctly (Systematic.transform_as in spectra1d.py:247 handles
+# normalize=True via the bin-fraction jacobian on lines 316-320).
 # -----------------------------------------------------------------------------
 
 [[figure]]
