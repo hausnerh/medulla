@@ -1,0 +1,21 @@
+# Stage 2 (baseline + π0 rejection + Δ-mass window) + onbeam overlay.
+# Tighter than stage1 but drops the e/γ-separation cuts that killed the
+# last onbeam event in stage3 with the 10% subsample. Onbeam survival
+# expected: ~1 event (statistically marginal but nonzero, see
+# stage3_datamc.log analysis 2026-05-08).
+#
+# Categories + figures + onbeam plumbing inherited from
+# `gOre_1g1p_stage3_datamc.toml`. Only `[output] path` and the two
+# `presel` strings (mc, onbeam) are overridden.
+
+[[this_includes]]
+file = 'configurations/analyses/icarus/gOre_1g1p_stage3_datamc.toml'
+
+[output]
+path = '/exp/icarus/app/users/hhausner/plots/gOre_1g1p/stage2_pi0_rej_datamc'
+
+[samples.mc]
+presel = "(reco_gOre_topology == 1) & (reco_n_protons == 1) & (reco_flash == 1) & (reco_fiducial == 1) & (reco_containment == 1) & ~(reco_subleading_primary_gOre_shower_ke > 0) & (reco_leading_primary_gOre_primary_softmax > 0.9991) & (reco_leading_primary_proton_primary_softmax > 0.9513) & (reco_delta_mass_P > 1172.3) & (reco_delta_mass_P < 1291.7)"
+
+[samples.onbeam]
+presel = "(reco_gOre_topology == 1) & (reco_n_protons == 1) & (reco_flash == 1) & (reco_fiducial == 1) & (reco_containment == 1) & ~(reco_subleading_primary_gOre_shower_ke > 0) & (reco_leading_primary_gOre_primary_softmax > 0.9991) & (reco_leading_primary_proton_primary_softmax > 0.9513) & (reco_delta_mass_P > 1172.3) & (reco_delta_mass_P < 1291.7)"

@@ -1,0 +1,21 @@
+# Stage 1 (baseline reco) + onbeam (10% subsample) overlay.
+# Loosest presel of the data/MC family — keeps every onbeam event that
+# passed reco-fiducial + topology, so the overlay has the best statistics.
+# Use as the headline data/MC sanity check while the analysis box is at
+# 10% open; switch to `_stage3_datamc.toml` once full unblinding lands.
+#
+# Categories + figures + onbeam plumbing inherited from
+# `gOre_1g1p_stage3_datamc.toml`. Only `[output] path` and the two
+# `presel` strings (mc, onbeam) are overridden.
+
+[[this_includes]]
+file = 'configurations/analyses/icarus/gOre_1g1p_stage3_datamc.toml'
+
+[output]
+path = '/exp/icarus/app/users/hhausner/plots/gOre_1g1p/stage1_presel_datamc'
+
+[samples.mc]
+presel = "(reco_gOre_topology == 1) & (reco_n_protons == 1) & (reco_flash == 1) & (reco_fiducial == 1) & (reco_containment == 1)"
+
+[samples.onbeam]
+presel = "(reco_gOre_topology == 1) & (reco_n_protons == 1) & (reco_flash == 1) & (reco_fiducial == 1) & (reco_containment == 1)"
