@@ -1,0 +1,37 @@
+# CC + Xγ + 1p sideband, base config.
+#
+# Twin of `gOre_1g1p.toml` aimed at validating primary-vs-secondary
+# photon discrimination on a high-stats CC sample where:
+#   - the muon tag gives σ_CC/σ_NC ~ 3-5× more events than the NC signal
+#     region;
+#   - photon multiplicity is allowed (no `single_photon`-style veto at
+#     the selection level), so the sample mixes CC radiative Δ (primary
+#     γ) with CC π0 → 2γ (secondary γ);
+#   - the discrimination machinery (start dE/dx, directional/axial
+#     spread, gOre_photon_softmax, gOre_primary_softmax, Δ-mass) is
+#     exactly the same as the signal region — exercised on more events.
+#
+# Reuses the existing 9-category Wong palette inherited from the NC base
+# config. CC events at truth level will mostly land in cats 7 ("CC e")
+# and 8 ("Other CC"); the NC-centric cat labels are kept as-is for now.
+# If you later want a CC-flavoured category split (e.g. "CC radiative Δ"
+# vs "CC π0" vs "Other CC"), add new `[[category]]` blocks in the
+# selection TOML and rerun selection.
+
+[[this_includes]]
+file = 'configurations/analyses/icarus/gOre_1g1p.toml'
+
+# Re-point the MC sample at the new selection tree. The cvext key + POT
+# bookkeeping + Wong palette + systematic_recipe ("total" band) all come
+# from the base via deep_merge; only the tree-name fields below need to
+# change.
+[samples.mc]
+trees = ['selected_cc_Xg1p']
+systematics = ['selected_cc_Xg1p_multisimTree', 'selected_cc_Xg1p_multisigmaTree', 'selected_cc_Xg1p_variationTree']
+
+# Presel + output.path defined per-stage in wrapper configs:
+#   gOre_cc_Xg1p_stage1_datamc.toml (baseline reco only)
+#   gOre_cc_Xg1p_stage2_datamc.toml (+ softmax + Δ-mass window)
+#   gOre_cc_Xg1p_stage3_datamc.toml (+ shower-ID start_dedx etc.)
+# NOTE: none of the stages apply the subleading-shower veto, so both
+# 1γ and 2γ events are kept across all three stages.

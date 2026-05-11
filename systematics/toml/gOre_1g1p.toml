@@ -111,6 +111,62 @@ destination = 'events/onbeam/'
 name = 'selected_1g1p_exposure'
 action = 'copy'
 
+# -------- CC X-photon + 1p sideband (added 2026-05-08) --------
+# Companion tree to `selected_1g1p` covering CC + ≥1γ + 1μ + 1p events.
+# Same multisim/multisigma/variation systematics universes — they apply
+# per-event regardless of topology selection, so the cvext weight trees
+# already in the input file feed both. Detsys variation block re-uses
+# the same `[variations]` config (cv reference + var00..var13).
+
+[[tree]]
+origin = 'events/cvext/selected_cc_Xg1p'
+destination = 'events/cvext/'
+name = 'selected_cc_Xg1p'
+action = 'add_weights'
+table_types = ['multisim', 'multisigma', 'variation']
+
+[[tree]]
+origin = 'events/cvext/selected_cc_Xg1p_exposure'
+destination = 'events/cvext/'
+name = 'selected_cc_Xg1p_exposure'
+action = 'copy'
+
+[[tree]]
+origin = 'events/cv/selected_cc_Xg1p'
+destination = 'events/cv/'
+name = 'selected_cc_Xg1p'
+action = 'copy'
+
+[[tree]]
+origin = 'events/cv/selected_cc_Xg1p_exposure'
+destination = 'events/cv/'
+name = 'selected_cc_Xg1p_exposure'
+action = 'copy'
+
+[[tree]]
+origin = 'events/offbeam/selected_cc_Xg1p'
+destination = 'events/offbeam/'
+name = 'selected_cc_Xg1p'
+action = 'copy'
+
+[[tree]]
+origin = 'events/offbeam/selected_cc_Xg1p_exposure'
+destination = 'events/offbeam/'
+name = 'selected_cc_Xg1p_exposure'
+action = 'copy'
+
+[[tree]]
+origin = 'events/onbeam/selected_cc_Xg1p'
+destination = 'events/onbeam/'
+name = 'selected_cc_Xg1p'
+action = 'copy'
+
+[[tree]]
+origin = 'events/onbeam/selected_cc_Xg1p_exposure'
+destination = 'events/onbeam/'
+name = 'selected_cc_Xg1p_exposure'
+action = 'copy'
+
 # -------- Detector-variation systematics --------
 # ordinate = 'cv' because user's [[sample]] named "cv" points to /nominal/
 # (the nominal-detector-model sample). gOre's cvext is the one with weight

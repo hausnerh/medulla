@@ -1,0 +1,23 @@
+# CC + Xγ + 1p sideband, stage 1 (baseline reco only).
+# Onbeam survival should be the highest of any CC sideband wrapper —
+# nothing beyond the selection-level cuts applies.
+#
+# Selection-level cuts already applied via the `selected_cc_Xg1p` tree:
+#   fiducial + containment + flash + ≥1 photon + 1μ + 0 charged π + 1p.
+# This wrapper adds no further presel.
+
+[[this_includes]]
+file = 'configurations/analyses/icarus/gOre_cc_Xg1p_datamc.toml'
+
+[output]
+path = '/exp/icarus/app/users/hhausner/plots/gOre_cc_Xg1p/stage1_presel_datamc'
+
+# `(reco_gOre_topology == 1)` is INTENTIONALLY ABSENT here — that cut
+# would forbid muons (it's the NC topology gate), defeating the purpose
+# of the CC sideband. `(reco_n_protons == 1)` is enforced at the
+# selection level so it's also dropped from presel (would be redundant).
+[samples.mc]
+presel = "(reco_flash == 1) & (reco_fiducial == 1) & (reco_containment == 1)"
+
+[samples.onbeam]
+presel = "(reco_flash == 1) & (reco_fiducial == 1) & (reco_containment == 1)"

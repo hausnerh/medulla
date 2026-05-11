@@ -1,0 +1,54 @@
+# CC + Xγ + 1p sideband — intermediate data/MC layer.
+#
+# Adds the onbeam scatter overlay + extends categories to 10 entries
+# (MC cats 0..8 + onbeam at slot 10). Stage wrappers inherit this and
+# override only `[output] path` and the two `presel` strings.
+#
+# Mirror of the structure used by `gOre_1g1p_stage3_datamc.toml`, but
+# pointed at the `selected_cc_Xg1p` tree instead of `selected_1g1p`.
+
+[[this_includes]]
+file = 'configurations/analyses/icarus/gOre_cc_Xg1p.toml'
+
+[analysis]
+ordinate_sample = 'mc'
+category_branch = 'true_category'
+category_assignment = [[0], [1], [2], [3], [4], [5], [6], [7], [8], [10]]
+category_labels = [
+  'NC $\Delta{\to}N\gamma$ (1$\gamma$1p)',
+  'NC $\Delta{\to}N\gamma$ (Other Topo.)',
+  'Other NC 1$\gamma$Xp Post-FSI',
+  'NC $\pi^0$ ($\Delta$ Res)',
+  'NC $\pi^0$ (Other)',
+  'NC $\pi^{\pm}$',
+  'Other NC',
+  'CC e',
+  'Other CC',
+  'Data (BNB)',
+]
+# Wong palette + magenta accent (see header of `gOre_1g1p.toml` for
+# the full key). Slot 9 (data) is Wong index 0 (black).
+category_colors = ['#E69900', '#59B3E6', '#009980', '#F2E640', '#0073B3', '#CC6600', '#CC99B3', '#9980CC', '#E6338C', '#000000']
+category_types  = ['histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'scatter']
+
+# Onbeam — same final-cut presel as MC (set in per-stage wrappers).
+# No systematics (data has no weight universes). exposure_pot is the
+# 10% subsample POT (set_weight computes scale = MC target_pot /
+# onbeam_pot ≈ 23.9 → finite). Per-sample precompute injects the
+# category column and the dummy keys figures reference (data has no
+# true_mc_category / true_n_protons truth branches; the MC formula
+# would raise at sample.py:104).
+[samples.onbeam]
+key = 'onbeam'
+exposure_type = 'pot'
+trees = ['selected_cc_Xg1p']
+# presel set per-stage in wrappers below.
+
+[samples.onbeam.precompute]
+# Selection's [[category]] index 9 = cosmic (`!neutrino`). Onbeam events
+# fall into that cat by default at the selection layer; override to 10
+# here so the spineplot category_assignment slot for "Data (BNB)" does
+# not collide with selection cat 9 (which goes unrendered for cvext MC).
+true_category         = "0*reco_gOre_topology + 10"
+reco_delta_mass_P_dev = "abs(reco_delta_mass_P - 1232)"
+n_selected_flag       = "0*reco_gOre_topology + 1"

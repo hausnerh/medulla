@@ -71,7 +71,51 @@ namespace cuts::gOre
              cuts::no_muons         (obj, {params.at(1)}) &&
              cuts::no_charged_pions (obj, {params.at(2)}) ;
     }
-  REGISTER_CUT_SCOPE(RegistrationScope::Both, gOre_topology, gOre_topology); 
+  REGISTER_CUT_SCOPE(RegistrationScope::Both, gOre_topology, gOre_topology);
+
+  /**
+   * @brief Are there one or more primary photons in the interaction?
+   * @details Drop the upstream `cuts::single_photon` "==1" constraint: this
+   * cut accepts photon multiplicity ≥ 1. Powering the CC X-photon + 1p
+   * sideband selection (`selected_cc_Xg1p`), which intentionally keeps
+   * both single-γ (CC radiative Δ) and ≥2-γ (CC π0) topologies to
+   * validate primary/secondary photon discrimination in a high-stats
+   * regime.
+   * @tparam T the type of interaction (true or reco).
+   * @param obj the interaction in question
+   * @param params a vector whose first element is the gOre KE threshold
+   * @return true if there is at least one primary photon above threshold
+   **/
+  template<class T>
+    bool at_least_one_photon(const T& obj, std::vector<double> params={GORE_MIN_GORE_ENERGY,})
+    {
+      // `particle_multiplicity` with `mult=0` short-circuits on the first
+      // photon found and returns 1; on a no-photon event it returns 0.
+      // Cast to "≥1" via the `> 0` test.
+      return cuts::particle_multiplicity(obj, 0, pvars::kPhoton, params) > 0;
+    }
+  REGISTER_CUT_SCOPE(RegistrationScope::Both, at_least_one_photon, at_least_one_photon);
+
+  /**
+   * @brief CC Xγ topology: ≥1 photon + 1 primary muon + no charged pions.
+   * @details Topology twin of `gOre_topology` with the NC veto inverted to
+   * a CC tag. Used by the CC sideband to harvest high-stats events with
+   * photons of mixed primary-vs-π0 parentage. Kinematic mass cuts and
+   * proton multiplicity are still applied at the `[[tree]]` cut list,
+   * not here.
+   * @tparam T the type of interaction (true or reco).
+   * @param obj the interaction in question
+   * @param params {gOre KE threshold, muon KE threshold, pion KE threshold}
+   * @return true if interaction is CC + Xγ + no charged pions
+   **/
+  template<class T>
+    bool cc_Xg_topology(const T& obj, std::vector<double> params={GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PION_ENERGY})
+    {
+      return cuts::gOre::at_least_one_photon(obj, {params.at(0)}) &&
+             cuts::single_muon             (obj, {params.at(1)}) &&
+             cuts::no_charged_pions        (obj, {params.at(2)}) ;
+    }
+  REGISTER_CUT_SCOPE(RegistrationScope::Both, cc_Xg_topology, cc_Xg_topology);
 
   /**
    * @brief Does the gOre shower fall in our energy range of interest?
