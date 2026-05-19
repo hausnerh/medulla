@@ -1031,5 +1031,25 @@ namespace pvars
         return p.primary_scores[0];
     }
     REGISTER_VAR_SCOPE(RegistrationScope::RecoParticle, secondary_softmax, secondary_softmax);
+
+    /**
+     * @brief Softmax score for a given Particle_t, bounds-checked.
+     */
+    inline double particle_softmax(const caf::SRParticleDLPProxy& p, const Particle_t& p_type)
+    {
+      return (p_type == kUnknown) ? PLACEHOLDERVALUE : static_cast<double>(p.pid_scores[p_type]);
+    }
+
+    /**
+     * @brief Vector of softmax scores in {photon, electron, muon, pion, proton} order.
+     */
+    inline std::vector<double> particle_softmax_vec(const caf::SRParticleDLPProxy& p)
+    {
+      return {particle_softmax(p, kPhoton  ),
+              particle_softmax(p, kElectron),
+              particle_softmax(p, kMuon    ),
+              particle_softmax(p, kPion    ),
+              particle_softmax(p, kProton  )};
+    }
 }
 #endif // PARTICLE_VARIABLES_H

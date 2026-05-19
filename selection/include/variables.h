@@ -14,6 +14,7 @@
 #define MUON_MASS 105.6583745
 #define PION_MASS 139.57039
 #define PROTON_MASS 938.2720813
+#define NEUTRON_MASS 939.56542052
 
 #include "sbnanaobj/StandardRecord/Proxy/SRProxy.h"
 #include "sbnanaobj/StandardRecord/SRInteractionDLP.h"
@@ -115,6 +116,13 @@ namespace vars
     template<class T>
     double fiducial(const T & obj) { return cuts::fiducial_cut(obj); }
     REGISTER_VAR_SCOPE(RegistrationScope::Both, fiducial, fiducial);
+
+    /**
+     * @brief Variable for the flash cut status of the interaction.
+     */
+    template<class T>
+    double flash(const T & obj) { return cuts::flash_cut(obj); }
+    REGISTER_VAR_SCOPE(RegistrationScope::Both, flash, flash);
 
     /**
      * @brief Variable for total visible energy of interaction.
