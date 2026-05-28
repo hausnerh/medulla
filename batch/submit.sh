@@ -31,6 +31,10 @@ while [[ $# -gt 0 ]]; do
       TAG="$2"
       shift 2
       ;;
+    --gituser)
+      GITUSER="$2"
+      shift 2
+      ;;
     -h|--help)
       usage
       ;;
@@ -75,7 +79,7 @@ setup cmake v3_27_4
 ups active
 
 # Build medulla
-git clone https://github.com/justinjmueller/medulla.git
+git clone https://github.com/${GITUSER}/medulla.git
 cd medulla
 git checkout ${TAG}
 mkdir build && cd build
