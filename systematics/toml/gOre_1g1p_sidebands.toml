@@ -1,16 +1,19 @@
 # Systematics config for the gOre 1γ1p sidebands selection.
 #
+# Local run target:
+#   ./build/systematics/run_systematics systematics/toml/gOre_1g1p_sidebands.toml
+#
 # Inputs:
-#   - selection output from `medulla selection/toml/gOre_1g1p_sidebands.toml`
-#     (file: gOre_1g1p_sidebands.root). All four reco trees + signal tree
-#     present under events/<sample>/<tree>.
-#   - cvext flat-CAF glob — same source used by every existing ICARUS sys toml.
+#   - hadd-ed grid selection output `output_gOre_1g1p.root`. All four reco
+#     trees + signal tree present under events/<sample>/<tree>, with
+#     `*_exposure` siblings (add_exposure=true on every tree in the
+#     selection toml).
+#   - cvext flat-CAF glob for weight lookup.
 #
 # Strategy:
 #   * cvext copy of each reco tree gets per-event multisim/multisigma/variation
 #     weight columns appended (`action = 'add_weights'`).
-#   * nominal copy carried as-is so plot-time code can pull an unweighted
-#     reference column.
+#   * cv copy carried as-is (nominal MC reference).
 #   * offbeam / onbeam carried as-is.
 #   * signal_1g1p (sim_only, true-mode) gets multisim/multisigma weights so
 #     selection efficiency uncertainty can be tracked.
@@ -18,19 +21,16 @@
 #     against reco_leading_primary_gOre_shower_ke. Change `tree`/`variable`
 #     to retarget; only one [variations] block per run.
 #
-# NB: this toml assumes the selection ROOT file does NOT carry `*_exposure`
-# trees (the gOre_1g1p_sidebands selection toml does not set
-# `add_exposure = true` on any tree). For POT normalization, add
-# `add_exposure = true` to each `[[tree]]` in the selection toml, rerun
-# medulla, then uncomment the `*_exposure` blocks at the bottom of this file.
+# NB: the selection toml uses sample name `cv` (not `nominal`); every
+# variations key + ordinate + nominal-copy [[tree]] block below uses `cv`.
 
 [input]
-path = 'gOre_1g1p_sidebands.root'
-weights = '/pnfs/icarus/persistent/users/mueller/production/simulation/cvext/input*.flat.root'
+path = 'output_gOre_1g1p.root'
+weights = '/pnfs/icarus/persistent/users/mueller/production/simulation/cvext/*.flat.root'
 use_additional_hash = true
 
 [output]
-path = 'gOre_1g1p_sidebands_sys.root'
+path = 'output_gOre_1g1p_sys.root'
 histogram_destination = 'variations/'
 
 # Variables that get sys histograms / covariance summaries. Add more as needed
@@ -47,10 +47,18 @@ bins = [40, 800, 1800]
 name = 'reco_leading_primary_gOre_start_dedx'
 bins = [40, 0, 10]
 
+[[sysvar]]
+name = 'reco_n_protons'
+bins = [5, 0, 5]
+
+[[sysvar]]
+name = 'reco_leading_primary_proton_ke'
+bins = [25, 0, 500]
+
 # Detsys variation block: runs `varNN` ratio against `nominal` on stage3.
 # Only one [variations] block supported per run; pick the primary tree.
 [variations]
-keys = ['nominal', 'var00', 'var01', 'var02', 'var03m', 'var03p', 'var04', 'var05', 'var06', 'var07', 'var09m', 'var09p', 'var10m', 'var10p', 'var11', 'var12m', 'var12p', 'var13m', 'var13p']
+keys = ['cv', 'var00', 'var01', 'var02', 'var03m', 'var03p', 'var04', 'var05', 'var06', 'var07', 'var09m', 'var09p', 'var10m', 'var10p', 'var11', 'var12m', 'var12p', 'var13m', 'var13p']
 origin = 'events/'
 tree = 'selected_1g1p_stage3'
 result_destination = 'detsys_results/'
@@ -73,8 +81,8 @@ action = 'add_weights'
 table_types = ['multisim', 'multisigma', 'variation']
 
 [[tree]]
-origin = 'events/nominal/selected_1g1p_stage1'
-destination = 'events/nominal/'
+origin = 'events/cv/selected_1g1p_stage1'
+destination = 'events/cv/'
 name = 'selected_1g1p_stage1'
 action = 'copy'
 
@@ -99,8 +107,8 @@ action = 'add_weights'
 table_types = ['multisim', 'multisigma', 'variation']
 
 [[tree]]
-origin = 'events/nominal/selected_1g1p_stage2'
-destination = 'events/nominal/'
+origin = 'events/cv/selected_1g1p_stage2'
+destination = 'events/cv/'
 name = 'selected_1g1p_stage2'
 action = 'copy'
 
@@ -125,8 +133,8 @@ action = 'add_weights'
 table_types = ['multisim', 'multisigma', 'variation']
 
 [[tree]]
-origin = 'events/nominal/selected_1g1p_stage3'
-destination = 'events/nominal/'
+origin = 'events/cv/selected_1g1p_stage3'
+destination = 'events/cv/'
 name = 'selected_1g1p_stage3'
 action = 'copy'
 
@@ -151,8 +159,8 @@ action = 'add_weights'
 table_types = ['multisim', 'multisigma', 'variation']
 
 [[tree]]
-origin = 'events/nominal/selected_cc_Xg1p_stage1'
-destination = 'events/nominal/'
+origin = 'events/cv/selected_cc_Xg1p_stage1'
+destination = 'events/cv/'
 name = 'selected_cc_Xg1p_stage1'
 action = 'copy'
 
@@ -174,11 +182,11 @@ origin = 'events/cvext/signal_1g1p'
 destination = 'events/full/'
 name = 'signal_1g1p'
 action = 'add_weights'
-table_types = ['multisim', 'multisigma']
+table_types = ['multisim', 'multisigma', 'variation']
 
 [[tree]]
-origin = 'events/nominal/signal_1g1p'
-destination = 'events/nominal/'
+origin = 'events/cv/signal_1g1p'
+destination = 'events/cv/'
 name = 'signal_1g1p'
 action = 'copy'
 
@@ -195,8 +203,8 @@ name = 'selected_1g1p_stage1_exposure'
 action = 'copy'
 
 [[tree]]
-origin = 'events/nominal/selected_1g1p_stage1_exposure'
-destination = 'events/nominal/'
+origin = 'events/cv/selected_1g1p_stage1_exposure'
+destination = 'events/cv/'
 name = 'selected_1g1p_stage1_exposure'
 action = 'copy'
 
@@ -220,8 +228,8 @@ name = 'selected_1g1p_stage2_exposure'
 action = 'copy'
 
 [[tree]]
-origin = 'events/nominal/selected_1g1p_stage2_exposure'
-destination = 'events/nominal/'
+origin = 'events/cv/selected_1g1p_stage2_exposure'
+destination = 'events/cv/'
 name = 'selected_1g1p_stage2_exposure'
 action = 'copy'
 
@@ -245,8 +253,8 @@ name = 'selected_1g1p_stage3_exposure'
 action = 'copy'
 
 [[tree]]
-origin = 'events/nominal/selected_1g1p_stage3_exposure'
-destination = 'events/nominal/'
+origin = 'events/cv/selected_1g1p_stage3_exposure'
+destination = 'events/cv/'
 name = 'selected_1g1p_stage3_exposure'
 action = 'copy'
 
@@ -270,8 +278,8 @@ name = 'selected_cc_Xg1p_stage1_exposure'
 action = 'copy'
 
 [[tree]]
-origin = 'events/nominal/selected_cc_Xg1p_stage1_exposure'
-destination = 'events/nominal/'
+origin = 'events/cv/selected_cc_Xg1p_stage1_exposure'
+destination = 'events/cv/'
 name = 'selected_cc_Xg1p_stage1_exposure'
 action = 'copy'
 
@@ -295,8 +303,8 @@ name = 'signal_1g1p_exposure'
 action = 'copy'
 
 [[tree]]
-origin = 'events/nominal/signal_1g1p_exposure'
-destination = 'events/nominal/'
+origin = 'events/cv/signal_1g1p_exposure'
+destination = 'events/cv/'
 name = 'signal_1g1p_exposure'
 action = 'copy'
 
@@ -309,8 +317,8 @@ type = 'variation'
 index = -1
 nsigma = [-3, -2, -1, 0, 1, 2, 3]
 scale = [-3, -2, -1, 1, 1, 2, 3]
-ordinate = 'nominal'
-points = ['var00', 'var00', 'var00', 'nominal', 'var00', 'var00', 'var00']
+ordinate = 'cv'
+points = ['var00', 'var00', 'var00', 'cv', 'var00', 'var00', 'var00']
 
 [[sys]]
 name = 'var01'
@@ -318,8 +326,8 @@ type = 'variation'
 index = -1
 nsigma = [-3, -2, -1, 0, 1, 2, 3]
 scale = [-3, -2, -1, 1, 1, 2, 3]
-ordinate = 'nominal'
-points = ['var01', 'var01', 'var01', 'nominal', 'var01', 'var01', 'var01']
+ordinate = 'cv'
+points = ['var01', 'var01', 'var01', 'cv', 'var01', 'var01', 'var01']
 
 [[sys]]
 name = 'var02'
@@ -327,8 +335,8 @@ type = 'variation'
 index = -1
 nsigma = [-3, -2, -1, 0, 1, 2, 3]
 scale = [-3, -2, -1, 1, 1, 2, 3]
-ordinate = 'nominal'
-points = ['var02', 'var02', 'var02', 'nominal', 'var02', 'var02', 'var02']
+ordinate = 'cv'
+points = ['var02', 'var02', 'var02', 'cv', 'var02', 'var02', 'var02']
 
 [[sys]]
 name = 'var03'
@@ -336,8 +344,8 @@ type = 'variation'
 index = -1
 nsigma = [-3, -2, -1, 0, 1, 2, 3]
 scale = [1.0, 0.666666, 0.333333, 1, 0.333333, 0.666666, 1.0]
-ordinate = 'nominal'
-points = ['var03m', 'var03m', 'var03m', 'nominal', 'var03p', 'var03p', 'var03p']
+ordinate = 'cv'
+points = ['var03m', 'var03m', 'var03m', 'cv', 'var03p', 'var03p', 'var03p']
 
 [[sys]]
 name = 'var04'
@@ -345,8 +353,8 @@ type = 'variation'
 index = -1
 nsigma = [-3, -2, -1, 0, 1, 2, 3]
 scale = [-3, -2, -1, 1, 1, 2, 3]
-ordinate = 'nominal'
-points = ['var04', 'var04', 'var04', 'nominal', 'var04', 'var04', 'var04']
+ordinate = 'cv'
+points = ['var04', 'var04', 'var04', 'cv', 'var04', 'var04', 'var04']
 
 [[sys]]
 name = 'var05'
@@ -354,8 +362,8 @@ type = 'variation'
 index = -1
 nsigma = [-3, -2, -1, 0, 1, 2, 3]
 scale = [-3, -2, -1, 1, 1, 2, 3]
-ordinate = 'nominal'
-points = ['var05', 'var05', 'var05', 'nominal', 'var05', 'var05', 'var05']
+ordinate = 'cv'
+points = ['var05', 'var05', 'var05', 'cv', 'var05', 'var05', 'var05']
 
 [[sys]]
 name = 'var06'
@@ -363,8 +371,8 @@ type = 'variation'
 index = -1
 nsigma = [-3, -2, -1, 0, 1, 2, 3]
 scale = [-3, -2, -1, 1, 1, 2, 3]
-ordinate = 'nominal'
-points = ['var06', 'var06', 'var06', 'nominal', 'var06', 'var06', 'var06']
+ordinate = 'cv'
+points = ['var06', 'var06', 'var06', 'cv', 'var06', 'var06', 'var06']
 
 [[sys]]
 name = 'var07'
@@ -372,8 +380,8 @@ type = 'variation'
 index = -1
 nsigma = [-3, -2, -1, 0, 1, 2, 3]
 scale = [-3, -2, -1, 1, 1, 2, 3]
-ordinate = 'nominal'
-points = ['var07', 'var07', 'var07', 'nominal', 'var07', 'var07', 'var07']
+ordinate = 'cv'
+points = ['var07', 'var07', 'var07', 'cv', 'var07', 'var07', 'var07']
 
 [[sys]]
 name = 'var09'
@@ -381,8 +389,8 @@ type = 'variation'
 index = -1
 nsigma = [-3, -2, -1, 0, 1, 2, 3]
 scale = [3, 2, 1, 1, 1, 2, 3]
-ordinate = 'nominal'
-points = ['var09m', 'var09m', 'var09m', 'nominal', 'var09p', 'var09p', 'var09p']
+ordinate = 'cv'
+points = ['var09m', 'var09m', 'var09m', 'cv', 'var09p', 'var09p', 'var09p']
 
 [[sys]]
 name = 'var10'
@@ -390,8 +398,8 @@ type = 'variation'
 index = -1
 nsigma = [-3, -2, -1, 0, 1, 2, 3]
 scale = [3, 2, 1, 1, 1, 2, 3]
-ordinate = 'nominal'
-points = ['var10m', 'var10m', 'var10m', 'nominal', 'var10p', 'var10p', 'var10p']
+ordinate = 'cv'
+points = ['var10m', 'var10m', 'var10m', 'cv', 'var10p', 'var10p', 'var10p']
 
 [[sys]]
 name = 'var11'
@@ -399,8 +407,8 @@ type = 'variation'
 index = -1
 nsigma = [-3, -2, -1, 0, 1, 2, 3]
 scale = [-3, -2, -1, 1, 1, 2, 3]
-ordinate = 'nominal'
-points = ['var11', 'var11', 'var11', 'nominal', 'var11', 'var11', 'var11']
+ordinate = 'cv'
+points = ['var11', 'var11', 'var11', 'cv', 'var11', 'var11', 'var11']
 
 [[sys]]
 name = 'var12'
@@ -408,8 +416,8 @@ type = 'variation'
 index = -1
 nsigma = [-3, -2, -1, 0, 1, 2, 3]
 scale = [1.5, 1.0, 0.5, 1, 0.5, 1.0, 1.5]
-ordinate = 'nominal'
-points = ['var12m', 'var12m', 'var12m', 'nominal', 'var12p', 'var12p', 'var12p']
+ordinate = 'cv'
+points = ['var12m', 'var12m', 'var12m', 'cv', 'var12p', 'var12p', 'var12p']
 
 [[sys]]
 name = 'var13'
@@ -417,8 +425,8 @@ type = 'variation'
 index = -1
 nsigma = [-3, -2, -1, 0, 1, 2, 3]
 scale = [3, 2, 1, 1, 1, 2, 3]
-ordinate = 'nominal'
-points = ['var13m', 'var13m', 'var13m', 'nominal', 'var13p', 'var13p', 'var13p']
+ordinate = 'cv'
+points = ['var13m', 'var13m', 'var13m', 'cv', 'var13p', 'var13p', 'var13p']
 
 # ----------------------------------------------------------------------------
 # GENIE + flux systs (multisim/multisigma). Identical set to
