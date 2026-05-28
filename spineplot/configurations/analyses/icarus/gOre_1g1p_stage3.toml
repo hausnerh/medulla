@@ -1,0 +1,166 @@
+# Stage 3: full final cut (presel + pi0 rejection + e/gamma separation)
+# — MC-only (no onbeam overlay). Selection bakes the cuts into
+# `selected_1g1p_stage3`. Self-contained per the single-depth
+# include-loader on this branch.
+
+[[this_includes]]
+file = 'configurations/common/styles.toml'
+
+[output]
+path = '/exp/icarus/app/users/hhausner/plots/gOre_1g1p/stage3_egam_sep'
+
+[analysis]
+ordinate_sample = 'mc'
+category_branch = 'true_category'
+category_assignment = [[0], [1], [2], [3], [4], [5], [6], [7], [8]]
+category_labels = [
+  'NC $\Delta{\to}N\gamma$ (1$\gamma$1p)',
+  'NC $\Delta{\to}N\gamma$ (Other Topo.)',
+  'Other NC 1$\gamma$Xp Post-FSI',
+  'NC $\pi^0$ ($\Delta$ Res)',
+  'NC $\pi^0$ (Other)',
+  'NC $\pi^{\pm}$',
+  'Other NC',
+  'CC e',
+  'Other CC',
+]
+category_colors = ['#E69900', '#59B3E6', '#009980', '#F2E640', '#0073B3', '#CC6600', '#CC99B3', '#9980CC', '#E6338C']
+category_types = ['histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram']
+
+[samples.mc]
+key = 'full'
+exposure_type = 'pot'
+trees = ['selected_1g1p_stage3']
+systematics = ['selected_1g1p_stage3_multisimTree', 'selected_1g1p_stage3_multisigmaTree', 'selected_1g1p_stage3_variationTree']
+target_pot = 4.64e20
+print_sys = true
+fillna = 8
+
+[samples.mc.precompute]
+reco_delta_mass_P_dev = "abs(reco_delta_mass_P - 1232)"
+n_selected_flag       = "0*reco_gOre_topology + 1"
+
+[[systematic_recipe]]
+name = 'total'
+label = 'Total syst.'
+pattern = '.*'
+
+[variables.reco_leading_primary_gOre_shower_ke]
+key = 'reco_leading_primary_gOre_shower_ke'
+range = [0.0, 1000.0]
+nbins = 50
+xlabel = 'Shower KE [MeV]'
+
+[variables.reco_leading_primary_gOre_start_dedx]
+key = 'reco_leading_primary_gOre_start_dedx'
+range = [0.0, 25.0]
+nbins = 50
+xlabel = 'Shower Start dE/dx [MeV/cm]'
+
+[variables.reco_leading_primary_gOre_photon_softmax]
+key = 'reco_leading_primary_gOre_photon_softmax'
+range = [0.0, 1.0]
+nbins = 50
+xlabel = 'Shower Photon Softmax'
+
+[variables.reco_leading_primary_gOre_primary_softmax]
+key = 'reco_leading_primary_gOre_primary_softmax'
+range = [0.99, 1.0]
+nbins = 100
+xlabel = 'Shower Primary Softmax'
+
+[variables.reco_leading_primary_gOre_directional_spread]
+key = 'reco_leading_primary_gOre_directional_spread'
+range = [0.0, 1.0]
+nbins = 100
+xlabel = 'Shower Directional Spread'
+
+[variables.reco_leading_primary_gOre_axial_spread]
+key = 'reco_leading_primary_gOre_axial_spread'
+range = [-0.5, 1.0]
+nbins = 75
+xlabel = 'Shower Axial Spread'
+
+[variables.reco_delta_mass_P]
+key = 'reco_delta_mass_P'
+range = [950.0, 1600.0]
+nbins = 25
+xlabel = 'Reconstructed $M_\Delta$ Peak [MeV/$c^2$]'
+
+[variables.reco_delta_mass_P_dev]
+key = 'reco_delta_mass_P_dev'
+range = [0.0, 300.0]
+nbins = 50
+xlabel = '$|\mathrm{Reco}\; M_\Delta - 1232\;\mathrm{MeV}/c^2|$'
+
+[variables.reco_leading_primary_proton_primary_softmax]
+key = 'reco_leading_primary_proton_primary_softmax'
+range = [0.0, 1.0]
+nbins = 100
+xlabel = 'Leading Proton Primary Softmax'
+
+[variables.reco_leading_primary_proton_ke]
+key = 'reco_leading_primary_proton_ke'
+range = [0.0, 1000.0]
+nbins = 50
+xlabel = 'Proton KE [MeV]'
+
+[[figure]]
+name = 'reco_leading_primary_gOre_shower_ke'
+type = 'SimpleFigure'
+style = 'selected_icarus_1g1p'
+artists = [{type = 'SpineSpectra1D', yrange = 1.4, variable = 'reco_leading_primary_gOre_shower_ke', draw_kwargs = {draw_error = 'total'}}]
+
+[[figure]]
+name = 'reco_leading_primary_gOre_start_dedx'
+type = 'SimpleFigure'
+style = 'selected_icarus_1g1p'
+artists = [{type = 'SpineSpectra1D', yrange = 1.4, variable = 'reco_leading_primary_gOre_start_dedx', draw_kwargs = {draw_error = 'total'}}]
+
+[[figure]]
+name = 'reco_leading_primary_gOre_photon_softmax'
+type = 'SimpleFigure'
+style = 'selected_icarus_1g1p'
+artists = [{type = 'SpineSpectra1D', yrange = 1.4, variable = 'reco_leading_primary_gOre_photon_softmax', draw_kwargs = {draw_error = 'total'}}]
+
+[[figure]]
+name = 'reco_leading_primary_gOre_primary_softmax'
+type = 'SimpleFigure'
+style = 'selected_icarus_1g1p'
+artists = [{type = 'SpineSpectra1D', yrange = 1.4, variable = 'reco_leading_primary_gOre_primary_softmax', draw_kwargs = {draw_error = 'total'}}]
+
+[[figure]]
+name = 'reco_leading_primary_gOre_directional_spread'
+type = 'SimpleFigure'
+style = 'selected_icarus_1g1p'
+artists = [{type = 'SpineSpectra1D', yrange = 1.4, variable = 'reco_leading_primary_gOre_directional_spread', draw_kwargs = {draw_error = 'total'}}]
+
+[[figure]]
+name = 'reco_leading_primary_gOre_axial_spread'
+type = 'SimpleFigure'
+style = 'selected_icarus_1g1p'
+artists = [{type = 'SpineSpectra1D', yrange = 1.4, variable = 'reco_leading_primary_gOre_axial_spread', draw_kwargs = {draw_error = 'total'}}]
+
+[[figure]]
+name = 'reco_delta_mass_P'
+type = 'SimpleFigure'
+style = 'selected_icarus_1g1p'
+artists = [{type = 'SpineSpectra1D', yrange = 1.4, variable = 'reco_delta_mass_P', draw_kwargs = {draw_error = 'total'}}]
+
+[[figure]]
+name = 'reco_delta_mass_P_dev'
+type = 'SimpleFigure'
+style = 'selected_icarus_1g1p'
+artists = [{type = 'SpineSpectra1D', yrange = 1.4, variable = 'reco_delta_mass_P_dev', draw_kwargs = {draw_error = 'total'}}]
+
+[[figure]]
+name = 'reco_leading_primary_proton_primary_softmax'
+type = 'SimpleFigure'
+style = 'selected_icarus_1g1p'
+artists = [{type = 'SpineSpectra1D', yrange = 1.4, variable = 'reco_leading_primary_proton_primary_softmax', draw_kwargs = {draw_error = 'total'}}]
+
+[[figure]]
+name = 'reco_leading_primary_proton_ke'
+type = 'SimpleFigure'
+style = 'selected_icarus_1g1p'
+artists = [{type = 'SpineSpectra1D', yrange = 1.4, variable = 'reco_leading_primary_proton_ke', draw_kwargs = {draw_error = 'total'}}]
