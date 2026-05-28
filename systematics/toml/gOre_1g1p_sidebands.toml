@@ -177,6 +177,11 @@ name = 'selected_cc_Xg1p_stage1'
 action = 'copy'
 
 # --- signal tree (true-mode, MC only) ---
+# table_types must include 'variation' even though signal has no varNN
+# entry in [variations]: trees.cc dereferences systrees[name+'_variation']
+# for every [[sys]] type='variation' block, regardless of whether the
+# tree participates in detsys. Missing entry → null TTree → segfault
+# during Branch() setup.
 [[tree]]
 origin = 'events/cvext/signal_1g1p'
 destination = 'events/full/'
