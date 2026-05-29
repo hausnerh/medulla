@@ -32,7 +32,7 @@ key = 'full'
 exposure_type = 'pot'
 trees = ['selected_1g1p_stage3']
 systematics = ['selected_1g1p_stage3_multisimTree', 'selected_1g1p_stage3_multisigmaTree', 'selected_1g1p_stage3_variationTree']
-target_pot = 4.64e20
+# MC-only wrapper: see stage1 note. cvext native POT ~1.33e21.
 print_sys = true
 fillna = 8
 

@@ -37,7 +37,10 @@ key = 'full'
 exposure_type = 'pot'
 trees = ['selected_1g1p_stage1']
 systematics = ['selected_1g1p_stage1_multisimTree', 'selected_1g1p_stage1_multisigmaTree', 'selected_1g1p_stage1_variationTree']
-target_pot = 4.64e20
+# MC-only wrapper: ordinate is mc itself, so set_weight assigns
+# weight=1 and the histograms show raw cvext counts at the native
+# cvext POT (~1.33e21, on file at events/full/POT). Scale by
+# 4.64e20 / 1.33e21 ~= 0.35 mentally to read off BNB-equivalent.
 print_sys = true
 fillna = 8
 

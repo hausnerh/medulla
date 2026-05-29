@@ -19,8 +19,13 @@ file = 'configurations/common/styles.toml'
 [output]
 path = '/exp/icarus/app/users/hhausner/plots/gOre_1g1p/stage3_egam_sep_datamc'
 
+# Anchor on onbeam: develop-line `Sample.set_weight` scales every
+# sample to the ordinate sample's POT. With onbeam as ordinate and
+# onbeam carrying its real 10%-subsample POT (~1.94e19), MC scales
+# `cvext_POT -> onbeam_POT`, giving an expected-events stack for the
+# 10% box. Multiply by ~24x to read off the 4.64e20 BNB equivalent.
 [analysis]
-ordinate_sample = 'mc'
+ordinate_sample = 'onbeam'
 category_branch = 'true_category'
 # 9 MC truth categories from selection toml + onbeam at slot 10.
 category_assignment = [[0], [1], [2], [3], [4], [5], [6], [7], [8], [10]]
@@ -45,7 +50,6 @@ key = 'full'
 exposure_type = 'pot'
 trees = ['selected_1g1p_stage3']
 systematics = ['selected_1g1p_stage3_multisimTree', 'selected_1g1p_stage3_multisigmaTree', 'selected_1g1p_stage3_variationTree']
-target_pot = 4.64e20
 print_sys = true
 fillna = 8
 
