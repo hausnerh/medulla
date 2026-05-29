@@ -14,7 +14,10 @@
 #   LOGDIR = /tmp
 #
 # Behaviour:
-#   - mkdir -p every output subdir before running
+#   - per-config output subdir is wiped clean (rm -f *.pdf *.png) before
+#     each invocation so the dir reflects the current run only
+#   - each wrapper toml is templated to $LOGDIR/<cfg>.toml with its
+#     `[output] path` rewritten under $OUTBASE/<subdir>, then run
 #   - one config per call, sequential (matplotlib is not thread-safe)
 #   - per-config log under $LOGDIR/spineplot_<cfg>.log
 #   - failure on one config does NOT abort the rest
@@ -91,8 +94,11 @@ FAIL_COUNT=0
 
 for entry in "${CONFIGS[@]}"; do
     cfg="${entry%%:*}"
+    out_subdir="${entry##*:}"
     cfg_path="$CONFIG_DIR/$cfg.toml"
     log="$LOGDIR/spineplot_$cfg.log"
+    out_dir="$OUTBASE/$out_subdir"
+    templated_cfg="$LOGDIR/$cfg.toml"
 
     if [[ ! -f "$cfg_path" ]]; then
         echo ">>> SKIP $cfg (config not found at $cfg_path)"
@@ -102,10 +108,21 @@ for entry in "${CONFIGS[@]}"; do
         continue
     fi
 
-    echo ">>> Running $cfg"
+    # Wipe previous outputs in the destination subdir so the dir
+    # reflects only the current run.
+    find "$out_dir" -maxdepth 1 -type f \( -name '*.pdf' -o -name '*.png' \) -delete 2>/dev/null || true
+
+    # Template the wrapper: rewrite `[output] path = ...` to land under
+    # $OUTBASE/<out_subdir>. This is what makes $OUTBASE actually
+    # override the hard-coded toml output path. sed-style escape for
+    # the replacement so a path with slashes is safe.
+    out_dir_escaped="$(printf '%s' "$out_dir" | sed 's:[\\/&]:\\&:g')"
+    sed -E "s|^path = .*|path = '${out_dir_escaped}'|" "$cfg_path" > "$templated_cfg"
+
+    echo ">>> Running $cfg  ->  $out_dir"
     # cd into spineplot/ so the configs' relative `[[this_includes]]`
     # paths (`configurations/common/styles.toml`) resolve.
-    if (cd "$SCRIPT_DIR" && python "$MAIN_PY" --config "$cfg_path" --input "$INPUT") > "$log" 2>&1; then
+    if (cd "$SCRIPT_DIR" && python "$MAIN_PY" --config "$templated_cfg" --input "$INPUT") > "$log" 2>&1; then
         STATUS+=("OK")
         # Pull final onbeam survival count if the wrapper has data overlay.
         line="$(grep "Sample 'onbeam' presel:" "$log" | tail -1 || true)"

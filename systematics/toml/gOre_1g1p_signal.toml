@@ -1,0 +1,280 @@
+# Signal-only systematics. Companion to gOre_1g1p_sidebands.toml: that one
+# wrote the 4 reco trees + detsys to output_gOre_1g1p_sys.root and crashed
+# before signal_1g1p. This toml processes signal_1g1p alone, writes to a
+# separate output file. Do NOT hadd with output_gOre_1g1p_sys.root — POT /
+# Livetime / detsys histograms would be summed by hadd and corrupt the
+# normalization. Spineplot configs for signal-efficiency take --input
+# pointing at this file directly; data/MC sideband configs keep pointing at
+# output_gOre_1g1p_sys.root.
+#
+# Drops [variations] + all [[sys]] type='variation' entries since detsys is
+# stage3-only and already produced in the first sys file.
+
+[input]
+path = 'output_gOre_1g1p.root'
+weights = '/pnfs/icarus/persistent/users/mueller/production/simulation/cvext/*.flat.root'
+use_additional_hash = true
+
+[output]
+path = 'output_gOre_1g1p_signal_sys.root'
+histogram_destination = 'variations/'
+
+# Sysvars restricted to branches that actually exist on signal_1g1p.
+# Selection toml signal branch list: n_primary_showers, n_protons,
+# vertex_x/y/z, leading_primary_gOre.{shower_ke,polar_angle},
+# leading_primary_proton.ke. true_neutrino_energy from the mctruth block.
+[[sysvar]]
+name = 'reco_leading_primary_gOre_shower_ke'
+bins = [30, 0, 600]
+
+[[sysvar]]
+name = 'reco_leading_primary_proton_ke'
+bins = [25, 0, 500]
+
+[[sysvar]]
+name = 'reco_n_protons'
+bins = [5, 0, 5]
+
+[[sysvar]]
+name = 'true_neutrino_energy'
+bins = [40, 0, 4]
+
+# --- signal tree (true-mode, MC only) ---
+[[tree]]
+origin = 'events/cvext/signal_1g1p'
+destination = 'events/full/'
+name = 'signal_1g1p'
+action = 'add_weights'
+table_types = ['multisim', 'multisigma']
+
+[[tree]]
+origin = 'events/cvext/signal_1g1p_exposure'
+destination = 'events/full/'
+name = 'signal_1g1p_exposure'
+action = 'copy'
+
+[[tree]]
+origin = 'events/cv/signal_1g1p'
+destination = 'events/cv/'
+name = 'signal_1g1p'
+action = 'copy'
+
+[[tree]]
+origin = 'events/cv/signal_1g1p_exposure'
+destination = 'events/cv/'
+name = 'signal_1g1p_exposure'
+action = 'copy'
+
+# ----------------------------------------------------------------------------
+# GENIE + flux systs (multisim/multisigma). Identical set to
+# gOre_1g1p_sidebands.toml minus the 'variation' detsys entries.
+# ----------------------------------------------------------------------------
+[[sys]]
+name = "ZExpPCAWeighter_SBNNuSyst_ZExpPCA_multisigma_b1"
+type = "multisigma"
+index = 147
+nsigma = [-1, 1, -2, 2, -3, 3]
+
+[[sys]]
+name = "ZExpPCAWeighter_SBNNuSyst_ZExpPCA_multisigma_b2"
+type = "multisigma"
+index = 148
+nsigma = [-1, 1, -2, 2, -3, 3]
+
+[[sys]]
+name = "ZExpPCAWeighter_SBNNuSyst_ZExpPCA_multisigma_b3"
+type = "multisigma"
+index = 149
+nsigma = [-1, 1, -2, 2, -3, 3]
+
+[[sys]]
+name = "ZExpPCAWeighter_SBNNuSyst_ZExpPCA_multisigma_b4"
+type = "multisigma"
+index = 150
+nsigma = [-1, 1, -2, 2, -3, 3]
+
+[[sys]]
+name = "GENIEReWeight_SBN_v1_multisim_ZExpAVariationResponse"
+type = "multisim"
+index = 52
+
+[[sys]]
+name = "GENIEReWeight_SBN_v1_multisigma_ZExpA1CCQE"
+type = "multisigma"
+index = 0
+nsigma = [-1, 1, -2, 2, -3, 3]
+
+[[sys]]
+name = "GENIEReWeight_SBN_v1_multisigma_ZExpA2CCQE"
+type = "multisigma"
+index = 1
+nsigma = [-1, 1, -2, 2, -3, 3]
+
+[[sys]]
+name = "GENIEReWeight_SBN_v1_multisigma_ZExpA3CCQE"
+type = "multisigma"
+index = 2
+nsigma = [-1, 1, -2, 2, -3, 3]
+
+[[sys]]
+name = "GENIEReWeight_SBN_v1_multisigma_ZExpA4CCQE"
+type = "multisigma"
+index = 3
+nsigma = [-1, 1, -2, 2, -3, 3]
+
+[[sys]]
+name = "GENIEReWeight_SBN_v1_multisim_NCELVariationResponse"
+type = "multisim"
+index = 57
+
+[[sys]]
+name = "GENIEReWeight_SBN_v1_multisigma_MaNCEL"
+type = "multisigma"
+index = 10
+nsigma = [-1, 1, -2, 2, -3, 3]
+
+[[sys]]
+name = "GENIEReWeight_SBN_v1_multisigma_EtaNCEL"
+type = "multisigma"
+index = 11
+nsigma = [-1, 1, -2, 2, -3, 3]
+
+[[sys]]
+name = "GENIEReWeight_SBN_v1_multisim_CCRESVariationResponse"
+type = "multisim"
+index = 58
+
+[[sys]]
+name = "GENIEReWeight_SBN_v1_multisigma_MaCCRES"
+type = "multisigma"
+index = 12
+nsigma = [-1, 1, -2, 2, -3, 3]
+
+[[sys]]
+name = "GENIEReWeight_SBN_v1_multisigma_MvCCRES"
+type = "multisigma"
+index = 13
+nsigma = [-1, 1, -2, 2, -3, 3]
+
+[[sys]]
+name = "GENIEReWeight_SBN_v1_multisim_NCRESVariationResponse"
+type = "multisim"
+index = 59
+
+[[sys]]
+name = "GENIEReWeight_SBN_v1_multisigma_MaNCRES"
+type = "multisigma"
+index = 14
+nsigma = [-1, 1, -2, 2, -3, 3]
+
+[[sys]]
+name = "GENIEReWeight_SBN_v1_multisigma_MvNCRES"
+type = "multisigma"
+index = 15
+nsigma = [-1, 1, -2, 2, -3, 3]
+
+[[sys]]
+name = "GENIEReWeight_SBN_v1_multisim_COHVariationResponse"
+type = "multisim"
+index = 78
+
+[[sys]]
+name = "GENIEReWeight_SBN_v1_multisim_DISBYVariationResponse"
+type = "multisim"
+index = 79
+
+[[sys]]
+name = "GENIEReWeight_SBN_v1_multisim_FSI_pi_VariationResponse"
+type = "multisim"
+index = 80
+
+[[sys]]
+name = "GENIEReWeight_SBN_v1_multisim_FSI_N_VariationResponse"
+type = "multisim"
+index = 81
+
+[[sys]]
+name = "GENIEReWeight_SBN_v1_multisim_RPA_CCQE"
+type = "multisim"
+index = 53
+
+[[sys]]
+name = "GENIEReWeight_SBN_v1_multisim_CoulombCCQE"
+type = "multisim"
+index = 54
+
+[[sys]]
+name = "GENIEReWeight_SBN_v1_multisim_NormCCMEC"
+type = "multisim"
+index = 55
+
+[[sys]]
+name = "GENIEReWeight_SBN_v1_multisim_NormNCMEC"
+type = "multisim"
+index = 56
+
+# Flux multisim
+[[sys]]
+name = "expskin_Flux"
+type = "multisim"
+index = 115
+
+[[sys]]
+name = "horncurrent_Flux"
+type = "multisim"
+index = 116
+
+[[sys]]
+name = "kminus_Flux"
+type = "multisim"
+index = 117
+
+[[sys]]
+name = "kplus_Flux"
+type = "multisim"
+index = 118
+
+[[sys]]
+name = "kzero_Flux"
+type = "multisim"
+index = 119
+
+[[sys]]
+name = "nucleoninexsec_Flux"
+type = "multisim"
+index = 120
+
+[[sys]]
+name = "nucleonqexsec_Flux"
+type = "multisim"
+index = 121
+
+[[sys]]
+name = "nucleontotxsec_Flux"
+type = "multisim"
+index = 122
+
+[[sys]]
+name = "piminus_Flux"
+type = "multisim"
+index = 123
+
+[[sys]]
+name = "pioninexsec_Flux"
+type = "multisim"
+index = 124
+
+[[sys]]
+name = "pionqexsec_Flux"
+type = "multisim"
+index = 125
+
+[[sys]]
+name = "piontotxsec_Flux"
+type = "multisim"
+index = 126
+
+[[sys]]
+name = "piplus_Flux"
+type = "multisim"
+index = 127
