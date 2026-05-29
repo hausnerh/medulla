@@ -1,13 +1,10 @@
-# CC + Xγ + 1p sideband, stage 1 (baseline reco only) + onbeam overlay.
-# High-stats control region for primary-vs-secondary photon
-# discrimination. Selection bakes
-# fiducial + containment + flash + cc_Xg_topology + single_proton
-# into `selected_cc_Xg1p_stage1`, so no spineplot presel is set.
+# CC + Xγ + 1p sideband, stage 1 + onbeam overlay — part 2 of 2.
+# Companion to gOre_cc_Xg1p_stage1_datamc_part1.toml. See that file's
+# header for the memory-split rationale.
 #
-# Self-contained: no chained [[this_includes]] (this branch keeps the
-# develop-line single-depth include loader). Mirrors
-# gOre_1g1p_stage1_datamc.toml — only the tree-name fields and the
-# output path differ.
+# Part 2 covers axial spread, Δ-mass (raw + |dev|), and the leading
+# proton (primary softmax + KE). Outputs share the directory with
+# part 1; the runner wipes the dir only before part 1.
 
 [[this_includes]]
 file = 'configurations/common/styles.toml'
@@ -15,11 +12,6 @@ file = 'configurations/common/styles.toml'
 [output]
 path = '/exp/icarus/app/users/hhausner/plots/gOre_cc_Xg1p/stage1_presel_datamc'
 
-# Anchor on onbeam: develop-line `Sample.set_weight` scales every
-# sample to the ordinate sample's POT. With onbeam as ordinate and
-# onbeam carrying its real 10%-subsample POT (~1.94e19), MC scales
-# `cvext_POT -> onbeam_POT`, giving an expected-events stack for the
-# 10% box. Multiply by ~24x to read off the 4.64e20 BNB equivalent.
 [analysis]
 ordinate_sample = 'onbeam'
 category_branch = 'true_category'
@@ -66,36 +58,6 @@ name = 'total'
 label = 'Total syst.'
 pattern = '.*'
 
-[variables.reco_leading_primary_gOre_shower_ke]
-key = 'reco_leading_primary_gOre_shower_ke'
-range = [0.0, 1000.0]
-nbins = 50
-xlabel = 'Shower KE [MeV]'
-
-[variables.reco_leading_primary_gOre_start_dedx]
-key = 'reco_leading_primary_gOre_start_dedx'
-range = [0.0, 25.0]
-nbins = 50
-xlabel = 'Shower Start dE/dx [MeV/cm]'
-
-[variables.reco_leading_primary_gOre_photon_softmax]
-key = 'reco_leading_primary_gOre_photon_softmax'
-range = [0.0, 1.0]
-nbins = 50
-xlabel = 'Shower Photon Softmax'
-
-[variables.reco_leading_primary_gOre_primary_softmax]
-key = 'reco_leading_primary_gOre_primary_softmax'
-range = [0.99, 1.0]
-nbins = 100
-xlabel = 'Shower Primary Softmax'
-
-[variables.reco_leading_primary_gOre_directional_spread]
-key = 'reco_leading_primary_gOre_directional_spread'
-range = [0.0, 1.0]
-nbins = 100
-xlabel = 'Shower Directional Spread'
-
 [variables.reco_leading_primary_gOre_axial_spread]
 key = 'reco_leading_primary_gOre_axial_spread'
 range = [-0.5, 1.0]
@@ -125,36 +87,6 @@ key = 'reco_leading_primary_proton_ke'
 range = [0.0, 1000.0]
 nbins = 50
 xlabel = 'Proton KE [MeV]'
-
-[[figure]]
-name = 'reco_leading_primary_gOre_shower_ke'
-type = 'SimpleFigure'
-style = 'selected_icarus_1g1p'
-artists = [{type = 'SpineSpectra1D', yrange = [0, 500], variable = 'reco_leading_primary_gOre_shower_ke', draw_kwargs = {draw_error = 'total', normalize = true}}]
-
-[[figure]]
-name = 'reco_leading_primary_gOre_start_dedx'
-type = 'SimpleFigure'
-style = 'selected_icarus_1g1p'
-artists = [{type = 'SpineSpectra1D', yrange = [0, 500], variable = 'reco_leading_primary_gOre_start_dedx', draw_kwargs = {draw_error = 'total', normalize = true}}]
-
-[[figure]]
-name = 'reco_leading_primary_gOre_photon_softmax'
-type = 'SimpleFigure'
-style = 'selected_icarus_1g1p'
-artists = [{type = 'SpineSpectra1D', yrange = [0, 500], variable = 'reco_leading_primary_gOre_photon_softmax', draw_kwargs = {draw_error = 'total', normalize = true}}]
-
-[[figure]]
-name = 'reco_leading_primary_gOre_primary_softmax'
-type = 'SimpleFigure'
-style = 'selected_icarus_1g1p'
-artists = [{type = 'SpineSpectra1D', yrange = [0, 500], variable = 'reco_leading_primary_gOre_primary_softmax', draw_kwargs = {draw_error = 'total', normalize = true}}]
-
-[[figure]]
-name = 'reco_leading_primary_gOre_directional_spread'
-type = 'SimpleFigure'
-style = 'selected_icarus_1g1p'
-artists = [{type = 'SpineSpectra1D', yrange = [0, 500], variable = 'reco_leading_primary_gOre_directional_spread', draw_kwargs = {draw_error = 'total', normalize = true}}]
 
 [[figure]]
 name = 'reco_leading_primary_gOre_axial_spread'

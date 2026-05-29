@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 #
 # Run every gOre 1γ1p spineplot wrapper against the systematics file.
-# Covers 7 configs: stage{1,2,3} × {MC-only, datamc} + cc_Xg1p stage1 datamc.
+# Covers 8 configs: stage{1,2,3} × {MC-only, datamc} +
+# cc_Xg1p stage1 datamc (split into part1/part2 for memory).
 #
 # Usage:
 #   ./run_gOre_1g1p_all.sh [<input.root>]
@@ -62,10 +63,13 @@ CONFIGS=(
     "gOre_1g1p_stage1_datamc:gOre_1g1p/stage1_presel_datamc"
     "gOre_1g1p_stage2_datamc:gOre_1g1p/stage2_pi0_rej_datamc"
     "gOre_1g1p_stage3_datamc:gOre_1g1p/stage3_egam_sep_datamc"
-    # CC + Xγ + 1p sideband — only `_stage1` tree exists in the v3
-    # systematics output. Stage 2 and 3 wrappers retired until matching
-    # selection trees are added to `selection/toml/gOre_1g1p_sidebands.toml`.
-    "gOre_cc_Xg1p_stage1_datamc:gOre_cc_Xg1p/stage1_presel_datamc"
+    # CC + Xγ + 1p sideband — only `_stage1` tree exists today.
+    # Split into 2 parts: cc_Xg1p stage1 has ~18,912 events × 3 sys
+    # trees and OOMs as a single process. Both parts target the same
+    # output dir (the wipe-on-first-visit logic in the run loop
+    # tracks per-dir state so part 2 does not wipe part 1's PDFs).
+    "gOre_cc_Xg1p_stage1_datamc_part1:gOre_cc_Xg1p/stage1_presel_datamc"
+    "gOre_cc_Xg1p_stage1_datamc_part2:gOre_cc_Xg1p/stage1_presel_datamc"
     # Δ-mass sideband wrappers retired — selection now bakes the
     # mass cut into `selected_1g1p_stage{2,3}` via `pi0_rejection`, so
     # the cut can't be inverted at the spineplot layer. Re-add once a
@@ -90,6 +94,7 @@ done
 # -------- Run --------
 declare -a STATUS
 declare -a SURVIVAL
+declare -A WIPED_DIRS
 FAIL_COUNT=0
 
 for entry in "${CONFIGS[@]}"; do
@@ -108,9 +113,13 @@ for entry in "${CONFIGS[@]}"; do
         continue
     fi
 
-    # Wipe previous outputs in the destination subdir so the dir
-    # reflects only the current run.
-    find "$out_dir" -maxdepth 1 -type f \( -name '*.pdf' -o -name '*.png' \) -delete 2>/dev/null || true
+    # Wipe stale outputs the FIRST time this run targets each subdir,
+    # then let subsequent configs targeting the same subdir append
+    # (used by the memory-split cc_Xg1p_stage1_datamc_part{1,2} pair).
+    if [[ -z "${WIPED_DIRS[$out_dir]:-}" ]]; then
+        find "$out_dir" -maxdepth 1 -type f \( -name '*.pdf' -o -name '*.png' \) -delete 2>/dev/null || true
+        WIPED_DIRS[$out_dir]=1
+    fi
 
     # Template the wrapper: rewrite `[output] path = ...` to land under
     # $OUTBASE/<out_subdir>. This is what makes $OUTBASE actually
