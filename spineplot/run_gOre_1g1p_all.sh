@@ -103,7 +103,9 @@ for entry in "${CONFIGS[@]}"; do
     fi
 
     echo ">>> Running $cfg"
-    if python "$MAIN_PY" --config "$cfg_path" --input "$INPUT" > "$log" 2>&1; then
+    # cd into spineplot/ so the configs' relative `[[this_includes]]`
+    # paths (`configurations/common/styles.toml`) resolve.
+    if (cd "$SCRIPT_DIR" && python "$MAIN_PY" --config "$cfg_path" --input "$INPUT") > "$log" 2>&1; then
         STATUS+=("OK")
         # Pull final onbeam survival count if the wrapper has data overlay.
         line="$(grep "Sample 'onbeam' presel:" "$log" | tail -1 || true)"
