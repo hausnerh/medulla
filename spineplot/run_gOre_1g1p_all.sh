@@ -1,11 +1,19 @@
 #!/usr/bin/env bash
 #
-# Run every gOre 1γ1p spineplot wrapper against the systematics file.
-# Covers 8 configs: stage{1,2,3} × {MC-only, datamc} +
-# cc_Xg1p stage1 datamc (split into part1/part2 for memory).
+# Run the gOre 1γ1p spineplot wrappers against the systematics file.
+#
+# Default set (6 configs, light): stage{1,2,3} × {MC-only, datamc}.
+# These run comfortably on a standard gpvm.
+#
+# Heavy set (1 config, opt-in): gOre_cc_Xg1p_stage1_datamc. The cc
+# sideband has ~18,912 MC events; with all three sys trees the
+# develop-line Systematic.process path peaks at ~11 GB RSS and gets
+# OOM-killed on a shared gpvm. It is SKIPPED unless INCLUDE_HEAVY=1,
+# and should be run on a high-memory node or grid job (>=16 GB).
 #
 # Usage:
-#   ./run_gOre_1g1p_all.sh [<input.root>]
+#   ./run_gOre_1g1p_all.sh [<input.root>]              # 6 light configs
+#   INCLUDE_HEAVY=1 ./run_gOre_1g1p_all.sh [<input>]   # + cc sideband
 #
 # Defaults:
 #   INPUT  = $INPUT env var, or build/output_gOre_1g1p_sys.root relative
@@ -15,8 +23,8 @@
 #   LOGDIR = /tmp
 #
 # Behaviour:
-#   - per-config output subdir is wiped clean (rm -f *.pdf *.png) before
-#     each invocation so the dir reflects the current run only
+#   - each output subdir is wiped (rm *.pdf *.png) the first time the
+#     run targets it, so the dir reflects the current run only
 #   - each wrapper toml is templated to $LOGDIR/<cfg>.toml with its
 #     `[output] path` rewritten under $OUTBASE/<subdir>, then run
 #   - one config per call, sequential (matplotlib is not thread-safe)
@@ -54,6 +62,8 @@ fi
 # Tuple: <config_basename>:<output_subdir_relative_to_OUTBASE>
 # Output subdir matches `[output] path` inside each TOML so mkdir -p
 # pre-creates the right tree.
+# Light set — runs on any node. Tuple: <config_basename>:<output_subdir>.
+# Output subdir matches `[output] path` inside each TOML.
 CONFIGS=(
     # NC 1γ1p — stage cuts baked into per-stage selection trees
     # `selected_1g1p_stage{1,2,3}` (driver: gOre_1g1p_sidebands.toml).
@@ -63,24 +73,32 @@ CONFIGS=(
     "gOre_1g1p_stage1_datamc:gOre_1g1p/stage1_presel_datamc"
     "gOre_1g1p_stage2_datamc:gOre_1g1p/stage2_pi0_rej_datamc"
     "gOre_1g1p_stage3_datamc:gOre_1g1p/stage3_egam_sep_datamc"
-    # CC + Xγ + 1p sideband — only `_stage1` tree exists today.
-    # Split into 2 parts: cc_Xg1p stage1 has ~18,912 events × 3 sys
-    # trees and OOMs as a single process. Both parts target the same
-    # output dir (the wipe-on-first-visit logic in the run loop
-    # tracks per-dir state so part 2 does not wipe part 1's PDFs).
-    "gOre_cc_Xg1p_stage1_datamc_part1:gOre_cc_Xg1p/stage1_presel_datamc"
-    "gOre_cc_Xg1p_stage1_datamc_part2:gOre_cc_Xg1p/stage1_presel_datamc"
     # Δ-mass sideband wrappers retired — selection now bakes the
     # mass cut into `selected_1g1p_stage{2,3}` via `pi0_rejection`, so
     # the cut can't be inverted at the spineplot layer. Re-add once a
     # `selected_1g1p_sideband_stage<N>` tree is provided by selection.
 )
 
+# Heavy set — only run when INCLUDE_HEAVY=1 (needs a high-mem node /
+# grid job, ~11 GB RSS). cc_Xg1p stage1 has ~18,912 MC events; full
+# systematics OOM-kill a standard gpvm. See the header of
+# gOre_cc_Xg1p_stage1_datamc.toml.
+HEAVY_CONFIGS=(
+    "gOre_cc_Xg1p_stage1_datamc:gOre_cc_Xg1p/stage1_presel_datamc"
+)
+
+if [[ "${INCLUDE_HEAVY:-0}" == "1" ]]; then
+    CONFIGS+=("${HEAVY_CONFIGS[@]}")
+fi
+
 # -------- Pre-flight --------
 echo "Input  : $INPUT"
 echo "Output : $OUTBASE/<stage>"
 echo "Logs   : $LOGDIR/spineplot_<cfg>.log"
 echo "Configs: ${#CONFIGS[@]}"
+if [[ "${INCLUDE_HEAVY:-0}" != "1" ]]; then
+    echo "Heavy  : cc_Xg1p_stage1_datamc SKIPPED (set INCLUDE_HEAVY=1 on a >=16 GB node to include it)"
+fi
 echo
 
 for entry in "${CONFIGS[@]}"; do
