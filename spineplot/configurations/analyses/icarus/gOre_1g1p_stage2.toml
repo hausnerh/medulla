@@ -109,7 +109,7 @@ xlabel = 'Proton KE [MeV]'
 name = 'reco_leading_primary_gOre_shower_ke'
 type = 'SimpleFigure'
 style = 'selected_icarus_1g1p'
-artists = [{type = 'SpineSpectra1D', yrange = [0, 30], variable = 'reco_leading_primary_gOre_shower_ke', draw_kwargs = {draw_error = 'total'}}]
+artists = [{type = 'SpineSpectra1D', yrange = [0, 15], variable = 'reco_leading_primary_gOre_shower_ke', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_leading_primary_gOre_start_dedx'
@@ -121,7 +121,7 @@ artists = [{type = 'SpineSpectra1D', yrange = [0, 30], variable = 'reco_leading_
 name = 'reco_leading_primary_gOre_photon_softmax'
 type = 'SimpleFigure'
 style = 'selected_icarus_1g1p'
-artists = [{type = 'SpineSpectra1D', yrange = [0, 30], variable = 'reco_leading_primary_gOre_photon_softmax', draw_kwargs = {draw_error = 'total'}}]
+artists = [{type = 'SpineSpectra1D', yrange = [0, 50], variable = 'reco_leading_primary_gOre_photon_softmax', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_leading_primary_gOre_primary_softmax'
@@ -139,7 +139,7 @@ artists = [{type = 'SpineSpectra1D', yrange = [0, 30], variable = 'reco_leading_
 name = 'reco_leading_primary_gOre_axial_spread'
 type = 'SimpleFigure'
 style = 'selected_icarus_1g1p'
-artists = [{type = 'SpineSpectra1D', yrange = [0, 30], variable = 'reco_leading_primary_gOre_axial_spread', draw_kwargs = {draw_error = 'total'}}]
+artists = [{type = 'SpineSpectra1D', yrange = [0, 10], variable = 'reco_leading_primary_gOre_axial_spread', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_delta_mass_P'
@@ -157,10 +157,10 @@ artists = [{type = 'SpineSpectra1D', yrange = [0, 30], variable = 'reco_delta_ma
 name = 'reco_leading_primary_proton_primary_softmax'
 type = 'SimpleFigure'
 style = 'selected_icarus_1g1p'
-artists = [{type = 'SpineSpectra1D', yrange = [0, 30], variable = 'reco_leading_primary_proton_primary_softmax', draw_kwargs = {draw_error = 'total'}}]
+artists = [{type = 'SpineSpectra1D', yrange = [0, 15], variable = 'reco_leading_primary_proton_primary_softmax', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_leading_primary_proton_ke'
 type = 'SimpleFigure'
 style = 'selected_icarus_1g1p'
-artists = [{type = 'SpineSpectra1D', yrange = [0, 30], variable = 'reco_leading_primary_proton_ke', draw_kwargs = {draw_error = 'total'}}]
+artists = [{type = 'SpineSpectra1D', yrange = [0, 10], variable = 'reco_leading_primary_proton_ke', draw_kwargs = {draw_error = 'total'}}]
