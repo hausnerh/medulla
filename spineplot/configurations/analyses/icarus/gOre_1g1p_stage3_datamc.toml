@@ -1,5 +1,7 @@
-# Stage 3 (full final cut) + onbeam (10% subsample) overlay,
-# area-normalized for shape comparison.
+# Stage 3 (full final cut) + onbeam (10% subsample) overlay.
+# Absolute event counts: MC scaled to onbeam POT (see [analysis]
+# anchor note below), data overlaid as raw counts. NOT area-normalized
+# — the goal is expected events at exposure, so normalize is omitted.
 #
 # Self-contained: this branch keeps spineplot/analysis.py at the
 # develop-line `handle_include` which is single-depth + shallow merge.
@@ -140,65 +142,65 @@ nbins = 50
 xlabel = 'Proton KE [MeV]'
 
 # -----------------------------------------------------------------------------
-# Figures — area-normalized 1D spectra with the "total" syst band on MC stack.
+# Figures — 1D spectra (absolute counts) with the "total" syst band on MC stack.
 # -----------------------------------------------------------------------------
 
 [[figure]]
 name = 'reco_leading_primary_gOre_shower_ke'
 type = 'SimpleFigure'
 style = 'selected_icarus_1g1p'
-artists = [{type = 'SpineSpectra1D', yrange = [0, 3], variable = 'reco_leading_primary_gOre_shower_ke', draw_kwargs = {draw_error = 'total', normalize = true}}]
+artists = [{type = 'SpineSpectra1D', yrange = [0, 3], variable = 'reco_leading_primary_gOre_shower_ke', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_leading_primary_gOre_start_dedx'
 type = 'SimpleFigure'
 style = 'selected_icarus_1g1p'
-artists = [{type = 'SpineSpectra1D', yrange = [0, 3], variable = 'reco_leading_primary_gOre_start_dedx', draw_kwargs = {draw_error = 'total', normalize = true}}]
+artists = [{type = 'SpineSpectra1D', yrange = [0, 3], variable = 'reco_leading_primary_gOre_start_dedx', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_leading_primary_gOre_photon_softmax'
 type = 'SimpleFigure'
 style = 'selected_icarus_1g1p'
-artists = [{type = 'SpineSpectra1D', yrange = [0, 3], variable = 'reco_leading_primary_gOre_photon_softmax', draw_kwargs = {draw_error = 'total', normalize = true}}]
+artists = [{type = 'SpineSpectra1D', yrange = [0, 3], variable = 'reco_leading_primary_gOre_photon_softmax', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_leading_primary_gOre_primary_softmax'
 type = 'SimpleFigure'
 style = 'selected_icarus_1g1p'
-artists = [{type = 'SpineSpectra1D', yrange = [0, 3], variable = 'reco_leading_primary_gOre_primary_softmax', draw_kwargs = {draw_error = 'total', normalize = true}}]
+artists = [{type = 'SpineSpectra1D', yrange = [0, 3], variable = 'reco_leading_primary_gOre_primary_softmax', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_leading_primary_gOre_directional_spread'
 type = 'SimpleFigure'
 style = 'selected_icarus_1g1p'
-artists = [{type = 'SpineSpectra1D', yrange = [0, 3], variable = 'reco_leading_primary_gOre_directional_spread', draw_kwargs = {draw_error = 'total', normalize = true}}]
+artists = [{type = 'SpineSpectra1D', yrange = [0, 3], variable = 'reco_leading_primary_gOre_directional_spread', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_leading_primary_gOre_axial_spread'
 type = 'SimpleFigure'
 style = 'selected_icarus_1g1p'
-artists = [{type = 'SpineSpectra1D', yrange = [0, 3], variable = 'reco_leading_primary_gOre_axial_spread', draw_kwargs = {draw_error = 'total', normalize = true}}]
+artists = [{type = 'SpineSpectra1D', yrange = [0, 3], variable = 'reco_leading_primary_gOre_axial_spread', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_delta_mass_P'
 type = 'SimpleFigure'
 style = 'selected_icarus_1g1p'
-artists = [{type = 'SpineSpectra1D', yrange = [0, 3], variable = 'reco_delta_mass_P', draw_kwargs = {draw_error = 'total', normalize = true}}]
+artists = [{type = 'SpineSpectra1D', yrange = [0, 3], variable = 'reco_delta_mass_P', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_delta_mass_P_dev'
 type = 'SimpleFigure'
 style = 'selected_icarus_1g1p'
-artists = [{type = 'SpineSpectra1D', yrange = [0, 3], variable = 'reco_delta_mass_P_dev', draw_kwargs = {draw_error = 'total', normalize = true}}]
+artists = [{type = 'SpineSpectra1D', yrange = [0, 3], variable = 'reco_delta_mass_P_dev', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_leading_primary_proton_primary_softmax'
 type = 'SimpleFigure'
 style = 'selected_icarus_1g1p'
-artists = [{type = 'SpineSpectra1D', yrange = [0, 3], variable = 'reco_leading_primary_proton_primary_softmax', draw_kwargs = {draw_error = 'total', normalize = true}}]
+artists = [{type = 'SpineSpectra1D', yrange = [0, 3], variable = 'reco_leading_primary_proton_primary_softmax', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_leading_primary_proton_ke'
 type = 'SimpleFigure'
 style = 'selected_icarus_1g1p'
-artists = [{type = 'SpineSpectra1D', yrange = [0, 3], variable = 'reco_leading_primary_proton_ke', draw_kwargs = {draw_error = 'total', normalize = true}}]
+artists = [{type = 'SpineSpectra1D', yrange = [0, 3], variable = 'reco_leading_primary_proton_ke', draw_kwargs = {draw_error = 'total'}}]
