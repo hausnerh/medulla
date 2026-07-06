@@ -44,7 +44,7 @@ category_labels = [
   'CC $\pi^0$ ($\Delta$ Res)',
   'CC $\pi^0$ (Other)',
   'CC $\pi^{\pm}$',
-  'CC $\nu_e$ (e$^-$)',
+  'CC $\nu_e$',
   'Other CC',
   'NC',
   'Cosmic / Non-$\nu$',

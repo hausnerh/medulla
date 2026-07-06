@@ -793,20 +793,24 @@ namespace vars::gOre
    *
    * Photon counting is over post-FSI primaries above the gOre threshold, so π0
    * decay photons (the π0 is the primary) are not counted — π0 events land in
-   * the dedicated π0 categories. Precedence mirrors the NC ordering: photon
-   * topologies, then π0, then π±, then the primary-electron (νₑ) tag. A CC νₑ
-   * event that also carries a π0/π± is therefore labelled by its pion (the fake
-   * photon source); a νₑ with a genuine primary photon is labelled a photon
-   * category. Reorder the branches below if a different convention is wanted.
+   * the dedicated π0 categories.
    *
-   *  0: CC ∆->Nγ (1γ)          — CC Δ res, single-photon topology
-   *  1: CC ∆->Nγ (Nγ)          — CC Δ res, multi-photon topology
-   *  2: Other CC Xγ Post-FSI   — CC non-res, photon topology (no pions)
-   *  3: CC π0 (∆ Res)          — CC Δ res with a π0
-   *  4: CC π0 (Other)          — CC non-res with a π0
-   *  5: CC π±                  — CC with a charged pion
-   *  6: CC νₑ (e⁻)             — CC with a primary electron
-   *  7: Other CC               — remaining CC (0γ, no pions, no primary e⁻)
+   * The topology breakdown (0-5) is gated on νμ (|pdg| == 14). The sideband
+   * reco cut (`cc_Xg_topology`) already requires a `single_muon`, so this is
+   * the natural truth statement for the region and, crucially, keeps every νₑ
+   * CC interaction OUT of the topology bins: the CC νₑ bin (6) is defined by
+   * neutrino flavor (|pdg| == 12), not by a reconstructed electron, so it is a
+   * *complete* electron-neutrino CC sample rather than only the νₑ events that
+   * failed to match an earlier topology bin.
+   *
+   *  0: CC ∆->Nγ (1γ)          — νμ CC, Δ res, single-photon topology
+   *  1: CC ∆->Nγ (Nγ)          — νμ CC, Δ res, multi-photon topology
+   *  2: Other CC Xγ Post-FSI   — νμ CC, non-res, photon topology (no pions)
+   *  3: CC π0 (∆ Res)          — νμ CC, Δ res with a π0
+   *  4: CC π0 (Other)          — νμ CC, non-res with a π0
+   *  5: CC π±                  — νμ CC with a charged pion
+   *  6: CC νₑ                  — every νₑ CC interaction (|pdg| == 12)
+   *  7: Other CC               — remaining CC (νμ with no tagged topology, ντ)
    *  8: NC (all)               — any NC interaction (lumped)
    *  9: Cosmic / non-neutrino  — unmatched / not a neutrino
    **/
@@ -820,7 +824,11 @@ namespace vars::gOre
       // NC is a single lumped background in the CC sideband
       if (obj.isnc)
         return 8;
-      // CC from here on
+      // CC from here on. Gate the topology breakdown on the neutrino flavor so
+      // that all νₑ CC lands in the dedicated CC νₑ bin (6).
+      int nu_pdg = obj.pdg;
+      bool is_numu = std::abs(nu_pdg) == 14;
+      bool is_nue  = std::abs(nu_pdg) == 12;
       bool is_delta_res = (obj.resnum == 0);
       // post-FSI primary particles above threshold
       core::gOre::mc_topology topology(obj.prim, params);
@@ -830,19 +838,19 @@ namespace vars::gOre
       unsigned int n_photon = topology.count(22);
       bool single_photon_topology = (n_photon == 1) && (not has_pion);
       bool multi_photon_topology  = (n_photon >= 2) && (not has_pion);
-      if (is_delta_res && single_photon_topology)
+      if (is_numu && is_delta_res && single_photon_topology)
         return 0;
-      if (is_delta_res && multi_photon_topology)
+      if (is_numu && is_delta_res && multi_photon_topology)
         return 1;
-      if (single_photon_topology || multi_photon_topology)
+      if (is_numu && (single_photon_topology || multi_photon_topology))
         return 2;
-      if (is_delta_res && has_pi0)
+      if (is_numu && is_delta_res && has_pi0)
         return 3;
-      if (has_pi0)
+      if (is_numu && has_pi0)
         return 4;
-      if (topology.has_pi_pm())
+      if (is_numu && topology.has_pi_pm())
         return 5;
-      if (topology.count_with_antiparticles(11) > 0)
+      if (is_nue)
         return 6;
       return 7;
     }
