@@ -778,6 +778,75 @@ namespace vars::gOre
       return cat;
     }
   REGISTER_VAR_SCOPE(RegistrationScope::MCTruth, mc_category, mc_category);
+
+  /**
+   * @brief CC-sideband truth categorization for the CC Xγ+1p control region.
+   * @details The default `[[category]]` scheme (and `mc_category` above) is
+   * tuned for the NC selection: it resolves NC final states finely but lumps
+   * every CC interaction into just "CC νₑ" / "Other CC". That is useless in the
+   * `selected_cc_Xg1p_stage1` sideband, where essentially every event is CC.
+   * This variable mirrors the NC `[[category]]` breakdown but for CC, swapping
+   * the NC proton-multiplicity split (1p vs. Xp on the Δ→Nγ signal) for a
+   * photon-multiplicity split (1γ vs. Nγ) — the relevant handle in a sideband
+   * built to validate photon discrimination. NC is collapsed into a single bin
+   * here (it is the sub-dominant contribution once a CC topology is required).
+   *
+   * Photon counting is over post-FSI primaries above the gOre threshold, so π0
+   * decay photons (the π0 is the primary) are not counted — π0 events land in
+   * the dedicated π0 categories. Precedence mirrors the NC ordering: photon
+   * topologies, then π0, then π±, then the primary-electron (νₑ) tag. A CC νₑ
+   * event that also carries a π0/π± is therefore labelled by its pion (the fake
+   * photon source); a νₑ with a genuine primary photon is labelled a photon
+   * category. Reorder the branches below if a different convention is wanted.
+   *
+   *  0: CC ∆->Nγ (1γ)          — CC Δ res, single-photon topology
+   *  1: CC ∆->Nγ (Nγ)          — CC Δ res, multi-photon topology
+   *  2: Other CC Xγ Post-FSI   — CC non-res, photon topology (no pions)
+   *  3: CC π0 (∆ Res)          — CC Δ res with a π0
+   *  4: CC π0 (Other)          — CC non-res with a π0
+   *  5: CC π±                  — CC with a charged pion
+   *  6: CC νₑ (e⁻)             — CC with a primary electron
+   *  7: Other CC               — remaining CC (0γ, no pions, no primary e⁻)
+   *  8: NC (all)               — any NC interaction (lumped)
+   *  9: Cosmic / non-neutrino  — unmatched / not a neutrino
+   **/
+  template <class T>
+    double cc_sideband_category(const T& obj, std::vector<double> params = {GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY,
+                                                                            GORE_FID_THRESH_X_POS, GORE_FID_THRESH_X_NEG, GORE_FID_THRESH_Y_POS, GORE_FID_THRESH_Y_NEG, GORE_FID_THRESH_Z_POS, GORE_FID_THRESH_Z_NEG})
+    {
+      // not a neutrino -> cosmic / unmatched
+      if (obj.index == -1)
+        return 9;
+      // NC is a single lumped background in the CC sideband
+      if (obj.isnc)
+        return 8;
+      // CC from here on
+      bool is_delta_res = (obj.resnum == 0);
+      // post-FSI primary particles above threshold
+      core::gOre::mc_topology topology(obj.prim, params);
+      bool has_pi0  = topology.has_pi0();
+      bool has_pion = has_pi0 || topology.has_pi_pm();
+      // count primary photons (π0 decay photons are not primaries)
+      unsigned int n_photon = topology.count(22);
+      bool single_photon_topology = (n_photon == 1) && (not has_pion);
+      bool multi_photon_topology  = (n_photon >= 2) && (not has_pion);
+      if (is_delta_res && single_photon_topology)
+        return 0;
+      if (is_delta_res && multi_photon_topology)
+        return 1;
+      if (single_photon_topology || multi_photon_topology)
+        return 2;
+      if (is_delta_res && has_pi0)
+        return 3;
+      if (has_pi0)
+        return 4;
+      if (topology.has_pi_pm())
+        return 5;
+      if (topology.count_with_antiparticles(11) > 0)
+        return 6;
+      return 7;
+    }
+  REGISTER_VAR_SCOPE(RegistrationScope::MCTruth, cc_sideband_category, cc_sideband_category);
 } //end vars::gOre namespace
 
 #endif

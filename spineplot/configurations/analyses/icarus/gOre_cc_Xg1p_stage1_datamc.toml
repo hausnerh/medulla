@@ -27,24 +27,31 @@ path = '/exp/icarus/app/users/hhausner/plots/gOre_cc_Xg1p/stage1_presel_datamc'
 # onbeam carrying its real 10%-subsample POT (~1.94e19), MC scales
 # `cvext_POT -> onbeam_POT`, giving an expected-events stack for the
 # 10% box. Multiply by ~24x to read off the 4.64e20 BNB equivalent.
+# CC-oriented truth breakdown. The default `true_category` scheme lumps
+# essentially every event in this CC region into a single "Other CC" bin, so
+# instead use `true_cc_sideband_category` (vars::gOre::cc_sideband_category):
+# it mirrors the NC [[category]] breakdown for CC, splitting the Δ→Nγ signal by
+# photon multiplicity (1γ vs Nγ) rather than proton multiplicity. Indices 0-9
+# are MC categories; onbeam is forced to 10 below.
 [analysis]
 ordinate_sample = 'onbeam'
-category_branch = 'true_category'
-category_assignment = [[0], [1], [2], [3], [4], [5], [6], [7], [8], [10]]
+category_branch = 'true_cc_sideband_category'
+category_assignment = [[0], [1], [2], [3], [4], [5], [6], [7], [8], [9], [10]]
 category_labels = [
-  'NC $\Delta{\to}N\gamma$ (1$\gamma$1p)',
-  'NC $\Delta{\to}N\gamma$ (Other Topo.)',
-  'Other NC 1$\gamma$Xp Post-FSI',
-  'NC $\pi^0$ ($\Delta$ Res)',
-  'NC $\pi^0$ (Other)',
-  'NC $\pi^{\pm}$',
-  'Other NC',
-  'CC e',
+  'CC $\Delta{\to}N\gamma$ (1$\gamma$)',
+  'CC $\Delta{\to}N\gamma$ (N$\gamma$)',
+  'Other CC X$\gamma$ Post-FSI',
+  'CC $\pi^0$ ($\Delta$ Res)',
+  'CC $\pi^0$ (Other)',
+  'CC $\pi^{\pm}$',
+  'CC $\nu_e$ (e$^-$)',
   'Other CC',
+  'NC',
+  'Cosmic / Non-$\nu$',
   'Data (BNB)',
 ]
-category_colors = ['#E69900', '#59B3E6', '#009980', '#F2E640', '#0073B3', '#CC6600', '#CC99B3', '#9980CC', '#E6338C', '#000000']
-category_types  = ['histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'scatter']
+category_colors = ['#E69900', '#F2B366', '#009980', '#F2E640', '#BF9B30', '#0073B3', '#E6338C', '#CC99B3', '#9980CC', '#808080', '#000000']
+category_types  = ['histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'scatter']
 
 [samples.mc]
 key = 'full'
@@ -52,7 +59,8 @@ exposure_type = 'pot'
 trees = ['selected_cc_Xg1p_stage1']
 systematics = ['selected_cc_Xg1p_stage1_multisimTree', 'selected_cc_Xg1p_stage1_multisigmaTree', 'selected_cc_Xg1p_stage1_variationTree']
 print_sys = true
-fillna = 8
+# reco interactions with no matched truth neutrino fall into Cosmic / Non-ν (9)
+fillna = 9
 
 [samples.mc.precompute]
 reco_delta_mass_P_dev = "abs(reco_delta_mass_P - 1232)"
@@ -64,9 +72,9 @@ exposure_type = 'pot'
 trees = ['selected_cc_Xg1p_stage1']
 
 [samples.onbeam.precompute]
-true_category         = "0*reco_gOre_topology + 10"
-reco_delta_mass_P_dev = "abs(reco_delta_mass_P - 1232)"
-n_selected_flag       = "0*reco_gOre_topology + 1"
+true_cc_sideband_category = "0*reco_gOre_topology + 10"
+reco_delta_mass_P_dev     = "abs(reco_delta_mass_P - 1232)"
+n_selected_flag           = "0*reco_gOre_topology + 1"
 
 [[systematic_recipe]]
 name = 'total'

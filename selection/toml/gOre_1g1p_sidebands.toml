@@ -490,6 +490,12 @@ branch = [
   { name = "baryon_res_code",  type = "mctruth" },
   { name = "mc_category",      type = "mctruth", parameters = [ "@gOre_threshold", "@muon_threshold", "@proton_threshold", "@pion_threshold",
                                                                 "@fiducial_xdist_pos", "@fiducial_xdist_neg", "@fiducial_ydist_pos", "@fiducial_ydist_neg", "@fiducial_zdist_pos", "@fiducial_zdist_neg" ] },
+  # CC-oriented sideband categorization (mirrors the NC [[category]] scheme by
+  # photon multiplicity). Saved as `true_cc_sideband_category`. See
+  # vars::gOre::cc_sideband_category. Used as the category branch in the CC
+  # sideband spineplot config instead of the NC-lumped `true_category`.
+  { name = "cc_sideband_category", type = "mctruth", parameters = [ "@gOre_threshold", "@muon_threshold", "@proton_threshold", "@pion_threshold",
+                                                                    "@fiducial_xdist_pos", "@fiducial_xdist_neg", "@fiducial_ydist_pos", "@fiducial_ydist_neg", "@fiducial_zdist_pos", "@fiducial_zdist_neg" ] },
   { name = "neutrino_id",   type = "true" },
   { name = "category",      type = "true" },
   { name = "gOre_category", type = "true", parameters = [ "@gOre_threshold", "@muon_threshold", "@proton_threshold", "@pion_threshold" ] },
