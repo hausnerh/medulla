@@ -82,13 +82,24 @@ htgettoken -a htvaultprod.fnal.gov -i icarus
 You do **not** need a local build for grid running — each job builds this
 branch itself. A build is only needed for the smoke-test in Appendix A.
 
-> **Fork awareness.** The grid clones `github.com/<gituser>/medulla` and
-> checks out `<tag>`; the pre-flight also validates `<tag>` against that
-> repo. Because this work lives on your fork, **every** `medulla.py` call
-> below passes `--gituser hausnerh --tag feature/hausnerh_gOre_1g1p` (the
-> ref that actually contains `cc_sideband_category`). Without `--gituser`
-> the default `justinjmueller` is checked and you get
-> *"Tag '…' does not exist"*.
+> **Fork + branch awareness — get this right or the run is wasted.** The
+> grid clones `github.com/<gituser>/medulla`, checks out `<tag>`, and
+> **builds `medulla` from that ref**. So `<tag>` must be the branch that
+> actually contains `cc_sideband_category`; otherwise the built binary has
+> no `true_cc_sideband_category` var and the selection errors on the branch
+> your `project.db` requests. That code currently lives **only** on
+> `worktree-gOre-cc-sideband-category` — `feature/hausnerh_gOre_1g1p` does
+> **not** have it yet. Every `medulla.py` call below therefore uses:
+>
+> ```bash
+> TAG=worktree-gOre-cc-sideband-category   # branch that has cc_sideband_category
+> GITUSER=hausnerh                         # your fork owner
+> ```
+>
+> Once you merge this into `feature/hausnerh_gOre_1g1p`, set
+> `TAG=feature/hausnerh_gOre_1g1p` instead. `--gituser` is also what the
+> pre-flight validates against; omit it and the default `justinjmueller` is
+> checked and you get *"Tag '…' does not exist"*.
 
 ---
 
@@ -99,27 +110,36 @@ branch itself. A build is only needed for the smoke-test in Appendix A.
 creation). `--batch-size` is files-per-job — tune it so each job fits in
 `--memory`.
 
+> **Resource flags belong on the launch call.** `--memory / --disk /
+> --lifetime` are consumed by the jobsub submission, so they only take
+> effect on `--launch-jobs`. Passing them to `--create-project` silently
+> does nothing and your jobs run with the defaults (1800 MB / 1h / 25 GB).
+
 ```bash
 PROJ=/pnfs/icarus/scratch/users/$USER/gOre_cc_sideband
+# TAG / GITUSER set in Prerequisites above.
 
-# 1a. build the project (splits samples into jobs, writes project.db):
+# 1a. build the project (splits samples into jobs, writes project.db).
+#     --tag/--gituser here only satisfy the pre-flight ref check; project
+#     creation reads the LOCAL toml, so run it from a checkout that has
+#     the cc_sideband_category branch line.
 python3 batch/medulla.py --experiment icarus \
     --project-dir $PROJ \
     --create-project --toml selection/toml/gOre_1g1p_sidebands.toml \
     --batch-size 20 \
-    --tag feature/hausnerh_gOre_1g1p --gituser hausnerh \
-    --memory 4000 --disk 20 --lifetime 3h
+    --tag $TAG --gituser $GITUSER
 
-# 1b. launch all pending jobs:
+# 1b. launch all pending jobs — resources go HERE:
 python3 batch/medulla.py --experiment icarus \
     --project-dir $PROJ \
-    --tag feature/hausnerh_gOre_1g1p --gituser hausnerh \
-    --launch-jobs
+    --tag $TAG --gituser $GITUSER \
+    --launch-jobs --memory 4000 --disk 20 --lifetime 3h
 ```
 
-Confirm the new branch made it into a job config before a big launch (the
-grid rewrites `[general] output = "output"`, so job files are
-`output_jobidNNNN.root`):
+Confirm the branch actually made it into a stored job config *before* a big
+launch — this catches a `project.db` built from a checkout that lacked the
+branch line (the grid rewrites `[general] output = "output"`, so job files
+are `output_jobidNNNN.root`):
 
 ```bash
 sqlite3 $PROJ/project.db \
@@ -135,7 +155,7 @@ the output directory (an output ≥1 KB marks a job `completed`):
 
 ```bash
 python3 batch/medulla.py --experiment icarus --project-dir $PROJ \
-    --tag feature/hausnerh_gOre_1g1p --gituser hausnerh
+    --tag $TAG --gituser $GITUSER
 ```
 
 When the jobs are in, hadd the per-job **selection** outputs into the
@@ -193,9 +213,12 @@ ifdh cp build/output_gOre_1g1p_sys.root $OUT/output_gOre_1g1p_sys.root
 
 ./batch/launch_spineplot.sh \
     --input=$OUT/output_gOre_1g1p_sys.root \
-    --output=$OUT
-# ( --config, --tag, --gituser default to gOre_cc_Xg1p_stage1_datamc /
-#   feature/hausnerh_gOre_1g1p / hausnerh )
+    --output=$OUT \
+    --tag=$TAG --gituser=$GITUSER
+# --config defaults to gOre_cc_Xg1p_stage1_datamc. Override --tag as above:
+# the script's built-in default (feature/hausnerh_gOre_1g1p) checks out the
+# OLD config that still uses `true_category`, not the new
+# `true_cc_sideband_category` breakdown.
 ```
 
 ---
@@ -272,9 +295,16 @@ rebuilds the branch you pass via `--tag`.
 
 ## Notes / gotchas
 
+- **`--tag` must contain the var, and match the code you built the project
+  from** — the grid builds `medulla` from `--tag`. Point it at
+  `worktree-gOre-cc-sideband-category` (not `feature/hausnerh_gOre_1g1p`,
+  which lacks `cc_sideband_category`) until the two are merged.
 - **`--gituser hausnerh` on every `medulla.py` call** — the pre-flight tag
   check and the grid clone both use it; the default `justinjmueller` does
   not have this branch.
+- **Resources on `--launch-jobs`, not `--create-project`** — `--memory /
+  --disk / --lifetime` are ignored by project creation; on the launch call
+  they map to the jobsub request.
 - **Two calls for create + launch** — `--create-project` then
   `--launch-jobs`; combining them raises `FileNotFoundError`.
 - **`/pnfs`, not `/exp`, for grid I/O** — job inputs/outputs and the
