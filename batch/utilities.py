@@ -432,12 +432,24 @@ def launch_jobsub(
     if confirm:
         print(f"{_INFO} -- Found {len(pending_jobs)} pending jobs.")
 
+    # Resolve the disk request. This is a jobsub resource, so it must sit
+    # among the jobsub_submit options (before 'file://submit.sh --'), NOT be
+    # appended after the payload args — otherwise jobsub forwards it to
+    # submit.sh, which rejects it with "Unknown option: --disk=...".
+    if disk is not None:
+        disk_req = f'{disk}GB'
+    elif exp == 'sbnd':
+        disk_req = '10GB'
+    else:
+        disk_req = '25GB'
+
     # Form the jobsub command to launch the jobs.
     cmd = [
         'jobsub_submit',
         '-G', exp,
         '-N', str(njobs),
         f'--memory={memory}MB',
+        f'--disk={disk_req}',
         f'--expected-lifetime={lifetime}',
         '--resource-provides=usage_model=DEDICATED,OPPORTUNISTIC,OFFSITE',
         "--append_condor_requirements='(TARGET.HAS_Singularity==true)'",
@@ -448,13 +460,6 @@ def launch_jobsub(
         f'--tag={tag}',
         f'--gituser={gituser}',
     ]
-
-    if disk is not None:
-        cmd.append(f'--disk={disk}GB')
-    elif exp == 'sbnd':
-        cmd.append(f'--disk=10GB')
-    else:
-        cmd.append(f'--disk=25GB')
 
     # Query the user to confirm that they want to launch the jobs.
     if confirm:
