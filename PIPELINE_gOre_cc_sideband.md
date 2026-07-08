@@ -4,13 +4,20 @@ End-to-end recipe for producing the **CC Xγ+1p sideband** data/MC plots
 broken down by the new CC-oriented truth categorization
 `vars::gOre::cc_sideband_category` (saved branch **`true_cc_sideband_category`**).
 
+> **This pipeline is written for high-statistics grid production as the
+> default.** Every heavy stage runs on the grid; the gpvm is used only to
+> submit, `hadd`, and run the one lightweight systematics pass. A fully
+> local, low-statistics run of the *same* chain is kept at the end
+> ([Appendix A](#appendix-a--local-machinery-smoke-test)) purely as a
+> machinery smoke-test to confirm the wiring before spending grid cycles.
+
 The default `[[category]]` scheme lumps every CC interaction into one
-`Other CC` bin, which is useless in this CC-dominated region. The new
-variable mirrors the NC `[[category]]` breakdown for CC, splitting the
-Δ→Nγ signal by **photon** multiplicity (1γ vs Nγ) instead of proton
-multiplicity, and — because the region's reco cut (`cc_Xg_topology`)
-already requires a muon — gating the topology bins on νμ so the `CC νₑ`
-bin is a **complete** electron-neutrino sample.
+`Other CC` bin, useless in this CC-dominated region. The new variable
+mirrors the NC `[[category]]` breakdown for CC, splitting the Δ→Nγ signal
+by **photon** multiplicity (1γ vs Nγ) instead of proton multiplicity, and
+— because the region's reco cut (`cc_Xg_topology`) already requires a muon
+— gating the topology bins on νμ so the `CC νₑ` bin is a **complete**
+electron-neutrino sample.
 
 | idx | category | definition (truth) |
 |----|----|----|
@@ -25,169 +32,255 @@ bin is a **complete** electron-neutrino sample.
 | 8 | NC (all)              | any NC interaction (lumped) |
 | 9 | Cosmic / Non-ν        | unmatched / not a neutrino |
 
-Photon counting is over post-FSI primaries above the gOre threshold, so
-π⁰ decay photons (the π⁰ is the primary) are not counted. Precedence is
-photon topology → π⁰ → π± → νₑ; to change it, reorder the `return`
-branches in `selection/include/gOre/vars_gOre.h::cc_sideband_category`
-and update the labels in the spineplot config.
+See [Appendix B](#appendix-b--category-reference--tuning) to change the
+definitions.
 
 ---
 
-## Step 0 — environment + build (REQUIRED after this change)
+## Data flow (high-stats / grid)
 
-The new category is a C++ variable, so the selection binary **must be
-rebuilt** before the branch appears in the output.
+```
+ medulla.py --create-project           grid: N jobs, one sample-batch each
+   -> project.db + systematics.toml       each self-builds this branch,
+   medulla.py --launch-jobs               runs selection -> output_jobidNNNN.root
+                                          copied to  $PROJECT/output/
+        |
+        | hadd $PROJECT/output/output_jobid*.root
+        v
+   output_gOre_1g1p.root   (full-stat selection, all samples)
+        |
+        | run_systematics  (once, on a gpvm)
+        v
+   output_gOre_1g1p_sys.root
+        |
+        | ifdh cp -> /pnfs ; launch_spineplot.sh  (grid, 16 GB)
+        v
+   figures on /pnfs  ->  ifdh cp back
+```
+
+Each grid job *also* runs a per-job systematics pass into
+`output_systematics_jobid*.root`, but the gOre flow does **not** use those
+(they come from an auto-generated template). Systematics is run once, from
+the gOre-specific config, on the hadd-ed selection — matching the
+`[input] path = 'output_gOre_1g1p.root'` contract in
+`systematics/toml/gOre_1g1p_sidebands.toml`.
+
+---
+
+## Prerequisites (once per session)
 
 ```bash
+# ICARUS environment
 source /cvmfs/icarus.opensciencegrid.org/products/icarus/setup_icarus.sh
 setup sbnana v10_01_02_01 -q e26:prof
 setup cmake  v3_27_4
 
-cd <medulla>            # repo root
-mkdir -p build && cd build
-cmake .. && make -j4
+# grid token (needed to submit and for ifdh)
+htgettoken -a htvaultprod.fnal.gov -i icarus
 ```
 
-Build products (README §Build):
-- `build/selection/medulla`         — TOML-configured selection
-- `build/systematics/run_systematics` — systematics / reweighting
+You do **not** need a local build for grid running — each job builds this
+branch itself. A build is only needed for the smoke-test in Appendix A.
 
-Sanity-check the new var is registered before a long run:
+> **Fork awareness.** The grid clones `github.com/<gituser>/medulla` and
+> checks out `<tag>`; the pre-flight also validates `<tag>` against that
+> repo. Because this work lives on your fork, **every** `medulla.py` call
+> below passes `--gituser hausnerh --tag feature/hausnerh_gOre_1g1p` (the
+> ref that actually contains `cc_sideband_category`). Without `--gituser`
+> the default `justinjmueller` is checked and you get
+> *"Tag '…' does not exist"*.
+
+---
+
+## Stage 1 — grid selection (high statistics)
+
+`--create-project` and `--launch-jobs` are **two separate invocations**
+(the launch guard is evaluated against the project state *before*
+creation). `--batch-size` is files-per-job — tune it so each job fits in
+`--memory`.
 
 ```bash
-./build/selection/medulla selection/toml/gOre_1g1p_sidebands.toml 2>&1 | head
-# then confirm the branch exists on the CC tree:
-root -l -b -q -e 'TFile f("gOre_1g1p_sidebands.root"); \
+PROJ=/pnfs/icarus/scratch/users/$USER/gOre_cc_sideband
+
+# 1a. build the project (splits samples into jobs, writes project.db):
+python3 batch/medulla.py --experiment icarus \
+    --project-dir $PROJ \
+    --create-project --toml selection/toml/gOre_1g1p_sidebands.toml \
+    --batch-size 20 \
+    --tag feature/hausnerh_gOre_1g1p --gituser hausnerh \
+    --memory 4000 --disk 20 --lifetime 3h
+
+# 1b. launch all pending jobs:
+python3 batch/medulla.py --experiment icarus \
+    --project-dir $PROJ \
+    --tag feature/hausnerh_gOre_1g1p --gituser hausnerh \
+    --launch-jobs
+```
+
+Confirm the new branch made it into a job config before a big launch (the
+grid rewrites `[general] output = "output"`, so job files are
+`output_jobidNNNN.root`):
+
+```bash
+sqlite3 $PROJ/project.db \
+  "SELECT cfg FROM configuration LIMIT 1;" | grep cc_sideband_category
+```
+
+---
+
+## Stage 2 — monitor and gather
+
+Re-running `medulla.py` on an existing project refreshes job status from
+the output directory (an output ≥1 KB marks a job `completed`):
+
+```bash
+python3 batch/medulla.py --experiment icarus --project-dir $PROJ \
+    --tag feature/hausnerh_gOre_1g1p --gituser hausnerh
+```
+
+When the jobs are in, hadd the per-job **selection** outputs into the
+single file the systematics stage expects:
+
+```bash
+hadd -f build/output_gOre_1g1p.root $PROJ/output/output_jobid*.root
+# verify the CC tree + new branch survived the hadd:
+root -l -b -q -e 'TFile f("build/output_gOre_1g1p.root"); \
   f.Get("events/cv/selected_cc_Xg1p_stage1")->Print();' 2>&1 | grep cc_sideband_category
 ```
 
 ---
 
-## Step 1 — selection
+## Stage 3 — systematics (once, on a gpvm)
 
-Runs the 3 NC stages + the CC sideband tree over the CAF samples. The
-CC tree `selected_cc_Xg1p_stage1` now carries `true_cc_sideband_category`.
-
-```bash
-# from the repo root, XRootD token required for /pnfs input
-./build/selection/medulla selection/toml/gOre_1g1p_sidebands.toml
-# -> writes ./gOre_1g1p_sidebands.root  ([general] output = "gOre_1g1p_sidebands")
-```
-
-Grid (recommended for full statistics — see Step 1b) produces one file
-per job; `hadd` them into the single file the systematics stage expects:
+`run_systematics` is the C++ binary and is not the memory hog (that is the
+Python spineplot pass in Stage 4), so run it once on the full hadded
+sample. It reads `output_gOre_1g1p.root` from the working directory.
 
 ```bash
-hadd -f build/output_gOre_1g1p.root <grid-outputs>/*.root
-```
-
-> The systematics config reads `output_gOre_1g1p.root`
-> (`systematics/toml/gOre_1g1p_sidebands.toml [input] path`). A local
-> single-shot run writes `gOre_1g1p_sidebands.root`; rename or `hadd` it
-> to `output_gOre_1g1p.root` before Step 2.
-
-### Step 1b — selection on the grid (optional, high stats)
-
-`batch/medulla.py` can run this branch on the grid. `--memory / --disk /
---lifetime` size the jobs; `--tag` picks the git ref; and `--gituser`
-picks the GitHub owner to clone from **and** to validate `--tag` against.
-
-> **`--gituser` is required for a fork branch.** The grid job clones from
-> `github.com/<gituser>/medulla` and the pre-flight check validates the
-> tag against the same repo. It defaults to `justinjmueller`, so a branch
-> that only lives on your fork fails with *"Tag '…' does not exist"* unless
-> you pass `--gituser hausnerh`. (`--project-dir` is also required on every
-> invocation.)
-
-```bash
-# create the project (note --project-dir AND --gituser):
-python3 batch/medulla.py --experiment icarus \
-    --project-dir /pnfs/icarus/scratch/users/$USER/gOre_1g1p_sidebands \
-    --create-project --toml selection/toml/gOre_1g1p_sidebands.toml \
-    --batch-size <N> --tag feature/hausnerh_gOre_1g1p --gituser hausnerh \
-    --memory 4000 --disk 20 --lifetime 2h
-
-# then launch:
-python3 batch/medulla.py --experiment icarus \
-    --project-dir /pnfs/icarus/scratch/users/$USER/gOre_1g1p_sidebands \
-    --tag feature/hausnerh_gOre_1g1p --gituser hausnerh --launch-jobs
-```
-
----
-
-## Step 2 — systematics (multisim + detsys + variation weights)
-
-```bash
-./build/systematics/run_systematics systematics/toml/gOre_1g1p_sidebands.toml
-# reads  output_gOre_1g1p.root
-# writes output_gOre_1g1p_sys.root
+cd build   # where output_gOre_1g1p.root lives; [input] path is relative
+./systematics/run_systematics ../systematics/toml/gOre_1g1p_sidebands.toml
+# -> output_gOre_1g1p_sys.root
+cd ..
 ```
 
 The `true_cc_sideband_category` column is copied through automatically —
 the systematics config references trees by name/origin and does not
-re-declare the branch list, so no edit is needed there.
+re-declare the branch list.
+
+*(If Stage 3 itself grows too heavy at full stats, it can instead be run
+per-batch on the grid by passing `--systematic
+systematics/toml/gOre_1g1p_sidebands.toml` in Stage 1a and hadding the
+`output_systematics_jobid*.root` files — but the single-pass route above
+is the gOre default.)*
 
 ---
 
-## Step 3 — sideband plots (spineplot)
+## Stage 4 — sideband plots on the grid (heavy)
 
-The CC sideband config `gOre_cc_Xg1p_stage1_datamc.toml` already points at
+The CC config `gOre_cc_Xg1p_stage1_datamc.toml` already points at
 `category_branch = 'true_cc_sideband_category'` with the 10 CC labels +
-Data overlay. It is the **heavy** config (~18.9k MC events; full
-systematics peak ~11 GB RSS) and is OOM-killed on a shared gpvm, so the
-all-in-one driver skips it unless `INCLUDE_HEAVY=1` and it is run on a
-≥16 GB node (or the grid).
+Data overlay. At full stats the spineplot systematics pass peaks ~11 GB
+RSS and is OOM-killed on a shared gpvm, so it runs on the grid via the
+branch's fork-aware payload (requests 16 GB, defaults already target this
+config / branch / fork).
 
-**Option A — high-memory interactive node** (≥16 GB):
-
-```bash
-INCLUDE_HEAVY=1 \
-OUTBASE=/exp/icarus/app/users/$USER/plots \
-  spineplot/run_gOre_1g1p_all.sh build/output_gOre_1g1p_sys.root
-
-# -> PDFs/PNGs under $OUTBASE/gOre_cc_Xg1p/stage1_presel_datamc/
-```
-
-**Option B — grid (recommended for the heavy config).** The branch ships a
-dedicated, fork-aware spineplot payload that requests 16 GB. Stage the
-systematics ROOT on dCache first (grid nodes cannot read `/exp`):
+Grid nodes cannot read `/exp`, so stage the systematics ROOT on dCache
+first:
 
 ```bash
-htgettoken -a htvaultprod.fnal.gov -i icarus
-ifdh cp build/output_gOre_1g1p_sys.root \
-        /pnfs/icarus/scratch/users/$USER/CCSidebandPlots/output_gOre_1g1p_sys.root
+OUT=/pnfs/icarus/scratch/users/$USER/CCSidebandPlots
+ifdh cp build/output_gOre_1g1p_sys.root $OUT/output_gOre_1g1p_sys.root
 
-# defaults already target this config / branch / fork (hausnerh):
 ./batch/launch_spineplot.sh \
-    --input=/pnfs/icarus/scratch/users/$USER/CCSidebandPlots/output_gOre_1g1p_sys.root \
-    --output=/pnfs/icarus/scratch/users/$USER/CCSidebandPlots
+    --input=$OUT/output_gOre_1g1p_sys.root \
+    --output=$OUT
+# ( --config, --tag, --gituser default to gOre_cc_Xg1p_stage1_datamc /
+#   feature/hausnerh_gOre_1g1p / hausnerh )
 ```
 
-To run just that one config directly on a fat node (bypassing the driver):
+---
+
+## Stage 5 — retrieve figures
 
 ```bash
-python3 spineplot/spineplot.py \
-  spineplot/configurations/analyses/icarus/gOre_cc_Xg1p_stage1_datamc.toml
+ifdh cp -r /pnfs/icarus/scratch/users/$USER/CCSidebandPlots \
+           /exp/icarus/app/users/$USER/plots/gOre_cc_Xg1p
 ```
 
-Output variables plotted (each stacked by `cc_sideband_category`):
+Variables plotted (each stacked by `cc_sideband_category`):
 leading-shower KE / start dE/dx / photon-softmax / primary-softmax /
 directional & axial spread, reco Δ-mass (and |Δm−1232|), leading-proton
 primary-softmax and KE.
 
 ---
 
+## Appendix A — local machinery smoke-test
+
+Run the whole chain on one node against a **small** input to prove the
+wiring (branch present, systematics copies it through, plots render)
+before committing grid resources. This is a correctness check, not a
+physics result — the stats will be poor.
+
+```bash
+# 0. build once
+mkdir -p build && cd build && cmake .. && make -j4 && cd ..
+
+# 1. shrink the input: point ONE sample at a single flat.root and disable
+#    the rest, e.g. copy the toml and edit [[sample]] paths/disable:
+cp selection/toml/gOre_1g1p_sidebands.toml /tmp/gOre_smoke.toml
+#   (set every [[sample]] disable=true except cv; point cv 'path' at one file)
+
+# 2. selection -> writes gOre_1g1p_sidebands.root
+./build/selection/medulla /tmp/gOre_smoke.toml
+mv gOre_1g1p_sidebands.root build/output_gOre_1g1p.root
+
+# 3. systematics -> output_gOre_1g1p_sys.root
+cd build && ./systematics/run_systematics ../systematics/toml/gOre_1g1p_sidebands.toml && cd ..
+
+# 4. plots locally (the all-in-one driver; INCLUDE_HEAVY pulls in the CC
+#    config, fine at smoke-test stats):
+INCLUDE_HEAVY=1 OUTBASE=/tmp/gOre_plots \
+  spineplot/run_gOre_1g1p_all.sh build/output_gOre_1g1p_sys.root
+#   -> /tmp/gOre_plots/gOre_cc_Xg1p/stage1_presel_datamc/
+```
+
+To run just the one CC config directly:
+
+```bash
+python3 spineplot/spineplot.py \
+  spineplot/configurations/analyses/icarus/gOre_cc_Xg1p_stage1_datamc.toml
+```
+
+---
+
+## Appendix B — category reference / tuning
+
+Definitions live in one function,
+`selection/include/gOre/vars_gOre.h::cc_sideband_category`. Photon counting
+is over post-FSI primaries above the gOre threshold, so π⁰ decay photons
+(the π⁰ is the primary) are not counted. Precedence is photon topology →
+π⁰ → π± → νₑ. To change binning or ordering, reorder the `return` branches
+and update the matching `category_labels` / `category_colors` /
+`category_assignment` in
+`spineplot/configurations/analyses/icarus/gOre_cc_Xg1p_stage1_datamc.toml`.
+
+**After any edit to the variable you must rebuild** (`make -j4`) and
+re-run Stages 1–4; on the grid this happens automatically because each job
+rebuilds the branch you pass via `--tag`.
+
+---
+
 ## Notes / gotchas
 
-- **Rebuild is mandatory** — skipping Step 0 leaves the old output with
-  no `true_cc_sideband_category` branch; spineplot then errors on the
-  missing `category_branch` (or, for onbeam, only the precompute-set
-  value survives).
+- **`--gituser hausnerh` on every `medulla.py` call** — the pre-flight tag
+  check and the grid clone both use it; the default `justinjmueller` does
+  not have this branch.
+- **Two calls for create + launch** — `--create-project` then
+  `--launch-jobs`; combining them raises `FileNotFoundError`.
+- **`/pnfs`, not `/exp`, for grid I/O** — job inputs/outputs and the
+  spineplot payload's input must be on dCache.
 - **Data (onbeam)** has no truth; the config forces every onbeam event to
   category 10 via `[samples.onbeam.precompute]`. MC events with no matched
   truth neutrino go to bin 9 (`Cosmic / Non-ν`) via `fillna = 9`.
-- **Consistency with the NC config** — the NC stage plots still use the
-  default `true_category`; only the CC sideband uses the new branch.
-- **Tuning categories** — definitions live in one function
-  (`cc_sideband_category`); after editing it you must rebuild (Step 0)
-  and re-run Steps 1–3.
+- **NC stages unaffected** — the `selected_1g1p_stage{1,2,3}` plots still
+  use the default `true_category`; only the CC sideband uses the new branch.
