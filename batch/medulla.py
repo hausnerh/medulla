@@ -14,6 +14,7 @@ def main(
     batch_size : int = None,
     systematic : str = None,
     tag : str = 'develop',
+    gituser : str = 'justinjmueller',
     memory : int = 1800,
     disk : Optional[int] = None,
     lifetime : str = '1h',
@@ -79,13 +80,13 @@ def main(
     if test_job:
         if not project_exists:
             raise FileNotFoundError(f"Project database {project_dir / 'project.db'} does not exist. Please create a new project first.")
-        launch_jobsub(project_dir, experiment, njobs=1, tag=tag, memory=memory, disk=disk, lifetime=lifetime)
+        launch_jobsub(project_dir, experiment, njobs=1, tag=tag, gituser=gituser, memory=memory, disk=disk, lifetime=lifetime)
 
     # If the user requested to launch jobs, do so.
     if launch_jobs is not None:
         if not project_exists:
             raise FileNotFoundError(f"Project database {project_dir / 'project.db'} does not exist. Please create a new project first.")
-        launch_jobsub(project_dir, experiment, njobs=launch_jobs, tag=tag, memory=memory, disk=disk, lifetime=lifetime)
+        launch_jobsub(project_dir, experiment, njobs=launch_jobs, tag=tag, gituser=gituser, memory=memory, disk=disk, lifetime=lifetime)
 
 if __name__ == '__main__':
     p = ArgumentParser(description='Run medulla.')
@@ -148,6 +149,14 @@ if __name__ == '__main__':
     )
 
     p.add_argument(
+        '--gituser', '-u', type=str, default='justinjmueller',
+        help="GitHub user/org to clone medulla from on the grid, and to "
+             "validate --tag against (default: justinjmueller). Set this to "
+             "your fork's owner when --tag is a branch that only exists on "
+             "your fork, e.g. --gituser hausnerh."
+    )
+
+    p.add_argument(
         '--memory', '-m', type=int, default=1800,
         help='Amount of memory to request for each job in MB (default: 1800).'
     )
@@ -180,10 +189,12 @@ if __name__ == '__main__':
     if args.test_job and args.launch_jobs is not None:
         p.error('--test-job and --launch-jobs are mutually exclusive.')
 
+    repo_url = f'https://github.com/{args.gituser}/medulla'
     if args.tag != 'develop':
-        print(f"[INFO] -- Using tag '{args.tag}' for medulla repository.")
-    if not check_git_branch(args.tag):
-        p.error(f"Tag '{args.tag}' does not exist in the medulla repository.")
+        print(f"[INFO] -- Using tag '{args.tag}' from {repo_url}.")
+    if not check_git_branch(args.tag, repo_url=repo_url):
+        p.error(f"Tag '{args.tag}' does not exist in {repo_url}. "
+                f"If it lives on a fork, pass --gituser <owner>.")
 
     # Run the main function.
     main(
@@ -196,6 +207,7 @@ if __name__ == '__main__':
         batch_size=args.batch_size,
         systematic=args.systematic,
         tag=args.tag,
+        gituser=args.gituser,
         memory=args.memory,
         disk=args.disk,
         lifetime=args.lifetime,

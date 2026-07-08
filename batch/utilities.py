@@ -366,6 +366,7 @@ def launch_jobsub(
     njobs : int = -1,
     confirm : bool = True,
     tag : str = 'develop',
+    gituser : str = 'justinjmueller',
     memory : int = 1800,
     disk : Optional[int] = None,
     lifetime : str = '1h',
@@ -445,6 +446,7 @@ def launch_jobsub(
         '--',
         f'--project={project_dir.resolve()}',
         f'--tag={tag}',
+        f'--gituser={gituser}',
     ]
 
     if disk is not None:

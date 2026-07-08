@@ -1,25 +1,28 @@
 #!/bin/bash
 
 #######################################################################
-# Usage: submit.sh [--project=PROJECT] [--tag=TAG]
+# Usage: submit.sh [--project=PROJECT] [--tag=TAG] [--gituser=USER]
 #
 # Arguments:
 #   --project=PROJECT   : Specify the project directory
 #   --tag=TAG           : Git ref to checkout on grid nodes (default: develop)
+#   --gituser=USER      : GitHub user/org to clone medulla from (default: justinjmueller)
 #######################################################################
 
 # Print usage information
 usage() {
-  echo "Usage: submit.sh [--project=PROJECT] [--tag=TAG]"
+  echo "Usage: submit.sh [--project=PROJECT] [--tag=TAG] [--gituser=USER]"
   echo ""
   echo "Arguments:"
   echo "  --project=PROJECT   : Specify the project directory"
   echo "  --tag=TAG           : Git ref to checkout on grid nodes (default: develop)"
+  echo "  --gituser=USER      : GitHub user/org to clone medulla from (default: justinjmueller)"
 }
 
 # Initialize variables
 PROJECT=""
 TAG="develop"
+GITUSER="justinjmueller"
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -39,6 +42,10 @@ while [[ $# -gt 0 ]]; do
     --tag)
       TAG="$2"
       shift 2
+      ;;
+    --gituser=*)
+      GITUSER="${1#*=}"
+      shift
       ;;
     --gituser)
       GITUSER="$2"

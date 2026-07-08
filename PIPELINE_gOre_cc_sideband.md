@@ -88,16 +88,29 @@ hadd -f build/output_gOre_1g1p.root <grid-outputs>/*.root
 
 ### Step 1b — selection on the grid (optional, high stats)
 
-`batch/medulla.py` can run this branch on the grid. Upstream just added
-`--memory / --disk / --lifetime` (pulled into this branch), and `--tag`
-runs an arbitrary git branch/tag instead of `develop`:
+`batch/medulla.py` can run this branch on the grid. `--memory / --disk /
+--lifetime` size the jobs; `--tag` picks the git ref; and `--gituser`
+picks the GitHub owner to clone from **and** to validate `--tag` against.
+
+> **`--gituser` is required for a fork branch.** The grid job clones from
+> `github.com/<gituser>/medulla` and the pre-flight check validates the
+> tag against the same repo. It defaults to `justinjmueller`, so a branch
+> that only lives on your fork fails with *"Tag '…' does not exist"* unless
+> you pass `--gituser hausnerh`. (`--project-dir` is also required on every
+> invocation.)
 
 ```bash
+# create the project (note --project-dir AND --gituser):
 python3 batch/medulla.py --experiment icarus \
+    --project-dir /pnfs/icarus/scratch/users/$USER/gOre_1g1p_sidebands \
     --create-project --toml selection/toml/gOre_1g1p_sidebands.toml \
-    --batch-size <N> --tag feature/hausnerh_gOre_1g1p \
+    --batch-size <N> --tag feature/hausnerh_gOre_1g1p --gituser hausnerh \
     --memory 4000 --disk 20 --lifetime 2h
-python3 batch/medulla.py --experiment icarus --project-dir <proj> --launch-jobs
+
+# then launch:
+python3 batch/medulla.py --experiment icarus \
+    --project-dir /pnfs/icarus/scratch/users/$USER/gOre_1g1p_sidebands \
+    --tag feature/hausnerh_gOre_1g1p --gituser hausnerh --launch-jobs
 ```
 
 ---
@@ -125,8 +138,9 @@ systematics peak ~11 GB RSS) and is OOM-killed on a shared gpvm, so the
 all-in-one driver skips it unless `INCLUDE_HEAVY=1` and it is run on a
 ≥16 GB node (or the grid).
 
+**Option A — high-memory interactive node** (≥16 GB):
+
 ```bash
-# CC sideband only, on a high-memory node:
 INCLUDE_HEAVY=1 \
 OUTBASE=/exp/icarus/app/users/$USER/plots \
   spineplot/run_gOre_1g1p_all.sh build/output_gOre_1g1p_sys.root
@@ -134,7 +148,22 @@ OUTBASE=/exp/icarus/app/users/$USER/plots \
 # -> PDFs/PNGs under $OUTBASE/gOre_cc_Xg1p/stage1_presel_datamc/
 ```
 
-To run just that one config directly (bypassing the driver):
+**Option B — grid (recommended for the heavy config).** The branch ships a
+dedicated, fork-aware spineplot payload that requests 16 GB. Stage the
+systematics ROOT on dCache first (grid nodes cannot read `/exp`):
+
+```bash
+htgettoken -a htvaultprod.fnal.gov -i icarus
+ifdh cp build/output_gOre_1g1p_sys.root \
+        /pnfs/icarus/scratch/users/$USER/CCSidebandPlots/output_gOre_1g1p_sys.root
+
+# defaults already target this config / branch / fork (hausnerh):
+./batch/launch_spineplot.sh \
+    --input=/pnfs/icarus/scratch/users/$USER/CCSidebandPlots/output_gOre_1g1p_sys.root \
+    --output=/pnfs/icarus/scratch/users/$USER/CCSidebandPlots
+```
+
+To run just that one config directly on a fat node (bypassing the driver):
 
 ```bash
 python3 spineplot/spineplot.py \
