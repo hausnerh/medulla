@@ -211,14 +211,23 @@ first:
 OUT=/pnfs/icarus/scratch/users/$USER/CCSidebandPlots
 ifdh cp build/output_gOre_1g1p_sys.root $OUT/output_gOre_1g1p_sys.root
 
-./batch/launch_spineplot.sh \
-    --input=$OUT/output_gOre_1g1p_sys.root \
-    --output=$OUT \
-    --tag=$TAG --gituser=$GITUSER
-# --config defaults to gOre_cc_Xg1p_stage1_datamc. Override --tag as above:
-# the script's built-in default (feature/hausnerh_gOre_1g1p) checks out the
-# OLD config that still uses `true_category`, not the new
-# `true_cc_sideband_category` breakdown.
+for cfg in gOre_cc_Xg1p_stage1_datamc \
+           gOre_cc_Xg1p_stage2_datamc \
+           gOre_cc_Xg1p_stage3_datamc ; do
+  ./batch/launch_spineplot.sh \
+      --input=$OUT/output_gOre_1g1p_sys.root \
+      --output=$OUT/$cfg \
+      --config=$cfg \
+      --tag=$TAG --gituser=$GITUSER
+done
+# Three stages of the CC sideband, mirroring the actual selection cut chain
+# but keeping the muon (cc_Xg_topology) for sideband perspective:
+#   stage1 = preselection
+#   stage2 = + pi0_rejection
+#   stage3 = + pi0_rejection + egamma_separation
+# --config MUST be overridden per stage; --tag MUST be $TAG (the built-in
+# default feature/hausnerh_gOre_1g1p lacks these configs and the new
+# true_cc_sideband_category branch).
 ```
 
 ---

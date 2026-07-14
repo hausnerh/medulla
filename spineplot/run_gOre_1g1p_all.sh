@@ -85,6 +85,8 @@ CONFIGS=(
 # gOre_cc_Xg1p_stage1_datamc.toml.
 HEAVY_CONFIGS=(
     "gOre_cc_Xg1p_stage1_datamc:gOre_cc_Xg1p/stage1_presel_datamc"
+    "gOre_cc_Xg1p_stage2_datamc:gOre_cc_Xg1p/stage2_pi0_rej_datamc"
+    "gOre_cc_Xg1p_stage3_datamc:gOre_cc_Xg1p/stage3_egam_sep_datamc"
 )
 
 if [[ "${INCLUDE_HEAVY:-0}" == "1" ]]; then

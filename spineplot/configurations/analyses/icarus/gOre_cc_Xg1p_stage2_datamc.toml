@@ -1,0 +1,204 @@
+# CC + Xγ + 1p sideband, stage 2 (+ pi0 rejection) + onbeam overlay.
+# Sideband perspective of the analysis pi0-rejection cut (same cut as the
+# NC selection, but on the CC/muon-tagged region). Selection bakes
+# fiducial + containment + flash + cc_Xg_topology + single_proton
+# + pi0_rejection into `selected_cc_Xg1p_stage2`, so no spineplot presel.
+# yranges below are inherited from stage1 and likely need lowering for
+# the reduced stage-2 statistics.
+#
+# Self-contained: no chained [[this_includes]] (this branch keeps the
+# develop-line single-depth include loader). Mirrors
+# gOre_1g1p_stage1_datamc.toml — only the tree-name fields and the
+# output path differ.
+#
+# MEMORY: this sample has ~18,912 MC events. With all three sys trees
+# the develop-line Systematic.process path (nuniv=1000 universe
+# matrices + np.apply_along_axis per knob) peaks at ~11 GB RSS and is
+# OOM-killed on a standard gpvm. Run this config on a high-memory node
+# or as a grid job (>=16 GB). The all-in-one runner skips it unless
+# INCLUDE_HEAVY=1 is set — see spineplot/run_gOre_1g1p_all.sh.
+
+[[this_includes]]
+file = 'configurations/common/styles.toml'
+
+[output]
+path = '/exp/icarus/app/users/hhausner/plots/gOre_cc_Xg1p/stage2_pi0_rej_datamc'
+
+# Anchor on onbeam: develop-line `Sample.set_weight` scales every
+# sample to the ordinate sample's POT. With onbeam as ordinate and
+# onbeam carrying its real 10%-subsample POT (~1.94e19), MC scales
+# `cvext_POT -> onbeam_POT`, giving an expected-events stack for the
+# 10% box. Multiply by ~24x to read off the 4.64e20 BNB equivalent.
+# CC-oriented truth breakdown. The default `true_category` scheme lumps
+# essentially every event in this CC region into a single "Other CC" bin, so
+# instead use `true_cc_sideband_category` (vars::gOre::cc_sideband_category):
+# it mirrors the NC [[category]] breakdown for CC, splitting the Δ→Nγ signal by
+# photon multiplicity (1γ vs Nγ) rather than proton multiplicity. Indices 0-9
+# are MC categories; onbeam is forced to 10 below.
+[analysis]
+ordinate_sample = 'onbeam'
+category_branch = 'true_cc_sideband_category'
+category_assignment = [[0], [1], [2], [3], [4], [5], [6], [7], [8], [9], [10]]
+category_labels = [
+  'CC $\Delta{\to}N\gamma$ (1$\gamma$)',
+  'CC $\Delta{\to}N\gamma$ (N$\gamma$)',
+  'Other CC X$\gamma$ Post-FSI',
+  'CC $\pi^0$ ($\Delta$ Res)',
+  'CC $\pi^0$ (Other)',
+  'CC $\pi^{\pm}$',
+  'CC $\nu_e$',
+  'Other CC',
+  'NC',
+  'Cosmic / Non-$\nu$',
+  'Data (BNB)',
+]
+category_colors = ['#E69900', '#F2B366', '#009980', '#F2E640', '#BF9B30', '#0073B3', '#E6338C', '#CC99B3', '#9980CC', '#808080', '#000000']
+category_types  = ['histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'scatter']
+
+[samples.mc]
+key = 'full'
+exposure_type = 'pot'
+trees = ['selected_cc_Xg1p_stage2']
+systematics = ['selected_cc_Xg1p_stage2_multisimTree', 'selected_cc_Xg1p_stage2_multisigmaTree', 'selected_cc_Xg1p_stage2_variationTree']
+print_sys = true
+# reco interactions with no matched truth neutrino fall into Cosmic / Non-ν (9)
+fillna = 9
+
+[samples.mc.precompute]
+reco_delta_mass_P_dev = "abs(reco_delta_mass_P - 1232)"
+n_selected_flag       = "0*reco_gOre_topology + 1"
+
+[samples.onbeam]
+key = 'onbeam'
+exposure_type = 'pot'
+trees = ['selected_cc_Xg1p_stage2']
+
+[samples.onbeam.precompute]
+true_cc_sideband_category = "0*reco_gOre_topology + 10"
+reco_delta_mass_P_dev     = "abs(reco_delta_mass_P - 1232)"
+n_selected_flag           = "0*reco_gOre_topology + 1"
+
+[[systematic_recipe]]
+name = 'total'
+label = 'Total syst.'
+pattern = '.*'
+
+[variables.reco_leading_primary_gOre_shower_ke]
+key = 'reco_leading_primary_gOre_shower_ke'
+range = [0.0, 1000.0]
+nbins = 50
+xlabel = 'Shower KE [MeV]'
+
+[variables.reco_leading_primary_gOre_start_dedx]
+key = 'reco_leading_primary_gOre_start_dedx'
+range = [0.0, 25.0]
+nbins = 50
+xlabel = 'Shower Start dE/dx [MeV/cm]'
+
+[variables.reco_leading_primary_gOre_photon_softmax]
+key = 'reco_leading_primary_gOre_photon_softmax'
+range = [0.0, 1.0]
+nbins = 50
+xlabel = 'Shower Photon Softmax'
+
+[variables.reco_leading_primary_gOre_primary_softmax]
+key = 'reco_leading_primary_gOre_primary_softmax'
+range = [0.99, 1.0]
+nbins = 100
+xlabel = 'Shower Primary Softmax'
+
+[variables.reco_leading_primary_gOre_directional_spread]
+key = 'reco_leading_primary_gOre_directional_spread'
+range = [0.0, 1.0]
+nbins = 100
+xlabel = 'Shower Directional Spread'
+
+[variables.reco_leading_primary_gOre_axial_spread]
+key = 'reco_leading_primary_gOre_axial_spread'
+range = [-0.5, 1.0]
+nbins = 75
+xlabel = 'Shower Axial Spread'
+
+[variables.reco_delta_mass_P]
+key = 'reco_delta_mass_P'
+range = [950.0, 1600.0]
+nbins = 25
+xlabel = 'Reconstructed $M_\Delta$ Peak [MeV/$c^2$]'
+
+[variables.reco_delta_mass_P_dev]
+key = 'reco_delta_mass_P_dev'
+range = [0.0, 300.0]
+nbins = 50
+xlabel = '$|\mathrm{Reco}\; M_\Delta - 1232\;\mathrm{MeV}/c^2|$'
+
+[variables.reco_leading_primary_proton_primary_softmax]
+key = 'reco_leading_primary_proton_primary_softmax'
+range = [0.0, 1.0]
+nbins = 100
+xlabel = 'Leading Proton Primary Softmax'
+
+[variables.reco_leading_primary_proton_ke]
+key = 'reco_leading_primary_proton_ke'
+range = [0.0, 1000.0]
+nbins = 50
+xlabel = 'Proton KE [MeV]'
+
+[[figure]]
+name = 'reco_leading_primary_gOre_shower_ke'
+type = 'SimpleFigure'
+style = 'selected_icarus_1g1p'
+artists = [{type = 'SpineSpectra1D', yrange = [0, 40], variable = 'reco_leading_primary_gOre_shower_ke', draw_kwargs = {draw_error = 'total'}}]
+
+[[figure]]
+name = 'reco_leading_primary_gOre_start_dedx'
+type = 'SimpleFigure'
+style = 'selected_icarus_1g1p'
+artists = [{type = 'SpineSpectra1D', yrange = [0, 100], variable = 'reco_leading_primary_gOre_start_dedx', draw_kwargs = {draw_error = 'total'}}]
+
+[[figure]]
+name = 'reco_leading_primary_gOre_photon_softmax'
+type = 'SimpleFigure'
+style = 'selected_icarus_1g1p'
+artists = [{type = 'SpineSpectra1D', yrange = [0, 400], variable = 'reco_leading_primary_gOre_photon_softmax', draw_kwargs = {draw_error = 'total'}}]
+
+[[figure]]
+name = 'reco_leading_primary_gOre_primary_softmax'
+type = 'SimpleFigure'
+style = 'selected_icarus_1g1p'
+artists = [{type = 'SpineSpectra1D', yrange = [0, 20], variable = 'reco_leading_primary_gOre_primary_softmax', draw_kwargs = {draw_error = 'total'}}]
+
+[[figure]]
+name = 'reco_leading_primary_gOre_directional_spread'
+type = 'SimpleFigure'
+style = 'selected_icarus_1g1p'
+artists = [{type = 'SpineSpectra1D', yrange = [0, 150], variable = 'reco_leading_primary_gOre_directional_spread', draw_kwargs = {draw_error = 'total'}}]
+
+[[figure]]
+name = 'reco_leading_primary_gOre_axial_spread'
+type = 'SimpleFigure'
+style = 'selected_icarus_1g1p'
+artists = [{type = 'SpineSpectra1D', yrange = [0, 20], variable = 'reco_leading_primary_gOre_axial_spread', draw_kwargs = {draw_error = 'total'}}]
+
+[[figure]]
+name = 'reco_delta_mass_P'
+type = 'SimpleFigure'
+style = 'selected_icarus_1g1p'
+artists = [{type = 'SpineSpectra1D', yrange = [0, 60], variable = 'reco_delta_mass_P', draw_kwargs = {draw_error = 'total'}}]
+
+[[figure]]
+name = 'reco_delta_mass_P_dev'
+type = 'SimpleFigure'
+style = 'selected_icarus_1g1p'
+artists = [{type = 'SpineSpectra1D', yrange = [0, 40], variable = 'reco_delta_mass_P_dev', draw_kwargs = {draw_error = 'total'}}]
+
+[[figure]]
+name = 'reco_leading_primary_proton_primary_softmax'
+type = 'SimpleFigure'
+style = 'selected_icarus_1g1p'
+artists = [{type = 'SpineSpectra1D', yrange = [0, 60], variable = 'reco_leading_primary_proton_primary_softmax', draw_kwargs = {draw_error = 'total'}}]
+
+[[figure]]
+name = 'reco_leading_primary_proton_ke'
+type = 'SimpleFigure'
+style = 'selected_icarus_1g1p'
+artists = [{type = 'SpineSpectra1D', yrange = [0, 60], variable = 'reco_leading_primary_proton_ke', draw_kwargs = {draw_error = 'total'}}]

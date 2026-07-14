@@ -176,6 +176,58 @@ destination = 'events/onbeam/'
 name = 'selected_cc_Xg1p_stage1'
 action = 'copy'
 
+# --- CC Xγ + 1p control region, stage2 (+ pi0 rejection) ---
+[[tree]]
+origin = 'events/cvext/selected_cc_Xg1p_stage2'
+destination = 'events/full/'
+name = 'selected_cc_Xg1p_stage2'
+action = 'add_weights'
+table_types = ['multisim', 'multisigma', 'variation']
+
+[[tree]]
+origin = 'events/cv/selected_cc_Xg1p_stage2'
+destination = 'events/cv/'
+name = 'selected_cc_Xg1p_stage2'
+action = 'copy'
+
+[[tree]]
+origin = 'events/offbeam/selected_cc_Xg1p_stage2'
+destination = 'events/offbeam/'
+name = 'selected_cc_Xg1p_stage2'
+action = 'copy'
+
+[[tree]]
+origin = 'events/onbeam/selected_cc_Xg1p_stage2'
+destination = 'events/onbeam/'
+name = 'selected_cc_Xg1p_stage2'
+action = 'copy'
+
+# --- CC Xγ + 1p control region, stage3 (+ pi0 rejection + e/γ separation) ---
+[[tree]]
+origin = 'events/cvext/selected_cc_Xg1p_stage3'
+destination = 'events/full/'
+name = 'selected_cc_Xg1p_stage3'
+action = 'add_weights'
+table_types = ['multisim', 'multisigma', 'variation']
+
+[[tree]]
+origin = 'events/cv/selected_cc_Xg1p_stage3'
+destination = 'events/cv/'
+name = 'selected_cc_Xg1p_stage3'
+action = 'copy'
+
+[[tree]]
+origin = 'events/offbeam/selected_cc_Xg1p_stage3'
+destination = 'events/offbeam/'
+name = 'selected_cc_Xg1p_stage3'
+action = 'copy'
+
+[[tree]]
+origin = 'events/onbeam/selected_cc_Xg1p_stage3'
+destination = 'events/onbeam/'
+name = 'selected_cc_Xg1p_stage3'
+action = 'copy'
+
 # --- signal tree (true-mode, MC only) ---
 # table_types must include 'variation' even though signal has no varNN
 # entry in [variations]: trees.cc dereferences systrees[name+'_variation']
@@ -298,6 +350,56 @@ action = 'copy'
 origin = 'events/onbeam/selected_cc_Xg1p_stage1_exposure'
 destination = 'events/onbeam/'
 name = 'selected_cc_Xg1p_stage1_exposure'
+action = 'copy'
+
+# --- cc_Xg1p_stage2 exposure ---
+[[tree]]
+origin = 'events/cvext/selected_cc_Xg1p_stage2_exposure'
+destination = 'events/full/'
+name = 'selected_cc_Xg1p_stage2_exposure'
+action = 'copy'
+
+[[tree]]
+origin = 'events/cv/selected_cc_Xg1p_stage2_exposure'
+destination = 'events/cv/'
+name = 'selected_cc_Xg1p_stage2_exposure'
+action = 'copy'
+
+[[tree]]
+origin = 'events/offbeam/selected_cc_Xg1p_stage2_exposure'
+destination = 'events/offbeam/'
+name = 'selected_cc_Xg1p_stage2_exposure'
+action = 'copy'
+
+[[tree]]
+origin = 'events/onbeam/selected_cc_Xg1p_stage2_exposure'
+destination = 'events/onbeam/'
+name = 'selected_cc_Xg1p_stage2_exposure'
+action = 'copy'
+
+# --- cc_Xg1p_stage3 exposure ---
+[[tree]]
+origin = 'events/cvext/selected_cc_Xg1p_stage3_exposure'
+destination = 'events/full/'
+name = 'selected_cc_Xg1p_stage3_exposure'
+action = 'copy'
+
+[[tree]]
+origin = 'events/cv/selected_cc_Xg1p_stage3_exposure'
+destination = 'events/cv/'
+name = 'selected_cc_Xg1p_stage3_exposure'
+action = 'copy'
+
+[[tree]]
+origin = 'events/offbeam/selected_cc_Xg1p_stage3_exposure'
+destination = 'events/offbeam/'
+name = 'selected_cc_Xg1p_stage3_exposure'
+action = 'copy'
+
+[[tree]]
+origin = 'events/onbeam/selected_cc_Xg1p_stage3_exposure'
+destination = 'events/onbeam/'
+name = 'selected_cc_Xg1p_stage3_exposure'
 action = 'copy'
 
 # --- signal exposure (MC only) ---
