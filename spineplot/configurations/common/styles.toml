@@ -28,6 +28,18 @@ mark_pot = true
 mark_preliminary = '$\bf{ICARUS}$ Work-in-Progress'
 plot_kwargs = {'histtype' = 'barstacked', 'stacked' = true}
 
+# CC Xγ+1p sideband: same look as selected_icarus_1g1p but a CC-tagged
+# title, so the cc_Xg1p stage plots are not mislabelled as the NC signal.
+[[style]]
+name = 'selected_icarus_cc_Xg1p'
+style_sheet = "styles/muon2024.mplstyle"
+markers = ['o', '^', 's', 'P', 'D']
+default_figsize = [6.4,4.8]
+title = '$\bf{ICARUS}$ CC $X\gamma + 1p$ Sideband'
+mark_pot = true
+mark_preliminary = '$\bf{ICARUS}$ Work-in-Progress'
+plot_kwargs = {'histtype' = 'barstacked', 'stacked' = true}
+
 [[style]]
 name = 'signal_icarus'
 style_sheet = "styles/muon2024.mplstyle"
