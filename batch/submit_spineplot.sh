@@ -85,9 +85,14 @@ export IFDH_WEB_TIMEOUT=100
 # Setup CVMFS area + the sbnana stack. We do NOT need sbnana itself for
 # spineplot, but `setup sbnana ... e26:prof` puts a modern python3
 # (>=3.9) on PATH, which the throwaway venv is built from.
+# The ups/cvmfs setup scripts reference unbound variables (e.g.
+# `Options[@]` in setup_icarus.sh), which trip `set -u`; relax nounset
+# for the environment setup only, then restore it for our own logic.
+set +u
 source /cvmfs/icarus.opensciencegrid.org/products/icarus/setup_icarus.sh
 setup sbnana v10_01_02_01 -q e26:prof
 ups active
+set -u
 
 echo "Using python: $(which python3)  ($(python3 --version 2>&1))"
 
@@ -103,7 +108,9 @@ git checkout ${TAG}
 #######################################################################
 python3 -m venv .plotvenv
 # shellcheck disable=SC1091
+set +u                          # activate scripts may reference unbound vars
 source .plotvenv/bin/activate
+set -u
 python3 -m pip install --upgrade pip
 python3 -m pip install numpy pandas matplotlib uproot toml
 echo "venv packages:"
