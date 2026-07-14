@@ -112,9 +112,13 @@ set +u                          # activate scripts may reference unbound vars
 source .plotvenv/bin/activate
 set -u
 python3 -m pip install --upgrade pip
-python3 -m pip install numpy pandas matplotlib uproot toml
+# Full spineplot dependency set. analysis.py eagerly imports every artist
+# at module load, so scipy (spectra/efficiency/ternary) and scikit-learn
+# (confusion/roc) are required even for a plain SpineSpectra1D config.
+# uproot pulls in awkward automatically.
+python3 -m pip install numpy scipy pandas matplotlib uproot toml scikit-learn
 echo "venv packages:"
-python3 -m pip list 2>/dev/null | grep -iE 'numpy|pandas|matplotlib|uproot|toml'
+python3 -m pip list 2>/dev/null | grep -iE 'numpy|scipy|pandas|matplotlib|uproot|toml|scikit-learn'
 
 #######################################################################
 # Prestage the input systematics ROOT file from dCache
