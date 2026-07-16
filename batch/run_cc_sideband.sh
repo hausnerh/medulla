@@ -121,20 +121,36 @@ monitor_cluster(){ # cluster schedd label
 # ---- pipeline phases -------------------------------------------------
 submit_selection(){
     log "=== Stage 1: grid selection ==="
+    # Robust, LOCAL check that the checkout has the stage2/3 trees (the stored
+    # project config is derived from this toml). Avoids reading project.db back
+    # off /pnfs, which dCache has not made consistent yet right after create.
+    grep -q 'selected_cc_Xg1p_stage3' "$SEL_TOML" \
+        || die "local $SEL_TOML lacks the stage3 tree — git pull the $TAG branch first"
+
     log "Creating project $PROJ (batch-size $BATCH_SIZE)"
     python3 batch/medulla.py --experiment "$EXPERIMENT" --project-dir "$PROJ" \
         --create-project --toml "$SEL_TOML" --batch-size "$BATCH_SIZE" \
         --tag "$TAG" --gituser "$GITUSER" 2>&1 | tee -a "$LOGFILE" \
         || die "create-project failed"
 
-    local db="$DEBUG_DIR/project.db"
-    ifdh cp "$PROJ/project.db" "$db" >/dev/null 2>&1 \
-        || die "cannot read $PROJ/project.db (refresh creds: kinit ; htgettoken)"
-    NJOBS=$(sqlite3 "$db" "SELECT COUNT(*) FROM jobs;" 2>/dev/null)
-    sqlite3 "$db" "SELECT cfg FROM configuration LIMIT 1;" 2>/dev/null \
-        | grep -q selected_cc_Xg1p_stage3 \
-        || die "stage3 tree missing from project config — is the local checkout on $TAG updated?"
-    log "Project has $NJOBS jobs; stage2/3 config present."
+    # NJOBS is best-effort: a freshly written project.db can lag on dCache, so
+    # retry a few times and just proceed (without an expected-count check) if
+    # it stays unreadable. This is only used to warn about missing outputs.
+    NJOBS=""
+    local db="$DEBUG_DIR/project.db" attempt
+    for attempt in 1 2 3 4 5; do
+        sleep 4
+        if ifdh cp "$PROJ/project.db" "$db" >/dev/null 2>&1; then
+            NJOBS=$(sqlite3 "$db" "SELECT COUNT(*) FROM jobs;" 2>/dev/null)
+            [[ "${NJOBS:-0}" -gt 0 ]] 2>/dev/null && break
+        fi
+        NJOBS=""
+    done
+    if [[ -n "$NJOBS" ]]; then
+        log "Project has $NJOBS jobs."
+    else
+        log "WARN: could not read project.db job count (dCache lag?); continuing without an expected-count check."
+    fi
 
     log "Launching $NJOBS jobs (mem=${MEMORY_MB}MB disk=${DISK_GB}GB lifetime=$LIFETIME)"
     local out jid
