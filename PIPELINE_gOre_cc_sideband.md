@@ -143,15 +143,23 @@ are `output_jobidNNNN.root`).
 
 `project.db` lives on `/pnfs`, and SQLite cannot open a DB in place on
 dCache (`Error: stepping, disk I/O error (10)`), so copy it to a local
-POSIX path first (plain `cp` — a sequential read — works; this is what
-medulla's own tooling does before querying):
+POSIX path first, then query the copy. Use `ifdh cp` — a plain `cp` off
+`/pnfs` can fail with `Operation not permitted` when the NFS credential
+has lapsed:
 
 ```bash
-cp $PROJ/project.db /tmp/project.db
+ifdh cp $PROJ/project.db /tmp/project.db
 sqlite3 /tmp/project.db \
   "SELECT cfg FROM configuration LIMIT 1;" | grep cc_sideband_category
 # for the stage2/3 rerun, grep selected_cc_Xg1p_stage3 instead
 ```
+
+> If either the `ifdh cp` above or the `--launch-jobs` step fails on
+> `/pnfs` access (`Operation not permitted`), refresh credentials —
+> `kinit` (for the NFS `/pnfs` mount) and
+> `htgettoken -a htvaultprod.fnal.gov -i icarus` (bearer token) — then
+> retry. `--launch-jobs` and the status refresh copy `project.db` off
+> `/pnfs` internally, so they need `/pnfs` access healthy too.
 
 ---
 
