@@ -139,11 +139,18 @@ python3 batch/medulla.py --experiment icarus \
 Confirm the branch actually made it into a stored job config *before* a big
 launch — this catches a `project.db` built from a checkout that lacked the
 branch line (the grid rewrites `[general] output = "output"`, so job files
-are `output_jobidNNNN.root`):
+are `output_jobidNNNN.root`).
+
+`project.db` lives on `/pnfs`, and SQLite cannot open a DB in place on
+dCache (`Error: stepping, disk I/O error (10)`), so copy it to a local
+POSIX path first (plain `cp` — a sequential read — works; this is what
+medulla's own tooling does before querying):
 
 ```bash
-sqlite3 $PROJ/project.db \
+cp $PROJ/project.db /tmp/project.db
+sqlite3 /tmp/project.db \
   "SELECT cfg FROM configuration LIMIT 1;" | grep cc_sideband_category
+# for the stage2/3 rerun, grep selected_cc_Xg1p_stage3 instead
 ```
 
 ---
