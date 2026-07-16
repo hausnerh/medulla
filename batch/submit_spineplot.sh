@@ -125,8 +125,18 @@ python3 -m pip list 2>/dev/null | grep -iE 'numpy|scipy|pandas|matplotlib|uproot
 #######################################################################
 mkdir -p data
 echo "Copying input ROOT file: $INPUT"
-ifdh cp "$INPUT" data/input_sys.root
+ifdh cp "$INPUT" data/input_sys.root || true
 ls -lrth data/
+# Fail fast with a clear message if the stage-in did not land a real file
+# (e.g. ifdh 404: the systematics ROOT is not on dCache at --input, often
+# because dCache scratch expired it or it was never staged for this run).
+if [[ ! -s data/input_sys.root ]]; then
+    echo "Error: input ROOT was not staged in from '$INPUT'." >&2
+    echo "       ifdh cp returned no file (HTTP 404 = not on dCache). Stage it:" >&2
+    echo "         ifdh cp <local>/output_gOre_1g1p_sys.root $INPUT" >&2
+    echo "       and confirm with 'ifdh ls $INPUT' before resubmitting." >&2
+    exit 1
+fi
 
 #######################################################################
 # Run spineplot
