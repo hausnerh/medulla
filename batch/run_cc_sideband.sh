@@ -55,9 +55,6 @@ OUT=/pnfs/icarus/scratch/users/$USERNAME/CCSidebandPlots
 SEL_HADD=$PWD/build/output_gOre_1g1p.root
 SYS_ROOT=$PWD/build/output_gOre_1g1p_sys.root
 CONFIGS=(gOre_cc_Xg1p_stage1_datamc gOre_cc_Xg1p_stage2_datamc gOre_cc_Xg1p_stage3_datamc)
-# xrootd door used to hadd per-job outputs off dCache without the NFS
-# /pnfs data path (which can EPERM). Adjust if your door differs.
-XROOTD_DOOR="root://fndca1.fnal.gov:1094"
 #######################################################################
 
 # ---- argument parsing (only --resume for now) ------------------------
@@ -166,6 +163,10 @@ preflight(){
 }
 
 parse_jobid(){ grep -oE '[0-9]+\.[0-9]+@[A-Za-z0-9._-]+' | head -1; }
+
+# hadd $SEL_HADD from a list of input files, capturing hadd's real exit
+# status through the tail|tee pipe.
+do_hadd(){ hadd -f "$SEL_HADD" "$@" 2>&1 | tail -5 | tee -a "$LOGFILE"; return "${PIPESTATUS[0]}"; }
 
 fetch_logs(){ # cluster schedd label
     log "$3: fetching job logs -> $DEBUG_DIR"
@@ -285,11 +286,25 @@ gather_and_merge(){
     fi
     [[ "$done" -gt 0 ]] || die "no selection outputs produced — see logs in $DEBUG_DIR"
 
-    local xrd=() f
-    for f in "${outs[@]}"; do xrd+=("${XROOTD_DOOR}${PROJ}/output/${f}"); done
-    log "hadd -> $SEL_HADD ($done files, via xrootd)"
-    hadd -f "$SEL_HADD" "${xrd[@]}" 2>&1 | tail -5 | tee -a "$LOGFILE" \
-        || die "hadd failed (adjust XROOTD_DOOR, or ifdh-cp the outputs local first)"
+    # Prefer the NFS /pnfs path (fast, no local copy; works with valid
+    # creds). Fall back to ifdh-cp'ing each output local and hadd'ing those
+    # if the NFS read is denied (dCache perms / xrootd path quirks).
+    local nfs=() f
+    for f in "${outs[@]}"; do nfs+=("$PROJ/output/$f"); done
+    log "hadd -> $SEL_HADD ($done files) — via NFS /pnfs"
+    if do_hadd "${nfs[@]}" && [[ -s "$SEL_HADD" ]]; then
+        log "hadd via NFS /pnfs succeeded"
+    else
+        log "NFS hadd failed — falling back to ifdh-cp local then hadd"
+        local tmp="build/_haddtmp_$STAMP" loc=()
+        mkdir -p "$tmp"
+        for f in "${outs[@]}"; do
+            ifdh cp "$PROJ/output/$f" "$tmp/$f" >/dev/null 2>&1 || die "ifdh cp $f failed (creds?)"
+            loc+=("$tmp/$f")
+        done
+        do_hadd "${loc[@]}" && [[ -s "$SEL_HADD" ]] || { rm -rf "$tmp"; die "local hadd failed"; }
+        rm -rf "$tmp"
+    fi
     [[ -s "$SEL_HADD" ]] || die "hadd produced no $SEL_HADD"
 }
 
