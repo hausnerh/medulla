@@ -7,9 +7,18 @@
 #
 # Monitors the grid itself: polls the queue, RELEASES held jobs with
 # bumped memory/disk, and on any failure FETCHES the job logs into a
-# local debug dir. Designed to be launched and left alone:
+# local debug dir. Also monitors CREDENTIALS: on lapsed kerberos or
+# bearer token it logs the exact fix commands and busy-waits until the
+# user renews them (works foreground or under nohup).
 #
+# Designed to be launched and left alone:
 #   nohup ./batch/run_cc_sideband.sh > run_cc_sideband.nohup 2>&1 &
+#
+# Resume mode: skip Stage 1 (selection submit) and continue from an
+# existing project's outputs, e.g. if a previous run had a handful of
+# stragglers that never completed:
+#   ./batch/run_cc_sideband.sh --resume /pnfs/icarus/scratch/users/$USER/gOre_cc_sideband_20260716_134324
+#   ./batch/run_cc_sideband.sh --resume /pnfs/.../gOre_cc_sideband_20260716_134324/output/
 #
 # Run from the medulla repo root, on a gpvm, with a VALID token +
 # kerberos ticket (kinit ; htgettoken -a htvaultprod.fnal.gov -i icarus).
@@ -39,24 +48,68 @@ LIFETIME=8h                                 # selection job lifetime
 HELD_MEMORY_MB=8000                         # bumped resources when RELEASING a held job
 HELD_DISK_GB=2000
 POLL=300                                    # seconds between queue polls
+CRED_WAIT_MAX=14400                         # seconds to wait for creds to come back (4h)
 
 STAMP=$(date +%Y%m%d_%H%M%S)
-PROJ=/pnfs/icarus/scratch/users/$USERNAME/gOre_cc_sideband_$STAMP
 OUT=/pnfs/icarus/scratch/users/$USERNAME/CCSidebandPlots
 SEL_HADD=$PWD/build/output_gOre_1g1p.root
 SYS_ROOT=$PWD/build/output_gOre_1g1p_sys.root
-DEBUG_DIR=$PWD/cc_sideband_debug_$STAMP
-LOGFILE=$PWD/run_cc_sideband_$STAMP.log
 CONFIGS=(gOre_cc_Xg1p_stage1_datamc gOre_cc_Xg1p_stage2_datamc gOre_cc_Xg1p_stage3_datamc)
 # xrootd door used to hadd per-job outputs off dCache without the NFS
 # /pnfs data path (which can EPERM). Adjust if your door differs.
 XROOTD_DOOR="root://fndca1.fnal.gov:1094"
 #######################################################################
 
+# ---- argument parsing (only --resume for now) ------------------------
+RESUME_PROJ=""
+usage(){
+  cat <<EOF
+Usage: $0 [--resume PROJECT_DIR] [--help]
+
+  --resume PROJECT_DIR   Resume from an existing project on /pnfs. Accepts
+                         either the project root or its output/ subdir.
+                         Skips Stage 1 (selection submit + wait); proceeds
+                         with whatever selection outputs exist under
+                         PROJECT_DIR/output/. Useful when a run has
+                         stragglers that never completed and you want to
+                         push on with partial stats.
+
+Without --resume the script creates a fresh timestamped project and runs
+the full pipeline end-to-end.
+EOF
+}
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --resume)   RESUME_PROJ="${2:-}"; shift 2 ;;
+        --resume=*) RESUME_PROJ="${1#*=}"; shift ;;
+        -h|--help)  usage; exit 0 ;;
+        *) echo "Unknown option: $1" >&2; usage; exit 1 ;;
+    esac
+done
+
+# Resolve PROJ + adopt a matching stamp when resuming so the log/debug
+# names line up with the original project directory.
+if [[ -n "$RESUME_PROJ" ]]; then
+    RESUME_PROJ=${RESUME_PROJ%/}
+    [[ "$(basename "$RESUME_PROJ")" == "output" ]] && RESUME_PROJ=$(dirname "$RESUME_PROJ")
+    PROJ="$RESUME_PROJ"
+    if [[ "$(basename "$PROJ")" =~ _([0-9]{8}_[0-9]{6})$ ]]; then
+        STAMP="${BASH_REMATCH[1]}_resume$(date +%H%M%S)"
+    else
+        STAMP="$(date +%Y%m%d_%H%M%S)_resume"
+    fi
+else
+    PROJ=/pnfs/icarus/scratch/users/$USERNAME/gOre_cc_sideband_$STAMP
+fi
+
+DEBUG_DIR=$PWD/cc_sideband_debug_$STAMP
+LOGFILE=$PWD/run_cc_sideband_$STAMP.log
 mkdir -p "$DEBUG_DIR" build
+
 log(){ echo "[$(date -u +%H:%M:%S)] $*" | tee -a "$LOGFILE"; }
 die(){ log "FATAL: $*"; exit 1; }
 
+# ---- environment / preflight ----------------------------------------
 setup_env(){
     set +u   # ups/cvmfs setup scripts reference unbound vars
     source /cvmfs/icarus.opensciencegrid.org/products/icarus/setup_icarus.sh
@@ -65,14 +118,51 @@ setup_env(){
     set -u
 }
 
+# Non-fatal, silent-on-success credential check. Returns 0 iff BOTH the
+# kerberos ticket and a vault/bearer token look valid. On failure logs
+# exactly what the user needs to run.
+check_creds(){
+    local kok=1 tok=1
+    klist -s 2>/dev/null || kok=0
+    if command -v httokendecode >/dev/null 2>&1; then
+        httokendecode -H >/dev/null 2>&1 || tok=0
+    else
+        local uid; uid=$(id -u)
+        [[ -s "${BEARER_TOKEN_FILE:-/run/user/$uid/bt_u$uid}" ]] || tok=0
+    fi
+    if [[ "$kok" -eq 0 || "$tok" -eq 0 ]]; then
+        log "CREDS: kerberos=$([[ $kok -eq 1 ]] && echo OK || echo MISSING) bearer=$([[ $tok -eq 1 ]] && echo OK || echo MISSING)"
+        log "CREDS: renew in another shell (or here) and this script will pick it up:"
+        log "         kinit"
+        log "         htgettoken -a htvaultprod.fnal.gov -i icarus"
+        return 1
+    fi
+    return 0
+}
+
+# Loop until check_creds passes or timeout. Works under nohup — no
+# interactive prompt; the user just renews creds in another shell.
+wait_for_creds(){
+    local max_wait=${1:-$CRED_WAIT_MAX} waited=0
+    while ! check_creds; do
+        if [[ "$waited" -ge "$max_wait" ]]; then
+            log "CREDS: timed out waiting for valid credentials after ${max_wait}s"
+            return 1
+        fi
+        log "CREDS: rechecking in 60s (waited ${waited}s of max ${max_wait}s)"
+        sleep 60; waited=$((waited+60))
+    done
+    log "CREDS: valid credentials detected — resuming."
+    return 0
+}
+
+ensure_creds(){ check_creds || wait_for_creds; }
+
 preflight(){
     [[ -f "$SEL_TOML" ]] || die "run me from the medulla repo root (missing $SEL_TOML)"
     [[ -x build/systematics/run_systematics ]] \
         || log "WARN: build/systematics/run_systematics not found — build medulla before the systematics step."
-    if ! klist -s 2>/dev/null; then
-        log "WARN: no valid kerberos ticket (klist -s failed); /pnfs may EPERM."
-        log "      Fix: kinit ; htgettoken -a htvaultprod.fnal.gov -i icarus"
-    fi
+    ensure_creds || die "no valid credentials at startup — nothing to do until they are renewed"
 }
 
 parse_jobid(){ grep -oE '[0-9]+\.[0-9]+@[A-Za-z0-9._-]+' | head -1; }
@@ -85,14 +175,17 @@ fetch_logs(){ # cluster schedd label
 }
 
 # Poll the queue until this cluster drains. Releases held jobs with
-# bumped resources. A transient jobsub_q failure is retried, and drain is
-# only declared after two consecutive empty reads (avoids a blip ending
-# the wait early).
+# bumped resources; pauses (busy-wait, logging the fix) when credentials
+# lapse. Drain is only declared after two consecutive empty reads so a
+# transient jobsub_q blip does not end the wait early.
 monitor_cluster(){ # cluster schedd label
     local cluster="$1" schedd="$2" label="$3"
     local q active held jid stable=0
     log "$label: monitoring cluster $cluster@$schedd (poll every ${POLL}s)"
     while true; do
+        if ! check_creds; then
+            wait_for_creds || { log "$label: giving up on this cluster (no creds)"; return 1; }
+        fi
         if ! q=$(jobsub_q -G "$EXPERIMENT" 2>/dev/null); then
             log "$label: jobsub_q failed this poll; retrying in ${POLL}s"
             sleep "$POLL"; continue
@@ -118,6 +211,23 @@ monitor_cluster(){ # cluster schedd label
     done
 }
 
+# Best-effort: read the expected job count from project.db. dCache can
+# lag right after create, so retry a few times and just set NJOBS empty
+# if we cannot read it (a subsequent step just skips its count check).
+read_project_njobs(){
+    NJOBS=""
+    local db="$DEBUG_DIR/project.db" attempt
+    for attempt in 1 2 3 4 5; do
+        if ifdh cp "$PROJ/project.db" "$db" >/dev/null 2>&1; then
+            NJOBS=$(sqlite3 "$db" "SELECT COUNT(*) FROM jobs;" 2>/dev/null)
+            [[ "${NJOBS:-0}" -gt 0 ]] 2>/dev/null && return 0
+        fi
+        NJOBS=""
+        sleep 4
+    done
+    return 1
+}
+
 # ---- pipeline phases -------------------------------------------------
 submit_selection(){
     log "=== Stage 1: grid selection ==="
@@ -133,26 +243,13 @@ submit_selection(){
         --tag "$TAG" --gituser "$GITUSER" 2>&1 | tee -a "$LOGFILE" \
         || die "create-project failed"
 
-    # NJOBS is best-effort: a freshly written project.db can lag on dCache, so
-    # retry a few times and just proceed (without an expected-count check) if
-    # it stays unreadable. This is only used to warn about missing outputs.
-    NJOBS=""
-    local db="$DEBUG_DIR/project.db" attempt
-    for attempt in 1 2 3 4 5; do
-        sleep 4
-        if ifdh cp "$PROJ/project.db" "$db" >/dev/null 2>&1; then
-            NJOBS=$(sqlite3 "$db" "SELECT COUNT(*) FROM jobs;" 2>/dev/null)
-            [[ "${NJOBS:-0}" -gt 0 ]] 2>/dev/null && break
-        fi
-        NJOBS=""
-    done
-    if [[ -n "$NJOBS" ]]; then
+    if read_project_njobs; then
         log "Project has $NJOBS jobs."
     else
         log "WARN: could not read project.db job count (dCache lag?); continuing without an expected-count check."
     fi
 
-    log "Launching $NJOBS jobs (mem=${MEMORY_MB}MB disk=${DISK_GB}GB lifetime=$LIFETIME)"
+    log "Launching ${NJOBS:-?} jobs (mem=${MEMORY_MB}MB disk=${DISK_GB}GB lifetime=$LIFETIME)"
     local out jid
     out=$(yes | python3 batch/medulla.py --experiment "$EXPERIMENT" --project-dir "$PROJ" \
               --tag "$TAG" --gituser "$GITUSER" --launch-jobs \
@@ -166,16 +263,25 @@ submit_selection(){
 }
 
 gather_and_merge(){
-    monitor_cluster "$SEL_CLUSTER" "$SEL_SCHEDD" selection
+    if [[ -n "${SEL_CLUSTER:-}" ]]; then
+        monitor_cluster "$SEL_CLUSTER" "$SEL_SCHEDD" selection
+    fi
 
     log "=== Stage 2: gather + hadd ==="
+    [[ -n "${SEL_CLUSTER:-}" ]] || log "(resume mode: proceeding with outputs already on /pnfs)"
+    ensure_creds || die "no credentials to read $PROJ/output"
+
+    # If we did not come from submit_selection (resume), try to learn the
+    # expected job count so we can log a completeness ratio.
+    [[ -z "${NJOBS:-}" ]] && read_project_njobs || true
+
     local outs
     mapfile -t outs < <(ifdh ls "$PROJ/output" 2>/dev/null | grep -oE 'output_jobid[0-9]+\.root' | sort -u)
     local done=${#outs[@]}
     log "Selection produced $done / ${NJOBS:-?} job outputs."
     if [[ -n "${NJOBS:-}" && "$done" -lt "$NJOBS" ]]; then
-        log "WARN: $((NJOBS - done)) selection job(s) missing output — fetching logs, continuing with partial stats."
-        fetch_logs "$SEL_CLUSTER" "$SEL_SCHEDD" selection
+        log "WARN: $((NJOBS - done)) selection job(s) missing output — continuing with partial stats."
+        [[ -n "${SEL_CLUSTER:-}" ]] && fetch_logs "$SEL_CLUSTER" "$SEL_SCHEDD" selection
     fi
     [[ "$done" -gt 0 ]] || die "no selection outputs produced — see logs in $DEBUG_DIR"
 
@@ -202,6 +308,7 @@ do_systematics(){
 
 submit_plots(){
     log "=== Stage 4: stage sys ROOT + plot stage1/2/3 on grid ==="
+    ensure_creds || die "no credentials to stage sys ROOT to $OUT"
     ifdh cp "$SYS_ROOT" "$OUT/output_gOre_1g1p_sys.root" >/dev/null 2>&1 \
         || die "failed to stage $SYS_ROOT to $OUT"
     log "Staged sys ROOT to $OUT/output_gOre_1g1p_sys.root"
@@ -235,6 +342,7 @@ submit_plots(){
 
 retrieve(){
     log "=== Stage 5: retrieve figures ==="
+    ensure_creds || die "no credentials to pull figures back"
     local dst="$PWD/CCSidebandPlots_$STAMP" cfg
     for cfg in "${CONFIGS[@]}"; do
         mkdir -p "$dst/$cfg"
@@ -245,10 +353,13 @@ retrieve(){
 }
 
 main(){
-    log "CC sideband one-shot run starting (stamp $STAMP)"
+    log "CC sideband run starting (stamp $STAMP)"
+    [[ -n "$RESUME_PROJ" ]] && log "Resume mode: PROJ=$PROJ (skipping Stage 1)"
     setup_env
     preflight
-    submit_selection
+    if [[ -z "$RESUME_PROJ" ]]; then
+        submit_selection
+    fi
     gather_and_merge
     do_systematics
     submit_plots
