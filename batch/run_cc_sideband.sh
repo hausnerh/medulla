@@ -193,7 +193,7 @@ sys_stage_report(){ # sysroot
         f.Get(\"events/full/selected_cc_Xg1p_stage1\")!=0, \
         f.Get(\"events/full/selected_cc_Xg1p_stage2\")!=0, \
         f.Get(\"events/full/selected_cc_Xg1p_stage3\")!=0);" 2>/dev/null \
-      | grep -oE 's[123]=[01]' | tr '\n' ' '
+      | grep -oE 's[123]=[01]' | tr '\n' ' ' || true
 }
 
 fetch_logs(){ # cluster schedd label
@@ -350,10 +350,14 @@ do_systematics(){
 submit_plots(){
     log "=== Stage 4: stage sys ROOT + plot stage1/2/3 on grid ==="
     [[ -s "$SYS_ROOT" ]] || die "sys ROOT not found: $SYS_ROOT (run systematics, or pass --plots-only <path>)"
-    log "sys ROOT CC event trees (events/full): $(sys_stage_report "$SYS_ROOT" || echo unknown)"
+    log "sys ROOT CC event trees (events/full): $(sys_stage_report "$SYS_ROOT")"
     ensure_creds || die "no credentials to stage sys ROOT to $OUT"
-    ifdh cp "$SYS_ROOT" "$OUT/output_gOre_1g1p_sys.root" >/dev/null 2>&1 \
-        || die "failed to stage $SYS_ROOT to $OUT"
+    # Ensure the dCache dir exists (scratch may have purged it) before cp.
+    ifdh mkdir_p "$OUT" >/dev/null 2>&1 || true
+    if ! ifdh cp "$SYS_ROOT" "$OUT/output_gOre_1g1p_sys.root" 2> "$DEBUG_DIR/stage_ifdh.err"; then
+        log "ifdh cp error: $(tail -3 "$DEBUG_DIR/stage_ifdh.err" 2>/dev/null | tr '\n' ' ')"
+        die "failed to stage $SYS_ROOT to $OUT (full error in $DEBUG_DIR/stage_ifdh.err)"
+    fi
     log "Staged sys ROOT to $OUT/output_gOre_1g1p_sys.root"
 
     local plot_jobs=() cfg out jid pschedd pcluster
