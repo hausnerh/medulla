@@ -57,11 +57,13 @@ SYS_ROOT=$PWD/build/output_gOre_1g1p_sys.root
 CONFIGS=(gOre_cc_Xg1p_stage1_datamc gOre_cc_Xg1p_stage2_datamc gOre_cc_Xg1p_stage3_datamc)
 #######################################################################
 
-# ---- argument parsing (only --resume for now) ------------------------
+# ---- argument parsing ------------------------------------------------
 RESUME_PROJ=""
+PLOTS_ONLY=0
+SYS_ROOT_OVERRIDE=""
 usage(){
   cat <<EOF
-Usage: $0 [--resume PROJECT_DIR] [--help]
+Usage: $0 [--resume PROJECT_DIR] [--plots-only [SYS_ROOT]] [--help]
 
   --resume PROJECT_DIR   Resume from an existing project on /pnfs. Accepts
                          either the project root or its output/ subdir.
@@ -71,15 +73,27 @@ Usage: $0 [--resume PROJECT_DIR] [--help]
                          stragglers that never completed and you want to
                          push on with partial stats.
 
-Without --resume the script creates a fresh timestamped project and runs
-the full pipeline end-to-end.
+  --plots-only [SYS_ROOT]
+                         Skip selection/hadd/systematics entirely and go
+                         straight to Stage 4-5 (stage the sys ROOT + submit
+                         the three plot jobs + retrieve). Reuses an existing
+                         systematics ROOT — the local build one by default,
+                         or the path you pass. Use this after a completed
+                         systematics run so you do NOT recompute it.
+
+Without a flag the script creates a fresh timestamped project and runs the
+full pipeline end-to-end.
 EOF
 }
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --resume)   RESUME_PROJ="${2:-}"; shift 2 ;;
-        --resume=*) RESUME_PROJ="${1#*=}"; shift ;;
-        -h|--help)  usage; exit 0 ;;
+        --resume)      RESUME_PROJ="${2:-}"; shift 2 ;;
+        --resume=*)    RESUME_PROJ="${1#*=}"; shift ;;
+        --plots-only)  PLOTS_ONLY=1; shift
+                       # optional non-flag arg = sys ROOT path
+                       if [[ $# -gt 0 && "$1" != -* ]]; then SYS_ROOT_OVERRIDE="$1"; shift; fi ;;
+        --plots-only=*) PLOTS_ONLY=1; SYS_ROOT_OVERRIDE="${1#*=}"; shift ;;
+        -h|--help)     usage; exit 0 ;;
         *) echo "Unknown option: $1" >&2; usage; exit 1 ;;
     esac
 done
@@ -98,6 +112,9 @@ if [[ -n "$RESUME_PROJ" ]]; then
 else
     PROJ=/pnfs/icarus/scratch/users/$USERNAME/gOre_cc_sideband_$STAMP
 fi
+
+# Reuse an explicit sys ROOT path if one was passed to --plots-only.
+[[ -n "$SYS_ROOT_OVERRIDE" ]] && SYS_ROOT="$SYS_ROOT_OVERRIDE"
 
 DEBUG_DIR=$PWD/cc_sideband_debug_$STAMP
 LOGFILE=$PWD/run_cc_sideband_$STAMP.log
@@ -167,6 +184,17 @@ parse_jobid(){ grep -oE '[0-9]+\.[0-9]+@[A-Za-z0-9._-]+' | head -1; }
 # hadd $SEL_HADD from a list of input files, capturing hadd's real exit
 # status through the tail|tee pipe.
 do_hadd(){ hadd -f "$SEL_HADD" "$@" 2>&1 | tail -5 | tee -a "$LOGFILE"; return "${PIPESTATUS[0]}"; }
+
+# Report which CC event trees exist under events/full/ in the sys ROOT.
+# TFile::ls() lists only top-level keys, so Get() each one explicitly.
+# Echoes e.g. "s1=1 s2=1 s3=1".
+sys_stage_report(){ # sysroot
+    root -l -b -q -e "TFile f(\"$1\"); printf(\"s1=%d s2=%d s3=%d\n\", \
+        f.Get(\"events/full/selected_cc_Xg1p_stage1\")!=0, \
+        f.Get(\"events/full/selected_cc_Xg1p_stage2\")!=0, \
+        f.Get(\"events/full/selected_cc_Xg1p_stage3\")!=0);" 2>/dev/null \
+      | grep -oE 's[123]=[01]' | tr '\n' ' '
+}
 
 fetch_logs(){ # cluster schedd label
     log "$3: fetching job logs -> $DEBUG_DIR"
@@ -313,16 +341,16 @@ do_systematics(){
     ( cd build && ./systematics/run_systematics "../$SYS_TOML" ) 2>&1 | tail -15 | tee -a "$LOGFILE" \
         || die "run_systematics failed"
     [[ -s "$SYS_ROOT" ]] || die "run_systematics produced no $SYS_ROOT"
-    local trees
-    trees=$(root -l -b -q -e "TFile f(\"$SYS_ROOT\"); f.ls();" 2>/dev/null \
-            | grep -oE 'selected_cc_Xg1p_stage[123]' | sort -u | tr '\n' ' ')
-    log "sys ROOT CC trees: ${trees:-none}"
-    echo "$trees" | grep -q selected_cc_Xg1p_stage3 \
-        || die "stage3 tree not in $SYS_ROOT — selection/systematics did not produce it"
+    local chk; chk=$(sys_stage_report "$SYS_ROOT")
+    log "sys ROOT CC event trees (events/full): ${chk:-unknown}"
+    echo "$chk" | grep -q 's3=1' \
+        || die "stage3 tree not in events/full of $SYS_ROOT — systematics did not produce it"
 }
 
 submit_plots(){
     log "=== Stage 4: stage sys ROOT + plot stage1/2/3 on grid ==="
+    [[ -s "$SYS_ROOT" ]] || die "sys ROOT not found: $SYS_ROOT (run systematics, or pass --plots-only <path>)"
+    log "sys ROOT CC event trees (events/full): $(sys_stage_report "$SYS_ROOT" || echo unknown)"
     ensure_creds || die "no credentials to stage sys ROOT to $OUT"
     ifdh cp "$SYS_ROOT" "$OUT/output_gOre_1g1p_sys.root" >/dev/null 2>&1 \
         || die "failed to stage $SYS_ROOT to $OUT"
@@ -369,9 +397,16 @@ retrieve(){
 
 main(){
     log "CC sideband run starting (stamp $STAMP)"
-    [[ -n "$RESUME_PROJ" ]] && log "Resume mode: PROJ=$PROJ (skipping Stage 1)"
     setup_env
     preflight
+    if [[ "$PLOTS_ONLY" -eq 1 ]]; then
+        log "Plots-only mode: reusing sys ROOT $SYS_ROOT (skipping selection/hadd/systematics)"
+        submit_plots
+        retrieve
+        log "DONE."
+        return
+    fi
+    [[ -n "$RESUME_PROJ" ]] && log "Resume mode: PROJ=$PROJ (skipping Stage 1)"
     if [[ -z "$RESUME_PROJ" ]]; then
         submit_selection
     fi
