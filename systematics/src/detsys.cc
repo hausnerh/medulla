@@ -46,6 +46,29 @@ sys::detsys::DetsysCalculator::DetsysCalculator(cfg::ConfigurationTable & table,
     // the detector model.
     for(std::string variation : variations)
     {
+        // Create the (possibly empty) histogram up front so the spline
+        // construction below always finds an entry for every variation.
+        std::vector<double> bins = table.get_double_vector("variations.bins");
+        bool variable_length = table.get_bool_field("variations.variable_length", false);
+        if(!variable_length)
+            histograms[variation] = new TH1D(variation.c_str(), variation.c_str(), bins[0], bins[1], bins[2]);
+        else
+            histograms[variation] = new TH1D(variation.c_str(), variation.c_str(), bins.size() - 1, bins.data());
+
+        // Guard against a variation absent from the input (e.g. a varNN
+        // production whose files were not present, so no tree was written).
+        // Skip it with a warning rather than dereferencing null; the empty
+        // histogram yields a unit ratio downstream (no detsys shift).
+        std::string name = table.get_string_field("variations.origin") + variation + '/' + table.get_string_field("variations.tree");
+        TTree * t = input->Get<TTree>(name.c_str());
+        if(t == nullptr)
+        {
+            std::cerr << "[detsys] WARNING: variation tree '" << name
+                      << "' not found in input — skipping variation '" << variation
+                      << "' (no detsys shift applied)." << std::endl;
+            continue;
+        }
+
         double pot(0);
         // Check if the variation has an exposure tree instead of a histogram.
         std::string exp_tree_name = table.get_string_field("variations.origin") + variation + "/" + table.get_string_field("variations.tree") + "_exposure";
@@ -68,20 +91,18 @@ sys::detsys::DetsysCalculator::DetsysCalculator(cfg::ConfigurationTable & table,
             // If the exposure tree does not exist, use the POT histogram.
             std::string pot_name = table.get_string_field("variations.origin") + variation + '/' + "POT";
             TH1D * h = (TH1D *) input->Get(pot_name.c_str());
-            pot = h->GetBinContent(1) / 1e18; // Convert to 1e18 POT
+            pot = (h != nullptr) ? h->GetBinContent(1) / 1e18 : 0.0; // Convert to 1e18 POT
         }
         std::cout << "Variation " << variation << " has " << pot << "e18 POT." << std::endl;
+        if(pot <= 0)
+        {
+            std::cerr << "[detsys] WARNING: variation '" << variation
+                      << "' has non-positive POT (" << pot << ") — skipping fill." << std::endl;
+            continue;
+        }
 
-        std::string name = table.get_string_field("variations.origin") + variation + '/' + table.get_string_field("variations.tree");
-        TTree * t = input->Get<TTree>(name.c_str());
         double value;
         t->SetBranchAddress(variable.c_str(), &value);
-        std::vector<double> bins = table.get_double_vector("variations.bins");
-        bool variable_length = table.get_bool_field("variations.variable_length", false);
-        if(!variable_length)
-            histograms[variation] = new TH1D(variation.c_str(), variation.c_str(), bins[0], bins[1], bins[2]);
-        else
-            histograms[variation] = new TH1D(variation.c_str(), variation.c_str(), bins.size() - 1, bins.data());
         for(int i(0); i < t->GetEntries(); ++i)
         {
             t->GetEntry(i);
