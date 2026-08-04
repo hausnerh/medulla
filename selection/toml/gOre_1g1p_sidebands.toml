@@ -36,6 +36,10 @@ start_dedx_min          = 4.070000
 axial_spread_min        = -0.500000
 directional_spread_max  = 0.037000
 photon_softmax_min      = 0.922500
+# CC-sideband flag: pass as the 5th param to pi0_rejection / egamma_separation
+# so they tolerate the CC muon (gate on a single photon shower instead of the
+# no-lepton `is_valid`). Only the cc_Xg1p stage2/3 trees use it.
+sideband_allow_leptons  = 1
 
 # -----------------------------------------------------------------------------
 # Truth categories (unchanged from gOre_1g0p_1g1p_1gNp.toml).
@@ -551,7 +555,7 @@ cut = [
   { name = "flash_cut",       type = "reco", parameters = [ "@flash_low_t", "@flash_high_t" ] },
   { name = "cc_Xg_topology",  type = "reco", parameters = [ "@gOre_threshold", "@muon_threshold", "@pion_threshold" ] },
   { name = "single_proton",   type = "reco", parameters = [ "@proton_threshold" ] },
-  { name = "pi0_rejection",   type = "reco", parameters = [ "@gOre_primary_softmax_min", "@proton_primary_softmax_min", "@delta_mass_center", "@delta_mass_halfwidth" ] },
+  { name = "pi0_rejection",   type = "reco", parameters = [ "@gOre_primary_softmax_min", "@proton_primary_softmax_min", "@delta_mass_center", "@delta_mass_halfwidth", "@sideband_allow_leptons" ] },
 ]
 branch = [
   { name = "cc",               type = "mctruth" },
@@ -613,8 +617,8 @@ cut = [
   { name = "flash_cut",          type = "reco", parameters = [ "@flash_low_t", "@flash_high_t" ] },
   { name = "cc_Xg_topology",     type = "reco", parameters = [ "@gOre_threshold", "@muon_threshold", "@pion_threshold" ] },
   { name = "single_proton",      type = "reco", parameters = [ "@proton_threshold" ] },
-  { name = "pi0_rejection",      type = "reco", parameters = [ "@gOre_primary_softmax_min", "@proton_primary_softmax_min", "@delta_mass_center", "@delta_mass_halfwidth" ] },
-  { name = "egamma_separation",  type = "reco", parameters = [ "@start_dedx_min", "@axial_spread_min", "@directional_spread_max", "@photon_softmax_min" ] },
+  { name = "pi0_rejection",      type = "reco", parameters = [ "@gOre_primary_softmax_min", "@proton_primary_softmax_min", "@delta_mass_center", "@delta_mass_halfwidth", "@sideband_allow_leptons" ] },
+  { name = "egamma_separation",  type = "reco", parameters = [ "@start_dedx_min", "@axial_spread_min", "@directional_spread_max", "@photon_softmax_min", "@sideband_allow_leptons" ] },
 ]
 branch = [
   { name = "cc",               type = "mctruth" },

@@ -237,7 +237,12 @@ namespace cuts::gOre
                        std::vector<double> params = {0.999100, 0.951300, 1232.0, 59.700000})
     {
       core::gOre::Interaction<T> interaction(obj, {GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY});
-      if (not interaction.is_valid)                                  return false;
+      // Optional 5th param != 0: CC-sideband mode — gate on a single photon
+      // shower only, tolerating the muon/pion that is_valid vetoes (the CC
+      // region requires a muon, so is_valid is always false there). Default
+      // (<=4 params) keeps the original NC behavior untouched.
+      bool allow_leptons = (params.size() > 4) && (params.at(4) != 0.0);
+      if (not (allow_leptons ? (interaction.ngOres() == 1) : interaction.is_valid)) return false;
       if (interaction.subleading_gore_ke > 0)                        return false; // no second shower
       auto const* gOre_p = interaction.primary_gOre();
       if (gOre_p == nullptr)                                         return false;
@@ -270,7 +275,9 @@ namespace cuts::gOre
                            std::vector<double> params = {4.070000, -0.500000, 0.037000, 0.922500})
     {
       core::gOre::Interaction<T> interaction(obj, {GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY});
-      if (not interaction.is_valid)                                       return false;
+      // Optional 5th param != 0: CC-sideband mode (see pi0_rejection).
+      bool allow_leptons = (params.size() > 4) && (params.at(4) != 0.0);
+      if (not (allow_leptons ? (interaction.ngOres() == 1) : interaction.is_valid)) return false;
       auto const* gOre_p = interaction.primary_gOre();
       if (gOre_p == nullptr)                                              return false;
       if (gOre_p->start_dedx              <= params.at(0))                return false;
