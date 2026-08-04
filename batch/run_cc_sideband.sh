@@ -196,6 +196,13 @@ sys_stage_report(){ # sysroot
       | grep -oE 's[123]=[01]' | tr '\n' ' ' || true
 }
 
+# Entry count of a tree in a ROOT file (-1 if the tree is absent).
+tree_entries(){ # sysroot treepath
+    root -l -b -q -e "TFile f(\"$1\"); TTree* t=(TTree*)f.Get(\"$2\"); \
+        printf(\"N=%lld\n\", t?t->GetEntries():-1);" 2>/dev/null \
+      | grep -oE 'N=-?[0-9]+' | head -1 | cut -d= -f2
+}
+
 fetch_logs(){ # cluster schedd label
     log "$3: fetching job logs -> $DEBUG_DIR"
     jobsub_fetchlog -G "$EXPERIMENT" --jobid "$1@$2" --destdir  "$DEBUG_DIR" >/dev/null 2>&1 \
@@ -360,9 +367,18 @@ submit_plots(){
     fi
     log "Staged sys ROOT to $OUT/output_gOre_1g1p_sys.root"
 
-    local plot_jobs=() cfg out jid pschedd pcluster
+    local plot_jobs=() cfg out jid pschedd pcluster stg n
     for cfg in "${CONFIGS[@]}"; do
-        log "Launching plot job: $cfg"
+        # Skip stages whose MC tree is empty — spineplot crashes loading a
+        # 0-row tree, so there is nothing to plot (the cuts fully suppress
+        # this stage). Check the local sys ROOT before spending a grid job.
+        stg=$(echo "$cfg" | grep -oE 'stage[0-9]+')
+        n=$(tree_entries "$SYS_ROOT" "events/full/selected_cc_Xg1p_$stg")
+        if [[ "${n:-0}" -le 0 ]] 2>/dev/null; then
+            log "SKIP $cfg: events/full/selected_cc_Xg1p_$stg has ${n:-0} entries — 0 events pass these cuts, nothing to plot."
+            continue
+        fi
+        log "Launching plot job: $cfg ($n MC events)"
         out=$(yes | ./batch/launch_spineplot.sh \
                 --input="$OUT/output_gOre_1g1p_sys.root" --output="$OUT/$cfg" \
                 --config="$cfg" --tag="$TAG" --gituser="$GITUSER" 2>&1)
