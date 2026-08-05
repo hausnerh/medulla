@@ -101,8 +101,8 @@ xlabel = 'Shower Photon Softmax'
 
 [variables.reco_leading_primary_gOre_primary_softmax]
 key = 'reco_leading_primary_gOre_primary_softmax'
-range = [0.99, 1.0]
-nbins = 100
+range = [0.90, 1.0]
+nbins = 10
 xlabel = 'Shower Primary Softmax'
 
 [variables.reco_leading_primary_gOre_directional_spread]
@@ -163,7 +163,7 @@ artists = [{type = 'SpineSpectra1D', yrange = [0, 400], variable = 'reco_leading
 name = 'reco_leading_primary_gOre_primary_softmax'
 type = 'SimpleFigure'
 style = 'selected_icarus_cc_Xg1p'
-artists = [{type = 'SpineSpectra1D', yrange = [0, 20], variable = 'reco_leading_primary_gOre_primary_softmax', draw_kwargs = {draw_error = 'total'}}]
+artists = [{type = 'SpineSpectra1D', yrange = [0, 300], variable = 'reco_leading_primary_gOre_primary_softmax', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_leading_primary_gOre_directional_spread'
