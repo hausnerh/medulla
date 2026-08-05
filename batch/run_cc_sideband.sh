@@ -361,6 +361,8 @@ submit_plots(){
     ensure_creds || die "no credentials to stage sys ROOT to $OUT"
     # Ensure the dCache dir exists (scratch may have purged it) before cp.
     ifdh mkdir_p "$OUT" >/dev/null 2>&1 || true
+    # dCache refuses to overwrite ("File exists"); remove any stale copy first.
+    ifdh rm "$OUT/output_gOre_1g1p_sys.root" >/dev/null 2>&1 || true
     if ! ifdh cp "$SYS_ROOT" "$OUT/output_gOre_1g1p_sys.root" 2> "$DEBUG_DIR/stage_ifdh.err"; then
         log "ifdh cp error: $(tail -3 "$DEBUG_DIR/stage_ifdh.err" 2>/dev/null | tr '\n' ' ')"
         die "failed to stage $SYS_ROOT to $OUT (full error in $DEBUG_DIR/stage_ifdh.err)"

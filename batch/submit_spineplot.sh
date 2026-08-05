@@ -178,6 +178,8 @@ echo "Copying ${#made[@]} figure(s) to $OUTPUT"
 ifdh mkdir_p "$OUTPUT" 2>/dev/null || true
 for f in "${made[@]}"; do
     echo "  -> $(basename "$f")"
+    # dCache refuses to overwrite; drop any stale figure of the same name first.
+    ifdh rm "$OUTPUT/$(basename "$f")" 2>/dev/null || true
     ifdh cp "$f" "$OUTPUT/$(basename "$f")"
 done
 
