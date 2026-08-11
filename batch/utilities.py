@@ -2,7 +2,10 @@
 import os
 import re
 import sqlite3
-import toml
+try:
+    import toml           # only used by the create-project path (runs in SL7);
+except ImportError:       # the native --launch-jobs path never touches it, so
+    toml = None           # tolerate its absence in a bare native shell.
 from catalog import resolve_samples
 from glob import glob
 import subprocess

@@ -361,8 +361,9 @@ check_env(){
     local ok=1
     log "[native] jobsub_q ..."
     NAT "jobsub_q -G $EXPERIMENT >/dev/null 2>&1" && log "  native jobsub_q OK" || { log "  native jobsub_q FAILED (NATIVE_SETUP?)"; ok=0; }
-    log "[native] python3 has toml (needed by medulla.py --launch-jobs) ..."
-    NAT "python3 -c 'import toml' >/dev/null 2>&1" && log "  native python3 toml OK" || { log "  native python3 lacks 'toml' — run from your .venv, or pip install toml"; ok=0; }
+    log "[native] medulla.py imports natively (launch path; toml now optional) ..."
+    NAT "python3 batch/medulla.py --help >/dev/null 2>&1" && log "  native medulla.py imports OK" \
+        || { log "  native medulla.py import FAILED — missing a python dep beyond toml?"; ok=0; }
     log "[SL7] setup_spine + which ifdh/root/hadd ..."
     SL7RUN "command -v ifdh && command -v root && command -v hadd" >/dev/null 2>&1 \
         && log "  SL7 ifdh/root/hadd OK" || { log "  SL7 tools NOT found (SL7_SETUP / image?)"; ok=0; }

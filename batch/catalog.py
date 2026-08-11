@@ -1,5 +1,8 @@
 """Sample catalog resolution for medulla campaign and batch tools."""
-import toml
+try:
+    import toml           # only needed when a catalog_path is resolved (SL7
+except ImportError:       # create-project path); tolerate absence natively so
+    toml = None           # a bare native `medulla.py --launch-jobs` still imports.
 from pathlib import Path
 
 CATALOG_DIR = Path(__file__).resolve().parent.parent / 'selection' / 'toml'
