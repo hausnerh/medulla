@@ -162,14 +162,16 @@ do_hadd(){ SL7RUN "hadd -f '$SEL_HADD' $*" 2>&1 | tail -5 | tee -a "$LOGFILE"; r
 # report which CC event trees exist under events/full/ (SL7 root via a temp macro
 # to avoid nested-quote hell). Echoes "s1=1 s2=1 s3=1".
 sys_stage_report(){ # sysroot
-    local id=cc$$_$RANDOM mac=/tmp/$id.C
+    local id=cc$$_$RANDOM
+    local mac=/tmp/$id.C
     printf 'void %s(){TFile f("%s");printf("s1=%%d s2=%%d s3=%%d\\n",f.Get("events/full/selected_cc_Xg1p_stage1")!=0,f.Get("events/full/selected_cc_Xg1p_stage2")!=0,f.Get("events/full/selected_cc_Xg1p_stage3")!=0);}\n' "$id" "$1" > "$mac"
     SL7RUN "root -l -b -q '$mac'" 2>/dev/null | grep -oE 's[123]=[01]' | tr '\n' ' ' || true
     rm -f "$mac"
 }
 # entry count of a tree (-1 if absent). SL7 root via temp macro.
 tree_entries(){ # sysroot treepath
-    local id=te$$_$RANDOM mac=/tmp/$id.C out
+    local id=te$$_$RANDOM
+    local mac=/tmp/$id.C out
     printf 'void %s(){TFile f("%s");TTree*t=(TTree*)f.Get("%s");printf("N=%%lld\\n",t?t->GetEntries():-1);}\n' "$id" "$1" "$2" > "$mac"
     out=$(SL7RUN "root -l -b -q '$mac'" 2>/dev/null | grep -oE 'N=-?[0-9]+' | head -1 | cut -d= -f2)
     rm -f "$mac"; echo "${out:-}"
