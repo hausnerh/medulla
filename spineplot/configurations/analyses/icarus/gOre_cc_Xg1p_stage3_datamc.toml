@@ -36,7 +36,7 @@ path = '/exp/icarus/app/users/hhausner/plots/gOre_cc_Xg1p/stage3_egam_sep_datamc
 # photon multiplicity (1γ vs Nγ) rather than proton multiplicity. Indices 0-9
 # are MC categories; onbeam is forced to 10 below.
 [analysis]
-ordinate_sample = 'mc'
+ordinate_sample = 'onbeam'
 category_branch = 'true_cc_sideband_category'
 category_assignment = [[0], [1], [2], [3], [4], [5], [6], [7], [8], [9], [10]]
 category_labels = [

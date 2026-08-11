@@ -311,16 +311,21 @@ submit_plots(){
     fi
     log "Staged sys ROOT to $OUT/output_gOre_1g1p_sys.root"
 
-    local plot_jobs=() cfg out jid pschedd pcluster stg n
+    local plot_jobs=() cfg out jid pschedd pcluster stg n nd mcflag
     for cfg in "${CONFIGS[@]}"; do
         stg=$(echo "$cfg" | grep -oE 'stage[0-9]+')
         n=$(tree_entries "$SYS_ROOT" "events/full/selected_cc_Xg1p_$stg")
         if [[ "${n:-0}" -le 0 ]] 2>/dev/null; then
             log "SKIP $cfg: events/full/selected_cc_Xg1p_$stg has ${n:-0} entries — nothing to plot."; continue
         fi
-        log "Launching plot job: $cfg ($n MC events) [native jobsub]"
+        # Auto MC-only: if the data (onbeam) tree for this stage has 0 events,
+        # the data/MC overlay would scale MC to ~0, so plot MC at native POT.
+        nd=$(tree_entries "$SYS_ROOT" "events/onbeam/selected_cc_Xg1p_$stg")
+        mcflag=""
+        [[ "${nd:-0}" -le 0 ]] 2>/dev/null && mcflag="--mc-only"
+        log "Launching plot job: $cfg ($n MC / ${nd:-0} data events${mcflag:+ -> MC-only}) [native jobsub]"
         out=$(NAT "yes | ./batch/launch_spineplot.sh --input='$OUT/output_gOre_1g1p_sys.root' \
-                --output='$OUT/$cfg' --config='$cfg' --tag='$TAG' --gituser='$GITUSER'" 2>&1)
+                --output='$OUT/$cfg' --config='$cfg' --tag='$TAG' --gituser='$GITUSER' $mcflag" 2>&1)
         echo "$out" | tee -a "$LOGFILE"
         jid=$(echo "$out" | parse_jobid)
         [[ -z "$jid" ]] && { log "WARN: could not parse jobid for $cfg"; continue; }

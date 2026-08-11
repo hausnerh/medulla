@@ -38,6 +38,7 @@ OUTPUT="/pnfs/icarus/scratch/users/hhausner/CCSidebandPlots"
 CONFIG="gOre_cc_Xg1p_stage1_datamc"
 TAG="feature/hausnerh_gOre_1g1p"
 GITUSER="hausnerh"
+MCONLY=0
 
 usage() {
     grep '^#' "$0" | sed 's/^#//'
@@ -56,6 +57,7 @@ while [[ $# -gt 0 ]]; do
     --tag)       TAG="$2";          shift 2 ;;
     --gituser=*) GITUSER="${1#*=}"; shift ;;
     --gituser)   GITUSER="$2";      shift 2 ;;
+    --mc-only)   MCONLY=1;          shift ;;
     -h|--help)   usage ;;
     *) echo "Unknown option: $1" >&2; usage ;;
   esac
@@ -86,6 +88,7 @@ cmd=(
     "--tag=$TAG"
     "--gituser=$GITUSER"
 )
+[[ "$MCONLY" -eq 1 ]] && cmd+=("--mc-only")
 
 echo "[INFO] -- Launching spineplot grid job:"
 printf '  %s\n' "${cmd[*]}"

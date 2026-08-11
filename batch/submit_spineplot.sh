@@ -38,6 +38,7 @@ OUTPUT="/pnfs/icarus/scratch/users/hhausner/CCSidebandPlots"
 CONFIG="gOre_cc_Xg1p_stage1_datamc"
 TAG="feature/hausnerh_gOre_1g1p"
 GITUSER="hausnerh"
+MCONLY=0   # --mc-only: force ordinate_sample='mc' (used when there are 0 data events)
 
 usage() {
     grep '^#' "$0" | sed 's/^#//'
@@ -57,6 +58,7 @@ while [[ $# -gt 0 ]]; do
     --tag)       TAG="$2";          shift 2 ;;
     --gituser=*) GITUSER="${1#*=}"; shift ;;
     --gituser)   GITUSER="$2";      shift 2 ;;
+    --mc-only)   MCONLY=1;          shift ;;
     -h|--help)   usage ;;
     --)          shift; break ;;
     *) echo "Unknown option: $1" >&2; usage ;;
@@ -154,6 +156,17 @@ fi
 mkdir -p plots
 CFG_LOCAL="job_${CONFIG}.toml"
 sed -E "s|^path = .*|path = 'plots'|" "$CFG_SRC" > "spineplot/$CFG_LOCAL"
+# --mc-only: force the MC sample to be the ordinate (no data overlay scaling).
+# Used when the data (onbeam) tree has 0 events so the plot would otherwise
+# scale the MC to ~0 and look empty.
+if [[ "$MCONLY" -eq 1 ]]; then
+    sed -i -E "s|^ordinate_sample = .*|ordinate_sample = 'mc'|" "spineplot/$CFG_LOCAL"
+    echo "[submit_spineplot] MC-only: ordinate_sample forced to 'mc'"
+fi
+# Provenance: confirm which code/config this job actually used (settles any
+# 'stale figure vs stale clone' confusion when comparing to the committed cfg).
+echo "[submit_spineplot] medulla HEAD: $(git rev-parse --short HEAD 2>/dev/null)  ${CONFIG} primary_softmax:" \
+     "$(grep -A2 'reco_leading_primary_gOre_primary_softmax\]' "$CFG_SRC" | grep -E 'range|nbins' | tr '\n' ' ')"
 
 # spineplot resolves its `[[this_includes]]` paths relative to CWD, so
 # run from inside spineplot/ (matches run_gOre_1g1p_all.sh).
@@ -177,10 +190,16 @@ fi
 echo "Copying ${#made[@]} figure(s) to $OUTPUT"
 ifdh mkdir_p "$OUTPUT" 2>/dev/null || true
 for f in "${made[@]}"; do
+    dst="$OUTPUT/$(basename "$f")"
     echo "  -> $(basename "$f")"
     # dCache refuses to overwrite; drop any stale figure of the same name first.
-    ifdh rm "$OUTPUT/$(basename "$f")" 2>/dev/null || true
-    ifdh cp "$f" "$OUTPUT/$(basename "$f")"
+    # The delete can lag, so if the copy hits "File exists" retry after a pause
+    # (otherwise the stale figure silently survives and gets retrieved).
+    ifdh rm "$dst" 2>/dev/null || true
+    if ! ifdh cp "$f" "$dst" 2>/dev/null; then
+        sleep 5; ifdh rm "$dst" 2>/dev/null || true; sleep 5
+        ifdh cp "$f" "$dst" || echo "[submit_spineplot] WARN: could not overwrite $dst"
+    fi
 done
 
 echo "Done."
