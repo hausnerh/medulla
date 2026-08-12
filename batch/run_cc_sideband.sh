@@ -311,7 +311,7 @@ submit_plots(){
     fi
     log "Staged sys ROOT to $OUT/output_gOre_1g1p_sys.root"
 
-    local plot_jobs=() cfg out jid pschedd pcluster stg n nd mcflag
+    local plot_jobs=() cfg out jid pschedd pcluster stg n nd mcflag bn
     for cfg in "${CONFIGS[@]}"; do
         stg=$(echo "$cfg" | grep -oE 'stage[0-9]+')
         n=$(tree_entries "$SYS_ROOT" "events/full/selected_cc_Xg1p_$stg")
@@ -323,6 +323,14 @@ submit_plots(){
         nd=$(tree_entries "$SYS_ROOT" "events/onbeam/selected_cc_Xg1p_$stg")
         mcflag=""
         [[ "${nd:-0}" -le 0 ]] 2>/dev/null && mcflag="--mc-only"
+        # Pre-clear stale figures on dCache. The grid job's gfal-copy refuses to
+        # overwrite ("File exists") and its job token cannot delete, so a prior
+        # run's figures freeze in place and get retrieved instead of the new
+        # ones. The orchestrator's ifdh CAN delete (same path the sys ROOT is
+        # staged to), so wipe the per-stage dir here before the job writes.
+        while IFS= read -r bn; do
+            [[ -n "$bn" ]] && SL7RUN "ifdh rm '$OUT/$cfg/$bn'" >/dev/null 2>&1 || true
+        done < <(SL7RUN "ifdh ls '$OUT/$cfg'" 2>/dev/null | grep -E '\.(png|pdf)$' | sed 's#.*/##')
         log "Launching plot job: $cfg ($n MC / ${nd:-0} data events${mcflag:+ -> MC-only}) [native jobsub]"
         out=$(NAT "yes | ./batch/launch_spineplot.sh --input='$OUT/output_gOre_1g1p_sys.root' \
                 --output='$OUT/$cfg' --config='$cfg' --tag='$TAG' --gituser='$GITUSER' $mcflag" 2>&1)
