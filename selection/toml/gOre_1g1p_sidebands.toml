@@ -702,6 +702,8 @@ cut = [
 branch = [
   { name = "cc",                   type = "mctruth" },
   { name = "pdg",                  type = "mctruth" },
+  { name = "neutrino_energy",      type = "mctruth" },
+  { name = "neutrino_id",          type = "true" },
   { name = "cc_sideband_category", type = "mctruth", parameters = [ "@gOre_threshold", "@muon_threshold", "@proton_threshold", "@pion_threshold",
                                                                     "@fiducial_xdist_pos", "@fiducial_xdist_neg", "@fiducial_ydist_pos", "@fiducial_ydist_neg", "@fiducial_zdist_pos", "@fiducial_zdist_neg" ] },
   { name = "category",           type = "true" },
@@ -737,6 +739,8 @@ cut = [
 branch = [
   { name = "cc",                   type = "mctruth" },
   { name = "pdg",                  type = "mctruth" },
+  { name = "neutrino_energy",      type = "mctruth" },
+  { name = "neutrino_id",          type = "true" },
   { name = "cc_sideband_category", type = "mctruth", parameters = [ "@gOre_threshold", "@muon_threshold", "@proton_threshold", "@pion_threshold",
                                                                     "@fiducial_xdist_pos", "@fiducial_xdist_neg", "@fiducial_ydist_pos", "@fiducial_ydist_neg", "@fiducial_zdist_pos", "@fiducial_zdist_neg" ] },
   { name = "category",           type = "true" },
@@ -772,6 +776,8 @@ cut = [
 branch = [
   { name = "cc",                   type = "mctruth" },
   { name = "pdg",                  type = "mctruth" },
+  { name = "neutrino_energy",      type = "mctruth" },
+  { name = "neutrino_id",          type = "true" },
   { name = "cc_sideband_category", type = "mctruth", parameters = [ "@gOre_threshold", "@muon_threshold", "@proton_threshold", "@pion_threshold",
                                                                     "@fiducial_xdist_pos", "@fiducial_xdist_neg", "@fiducial_ydist_pos", "@fiducial_ydist_neg", "@fiducial_zdist_pos", "@fiducial_zdist_neg" ] },
   { name = "category",           type = "true" },
