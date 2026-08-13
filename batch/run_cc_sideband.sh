@@ -68,7 +68,8 @@ STAMP=$(date +%Y%m%d_%H%M%S)
 OUT=/pnfs/icarus/scratch/users/$USERNAME/CCSidebandPlots
 SEL_HADD=$PWD/build/output_gOre_1g1p.root
 SYS_ROOT=$PWD/build/output_gOre_1g1p_sys.root
-CONFIGS=(gOre_cc_Xg1p_stage1_datamc gOre_cc_Xg1p_stage2_datamc gOre_cc_Xg1p_stage3_datamc)
+CONFIGS=(gOre_cc_Xg1p_stage1_datamc gOre_cc_Xg1p_stage2_datamc gOre_cc_Xg1p_stage3_datamc
+         gOre_cc_Xg1p_nm1_gOre_softmax_datamc gOre_cc_Xg1p_nm1_delta_mass_datamc)
 REPO="$PWD"
 #######################################################################
 
@@ -310,6 +311,10 @@ submit_plots(){
         die "failed to stage $SYS_ROOT to $OUT (see $DEBUG_DIR/stage_ifdh.err)"
     fi
     log "Staged sys ROOT to $OUT/output_gOre_1g1p_sys.root"
+    # Np stats probe: does relaxing single_proton -> !no_protons (>=1 proton) at
+    # the pi0-rejection stage buy meaningful statistics? Report both counts so
+    # the Np region is only worth keeping if this number jumps.
+    log "Np probe: cc_Xg1p stage2 1p=$(tree_entries "$SYS_ROOT" "events/full/selected_cc_Xg1p_stage2") vs Np=$(tree_entries "$SYS_ROOT" "events/full/selected_cc_Xg1p_stage2_Np")"
 
     local plot_jobs=() cfg out jid pschedd pcluster stg n nd mcflag bn
     for cfg in "${CONFIGS[@]}"; do

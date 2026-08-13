@@ -228,6 +228,85 @@ destination = 'events/onbeam/'
 name = 'selected_cc_Xg1p_stage3'
 action = 'copy'
 
+# --- CC Xγ + 1p N-1 diagnostic + Np stats-probe trees ---
+# Stat + reweight (multisim/multisigma) band only; not in detsys [variations],
+# so their _variation tree is an empty pass-through (same as the signal tree
+# below) purely to satisfy the trees.cc Branch() dereference noted there.
+[[tree]]
+origin = 'events/cvext/selected_cc_Xg1p_nm1_gOre_softmax'
+destination = 'events/full/'
+name = 'selected_cc_Xg1p_nm1_gOre_softmax'
+action = 'add_weights'
+table_types = ['multisim', 'multisigma', 'variation']
+
+[[tree]]
+origin = 'events/cv/selected_cc_Xg1p_nm1_gOre_softmax'
+destination = 'events/cv/'
+name = 'selected_cc_Xg1p_nm1_gOre_softmax'
+action = 'copy'
+
+[[tree]]
+origin = 'events/offbeam/selected_cc_Xg1p_nm1_gOre_softmax'
+destination = 'events/offbeam/'
+name = 'selected_cc_Xg1p_nm1_gOre_softmax'
+action = 'copy'
+
+[[tree]]
+origin = 'events/onbeam/selected_cc_Xg1p_nm1_gOre_softmax'
+destination = 'events/onbeam/'
+name = 'selected_cc_Xg1p_nm1_gOre_softmax'
+action = 'copy'
+
+[[tree]]
+origin = 'events/cvext/selected_cc_Xg1p_nm1_delta_mass'
+destination = 'events/full/'
+name = 'selected_cc_Xg1p_nm1_delta_mass'
+action = 'add_weights'
+table_types = ['multisim', 'multisigma', 'variation']
+
+[[tree]]
+origin = 'events/cv/selected_cc_Xg1p_nm1_delta_mass'
+destination = 'events/cv/'
+name = 'selected_cc_Xg1p_nm1_delta_mass'
+action = 'copy'
+
+[[tree]]
+origin = 'events/offbeam/selected_cc_Xg1p_nm1_delta_mass'
+destination = 'events/offbeam/'
+name = 'selected_cc_Xg1p_nm1_delta_mass'
+action = 'copy'
+
+[[tree]]
+origin = 'events/onbeam/selected_cc_Xg1p_nm1_delta_mass'
+destination = 'events/onbeam/'
+name = 'selected_cc_Xg1p_nm1_delta_mass'
+action = 'copy'
+
+[[tree]]
+origin = 'events/cvext/selected_cc_Xg1p_stage2_Np'
+destination = 'events/full/'
+name = 'selected_cc_Xg1p_stage2_Np'
+action = 'add_weights'
+table_types = ['multisim', 'multisigma', 'variation']
+
+[[tree]]
+origin = 'events/cv/selected_cc_Xg1p_stage2_Np'
+destination = 'events/cv/'
+name = 'selected_cc_Xg1p_stage2_Np'
+action = 'copy'
+
+[[tree]]
+origin = 'events/offbeam/selected_cc_Xg1p_stage2_Np'
+destination = 'events/offbeam/'
+name = 'selected_cc_Xg1p_stage2_Np'
+action = 'copy'
+
+[[tree]]
+origin = 'events/onbeam/selected_cc_Xg1p_stage2_Np'
+destination = 'events/onbeam/'
+name = 'selected_cc_Xg1p_stage2_Np'
+action = 'copy'
+
 # --- signal tree (true-mode, MC only) ---
 # table_types must include 'variation' even though signal has no varNN
 # entry in [variations]: trees.cc dereferences systrees[name+'_variation']
