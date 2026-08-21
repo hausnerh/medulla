@@ -303,7 +303,7 @@ class SpineSpectra2D(SpineSpectra):
                 y = np.sum(data, axis=0)
                 xerr = np.diff(self._binedges_diagonal[labels[0]]) / 2
                 yerr = np.sqrt(y)
-                draw_error_boxes(ax, x, y, xerr, yerr, facecolor='gray', edgecolor='none', alpha=0.5, hatch='///')
+                draw_error_boxes(ax, x, y, xerr, yerr, clip_bottom=0.0, facecolor='gray', edgecolor='none', alpha=0.5, hatch='///')
 
             if invert_stack_order:
                 h, l = ax.get_legend_handles_labels()

@@ -246,7 +246,7 @@ class SpineSpectra1D(SpineSpectra):
                 xerr = [x / 2 for x in binwidths[0]]
                 scov = Systematic.transform_as(cov, scale if not normalize else np.sum(reduce(data), axis=0))
                 yerr = np.sqrt(np.diag(scov))
-                draw_error_boxes(ax, x, y, xerr, yerr, facecolor='gray', edgecolor='none', alpha=0.5, hatch='///')
+                draw_error_boxes(ax, x, y, xerr, yerr, clip_bottom=0.0, facecolor='gray', edgecolor='none', alpha=0.5, hatch='///')
 
             reduce = lambda x : [x[i] for i in scatter_mask]
             for i, label in enumerate(reduce(labels)):

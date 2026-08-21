@@ -69,7 +69,7 @@ def mark_preliminary(ax, label, vadj=0, hadj=0) -> None:
     usex = xrange[0] + 0.025*(xrange[1] - xrange[0]) + hadj*(xrange[1] - xrange[0])
     ax.text(x=usex, y=usey, s=label, fontsize=14, color='#d67a11')
 
-def draw_error_boxes(ax, x, y, xerr, yerr, **kwargs):
+def draw_error_boxes(ax, x, y, xerr, yerr, clip_bottom=None, **kwargs):
     """
     Adds error boxes to the input axis.
 
@@ -85,6 +85,13 @@ def draw_error_boxes(ax, x, y, xerr, yerr, **kwargs):
         The x-error values of the error boxes.
     yerr : numpy.array
         The y-error values of the error boxes.
+    clip_bottom : float, optional
+        If given, the bottom edge of each box is clamped to be no lower
+        than this value (the top edge is left unchanged). Used to floor
+        the systematic band at 0 on a candidate-count axis, where a
+        symmetric y+/-yerr box would otherwise draw an unphysical
+        negative-count lower edge whenever yerr > y (low statistics).
+        Default None leaves the box symmetric about y.
     kwargs: dict
         Keyword arguments to be passed to the errorbar function.
 
@@ -92,6 +99,12 @@ def draw_error_boxes(ax, x, y, xerr, yerr, **kwargs):
     -------
     None.
     """
-    boxes = [Rectangle((x[i] - xerr[i], y[i] - yerr[i]), 2 * np.abs(xerr[i]), 2 * yerr[i]) for i in range(len(x))]
+    boxes = []
+    for i in range(len(x)):
+        bottom = y[i] - yerr[i]
+        top = y[i] + yerr[i]
+        if clip_bottom is not None:
+            bottom = max(bottom, clip_bottom)
+        boxes.append(Rectangle((x[i] - xerr[i], bottom), 2 * np.abs(xerr[i]), top - bottom))
     pc = PatchCollection(boxes, **kwargs)
     ax.add_collection(pc)
