@@ -34,7 +34,11 @@ plot_kwargs = {'histtype' = 'barstacked', 'stacked' = true}
 name = 'selected_icarus_cc_Xg1p'
 style_sheet = "styles/muon2024.mplstyle"
 markers = ['o', '^', 's', 'P', 'D']
-default_figsize = [6.4,4.8]
+# Wider than the 6.4x4.8 default: the muon2024 sheet sets axes.titlesize=36,
+# and this CC title is the longest ICARUS title, so it overflows a 6.4" canvas
+# and clips on both sides (savefig has no bbox_inches='tight'). 9x6 gives the
+# title comfortable horizontal margin.
+default_figsize = [9.0,6.0]
 title = '$\bf{ICARUS}$ CC $X\gamma + 1p$ Sideband'
 mark_pot = true
 mark_preliminary = '$\bf{ICARUS}$ Work-in-Progress'
