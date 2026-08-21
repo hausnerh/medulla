@@ -318,7 +318,11 @@ submit_plots(){
 
     local plot_jobs=() cfg out jid pschedd pcluster stg n nd mcflag bn
     for cfg in "${CONFIGS[@]}"; do
-        stg=$(echo "$cfg" | grep -oE 'stage[0-9]+')
+        # Tree suffix = config basename minus the 'gOre_cc_Xg1p_' prefix and
+        # '_datamc' suffix. Covers stageN AND the nm1_* diagnostics (which have
+        # no 'stageN' substring — the old grep left $stg empty and looked up the
+        # non-existent 'selected_cc_Xg1p_' tree, silently skipping every N-1 plot).
+        stg=${cfg#gOre_cc_Xg1p_}; stg=${stg%_datamc}
         n=$(tree_entries "$SYS_ROOT" "events/full/selected_cc_Xg1p_$stg")
         if [[ "${n:-0}" -le 0 ]] 2>/dev/null; then
             log "SKIP $cfg: events/full/selected_cc_Xg1p_$stg has ${n:-0} entries — nothing to plot."; continue
