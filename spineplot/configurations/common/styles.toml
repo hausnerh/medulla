@@ -44,6 +44,19 @@ mark_pot = true
 mark_preliminary = '$\bf{ICARUS}$ Work-in-Progress'
 plot_kwargs = {'histtype' = 'barstacked', 'stacked' = true}
 
+# Non-fiducial Xγ+Np "outside-the-box" sideband: same look, a distinct title so
+# the max-stats non-fiducial photon+proton plots are not confused with either
+# the NC signal or the CC sideband.
+[[style]]
+name = 'selected_icarus_nonfid_XgNp'
+style_sheet = "styles/muon2024.mplstyle"
+markers = ['o', '^', 's', 'P', 'D']
+default_figsize = [9.0,6.0]
+title = '$\bf{ICARUS}$ Non-Fiducial $X\gamma + Xp$ Sideband'
+mark_pot = true
+mark_preliminary = '$\bf{ICARUS}$ Work-in-Progress'
+plot_kwargs = {'histtype' = 'barstacked', 'stacked' = true}
+
 [[style]]
 name = 'signal_icarus'
 style_sheet = "styles/muon2024.mplstyle"

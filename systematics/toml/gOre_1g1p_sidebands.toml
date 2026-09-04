@@ -307,6 +307,85 @@ destination = 'events/onbeam/'
 name = 'selected_cc_Xg1p_stage2_Np'
 action = 'copy'
 
+# --- non-fiducial Xγ + Np "outside-the-box" sideband, stages 1/2/3 ---
+# stage1 is the largest region in the file; run_systematics may OOM here on a
+# standard gpvm. If so, run Stage 3 on a high-memory node or switch the stage1
+# events/full block below from add_weights to action='copy' (stat-only).
+[[tree]]
+origin = 'events/cvext/selected_nonfid_XgNp_stage1'
+destination = 'events/full/'
+name = 'selected_nonfid_XgNp_stage1'
+action = 'add_weights'
+table_types = ['multisim', 'multisigma', 'variation']
+
+[[tree]]
+origin = 'events/cv/selected_nonfid_XgNp_stage1'
+destination = 'events/cv/'
+name = 'selected_nonfid_XgNp_stage1'
+action = 'copy'
+
+[[tree]]
+origin = 'events/offbeam/selected_nonfid_XgNp_stage1'
+destination = 'events/offbeam/'
+name = 'selected_nonfid_XgNp_stage1'
+action = 'copy'
+
+[[tree]]
+origin = 'events/onbeam/selected_nonfid_XgNp_stage1'
+destination = 'events/onbeam/'
+name = 'selected_nonfid_XgNp_stage1'
+action = 'copy'
+
+[[tree]]
+origin = 'events/cvext/selected_nonfid_XgNp_stage2'
+destination = 'events/full/'
+name = 'selected_nonfid_XgNp_stage2'
+action = 'add_weights'
+table_types = ['multisim', 'multisigma', 'variation']
+
+[[tree]]
+origin = 'events/cv/selected_nonfid_XgNp_stage2'
+destination = 'events/cv/'
+name = 'selected_nonfid_XgNp_stage2'
+action = 'copy'
+
+[[tree]]
+origin = 'events/offbeam/selected_nonfid_XgNp_stage2'
+destination = 'events/offbeam/'
+name = 'selected_nonfid_XgNp_stage2'
+action = 'copy'
+
+[[tree]]
+origin = 'events/onbeam/selected_nonfid_XgNp_stage2'
+destination = 'events/onbeam/'
+name = 'selected_nonfid_XgNp_stage2'
+action = 'copy'
+
+[[tree]]
+origin = 'events/cvext/selected_nonfid_XgNp_stage3'
+destination = 'events/full/'
+name = 'selected_nonfid_XgNp_stage3'
+action = 'add_weights'
+table_types = ['multisim', 'multisigma', 'variation']
+
+[[tree]]
+origin = 'events/cv/selected_nonfid_XgNp_stage3'
+destination = 'events/cv/'
+name = 'selected_nonfid_XgNp_stage3'
+action = 'copy'
+
+[[tree]]
+origin = 'events/offbeam/selected_nonfid_XgNp_stage3'
+destination = 'events/offbeam/'
+name = 'selected_nonfid_XgNp_stage3'
+action = 'copy'
+
+[[tree]]
+origin = 'events/onbeam/selected_nonfid_XgNp_stage3'
+destination = 'events/onbeam/'
+name = 'selected_nonfid_XgNp_stage3'
+action = 'copy'
+
 # --- signal tree (true-mode, MC only) ---
 # table_types must include 'variation' even though signal has no varNN
 # entry in [variations]: trees.cc dereferences systrees[name+'_variation']

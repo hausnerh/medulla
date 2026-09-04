@@ -69,7 +69,8 @@ OUT=/pnfs/icarus/scratch/users/$USERNAME/CCSidebandPlots
 SEL_HADD=$PWD/build/output_gOre_1g1p.root
 SYS_ROOT=$PWD/build/output_gOre_1g1p_sys.root
 CONFIGS=(gOre_cc_Xg1p_stage1_datamc gOre_cc_Xg1p_stage2_datamc gOre_cc_Xg1p_stage3_datamc
-         gOre_cc_Xg1p_nm1_gOre_softmax_datamc gOre_cc_Xg1p_nm1_delta_mass_datamc)
+         gOre_cc_Xg1p_nm1_gOre_softmax_datamc gOre_cc_Xg1p_nm1_delta_mass_datamc
+         gOre_nonfid_XgNp_stage1_datamc gOre_nonfid_XgNp_stage2_datamc gOre_nonfid_XgNp_stage3_datamc)
 REPO="$PWD"
 #######################################################################
 
@@ -316,20 +317,21 @@ submit_plots(){
     # the Np region is only worth keeping if this number jumps.
     log "Np probe: cc_Xg1p stage2 1p=$(tree_entries "$SYS_ROOT" "events/full/selected_cc_Xg1p_stage2") vs Np=$(tree_entries "$SYS_ROOT" "events/full/selected_cc_Xg1p_stage2_Np")"
 
-    local plot_jobs=() cfg out jid pschedd pcluster stg n nd mcflag bn
+    local plot_jobs=() cfg out jid pschedd pcluster tree n nd mcflag bn
     for cfg in "${CONFIGS[@]}"; do
-        # Tree suffix = config basename minus the 'gOre_cc_Xg1p_' prefix and
-        # '_datamc' suffix. Covers stageN AND the nm1_* diagnostics (which have
-        # no 'stageN' substring — the old grep left $stg empty and looked up the
-        # non-existent 'selected_cc_Xg1p_' tree, silently skipping every N-1 plot).
-        stg=${cfg#gOre_cc_Xg1p_}; stg=${stg%_datamc}
-        n=$(tree_entries "$SYS_ROOT" "events/full/selected_cc_Xg1p_$stg")
+        # Tree name = 'selected_' + config basename minus the 'gOre_' prefix and
+        # '_datamc' suffix. Derives from the FULL basename so it covers cc_Xg1p
+        # stageN, the nm1_* diagnostics, AND the nonfid_XgNp_* stages alike — the
+        # old 'cc_Xg1p_stageN' assumption looked up a non-existent tree for the
+        # others and silently skipped them.
+        tree=${cfg#gOre_}; tree=selected_${tree%_datamc}
+        n=$(tree_entries "$SYS_ROOT" "events/full/$tree")
         if [[ "${n:-0}" -le 0 ]] 2>/dev/null; then
-            log "SKIP $cfg: events/full/selected_cc_Xg1p_$stg has ${n:-0} entries — nothing to plot."; continue
+            log "SKIP $cfg: events/full/$tree has ${n:-0} entries — nothing to plot."; continue
         fi
         # Auto MC-only: if the data (onbeam) tree for this stage has 0 events,
         # the data/MC overlay would scale MC to ~0, so plot MC at native POT.
-        nd=$(tree_entries "$SYS_ROOT" "events/onbeam/selected_cc_Xg1p_$stg")
+        nd=$(tree_entries "$SYS_ROOT" "events/onbeam/$tree")
         mcflag=""
         [[ "${nd:-0}" -le 0 ]] 2>/dev/null && mcflag="--mc-only"
         # Pre-clear stale figures on dCache. The grid job's gfal-copy refuses to
