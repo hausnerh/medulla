@@ -292,12 +292,28 @@ gather_and_merge(){
 
 do_systematics(){
     log "=== Stage 3: systematics [SL7] ==="
-    SL7RUN "cd build && ./systematics/run_systematics '../$SYS_TOML'" 2>&1 | tail -15 | tee -a "$LOGFILE" \
-        || die "run_systematics failed"
+    mkdir -p "$DEBUG_DIR"
+    local syslog="$DEBUG_DIR/run_systematics_$STAMP.log" rc
+    # Capture the REAL run_systematics exit via PIPESTATUS[0]. The old
+    # `... | tail -15 | tee || die` only saw tee's status, so an OOM/crash
+    # slipped through and later surfaced as a confusing "stage3 tree missing".
+    # Keep the FULL output in $syslog (tail -15 is far too little to diagnose a
+    # multi-hour run); still show the last 15 lines live.
+    SL7RUN "cd build && ./systematics/run_systematics '../$SYS_TOML'" 2>&1 | tee "$syslog" | tail -15 | tee -a "$LOGFILE"
+    rc=${PIPESTATUS[0]}
+    [[ "$rc" -eq 0 ]] || { log "run_systematics FAILED (exit $rc). Full log: $syslog"; die "run_systematics failed"; }
+    log "run_systematics finished OK (full log: $syslog)"
     [[ -s "$SYS_ROOT" ]] || die "run_systematics produced no $SYS_ROOT"
+    # sys_stage_report is a best-effort probe (a temp-macro root call that can
+    # false-negative on a large, freshly-written sys ROOT — which once aborted a
+    # good 4h run). Do NOT die on it: Stage 4 checks each tree individually and
+    # skips only what is genuinely missing.
     local chk; chk=$(sys_stage_report "$SYS_ROOT")
-    log "sys ROOT CC event trees (events/full): ${chk:-unknown}"
-    echo "$chk" | grep -q 's3=1' || die "stage3 tree not in events/full of $SYS_ROOT"
+    if echo "$chk" | grep -q 's3=1'; then
+        log "sys ROOT CC event trees (events/full): $chk"
+    else
+        log "WARN: sys_stage_report could not confirm stage trees (${chk:-unknown}); this probe is flaky on large sys ROOTs, the file may be fine. Stage 4 per-config checks decide — continuing."
+    fi
 }
 
 submit_plots(){
