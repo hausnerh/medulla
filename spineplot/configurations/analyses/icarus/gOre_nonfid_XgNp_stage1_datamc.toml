@@ -58,6 +58,23 @@ true_cc_sideband_category = "0*reco_gOre_topology + 10"
 reco_delta_mass_P_dev     = "abs(reco_delta_mass_P - 1232)"
 n_selected_flag           = "0*reco_gOre_topology + 1"
 
+# Off-beam (beam-off data) = the cosmic prediction. This non-fiducial region is
+# cosmic-dominated in data (~2788 onbeam events) while the neutrino MC has ~0
+# cosmics, so MC-only under-predicts data ~4x. Off-beam supplies the cosmics,
+# scaled by LIVETIME (not POT) to the onbeam gate, and is forced into the
+# Cosmic/Non-ν category slot (9) — MC's own cat-9 is ~empty here, so no
+# double-count. Only needed at stage1 (cosmics do not survive pi0_rejection at
+# stage2/3, which are MC-only anyway).
+[samples.offbeam]
+key = 'offbeam'
+exposure_type = 'livetime'
+trees = ['selected_nonfid_XgNp_stage1']
+
+[samples.offbeam.precompute]
+true_cc_sideband_category = "0*reco_gOre_topology + 9"
+reco_delta_mass_P_dev     = "abs(reco_delta_mass_P - 1232)"
+n_selected_flag           = "0*reco_gOre_topology + 1"
+
 [[systematic_recipe]]
 name = 'total'
 label = 'Total syst.'

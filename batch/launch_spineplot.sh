@@ -6,10 +6,11 @@
 # utilities.launch_jobsub, but for plotting: there is exactly one job,
 # so no project.db / jobs table is needed.
 #
-# The cc_Xg1p_stage1 sideband needs ~11 GB RAM (see
-# submit_spineplot.sh), hence --memory=16000MB and DEDICATED/
-# OPPORTUNISTIC only (OFFSITE dropped: 16 GB is hard to match offsite
-# and the runtime pip install wants reliable egress).
+# The big samples (cc_Xg1p_stage1, and especially nonfid_XgNp_stage1
+# with ~50k MC events + an off-beam sample) can exceed 16 GB, so
+# --memory=32000MB and DEDICATED/OPPORTUNISTIC only (OFFSITE dropped:
+# high-memory is hard to match offsite and the runtime pip install
+# wants reliable egress). Single-job landing is slower at 32 GB but fine.
 #
 # Prerequisites:
 #   1. A valid token:   htgettoken -a htvaultprod.fnal.gov -i icarus
@@ -74,7 +75,7 @@ cmd=(
     jobsub_submit
     -G "$EXP"
     -N 1
-    --memory=16000MB
+    --memory=32000MB
     --disk=25GB
     --expected-lifetime=2h
     --resource-provides=usage_model=DEDICATED,OPPORTUNISTIC
