@@ -76,6 +76,23 @@ true_cc_sideband_category = "0*reco_gOre_topology + 10"
 reco_delta_mass_P_dev     = "abs(reco_delta_mass_P - 1232)"
 n_selected_flag           = "0*reco_gOre_topology + 1"
 
+# Off-beam (beam-off data) = the data-driven cosmic prediction, included at
+# EVERY stage so the cosmic background is always accounted for (even where we
+# expect ~0 to survive the cuts). Scaled by LIVETIME via Sample.set_weight: in
+# data/MC mode to the on-beam gate, in MC-only mode to the MC equivalent
+# livetime (coherent with the native-POT neutrino shape). Forced into the
+# Cosmic/Non-nu slot (category 9); MC's own cat-9 is ~empty in these regions so
+# there is no double-count.
+[samples.offbeam]
+key = 'offbeam'
+exposure_type = 'livetime'
+trees = ['selected_cc_Xg1p_stage1']
+
+[samples.offbeam.precompute]
+true_cc_sideband_category = "0*reco_gOre_topology + 9"
+reco_delta_mass_P_dev     = "abs(reco_delta_mass_P - 1232)"
+n_selected_flag           = "0*reco_gOre_topology + 1"
+
 [[systematic_recipe]]
 name = 'total'
 label = 'Total syst.'
