@@ -7,10 +7,15 @@
 # so no project.db / jobs table is needed.
 #
 # The big samples (cc_Xg1p_stage1, and especially nonfid_XgNp_stage1
-# with ~50k MC events + an off-beam sample) can exceed 16 GB, so
-# --memory=32000MB and DEDICATED/OPPORTUNISTIC only (OFFSITE dropped:
-# high-memory is hard to match offsite and the runtime pip install
-# wants reliable egress). Single-job landing is slower at 32 GB but fine.
+# with ~50k MC events + an off-beam sample) are both memory- and
+# time-hungry: the develop-line Systematic.process path builds nuniv=1000
+# universe matrices and runs np.apply_along_axis per knob over every event.
+# At 32 GB / 2h the nonfid_XgNp stages kept getting HELD for both memory and
+# runtime, so the defaults are now --memory=64000MB and --expected-lifetime=8h
+# (DEDICATED/OPPORTUNISTIC only; OFFSITE dropped: high-memory is hard to match
+# offsite and the runtime pip install wants reliable egress). A 64 GB / 8h slot
+# is slower to match and land, but that beats a hold/release loop. If a job
+# sits Idle too long, drop --memory to ~48000MB.
 #
 # Prerequisites:
 #   1. A valid token:   htgettoken -a htvaultprod.fnal.gov -i icarus
@@ -75,9 +80,9 @@ cmd=(
     jobsub_submit
     -G "$EXP"
     -N 1
-    --memory=32000MB
+    --memory=64000MB
     --disk=25GB
-    --expected-lifetime=2h
+    --expected-lifetime=8h
     --resource-provides=usage_model=DEDICATED,OPPORTUNISTIC
     "--append_condor_requirements='(TARGET.HAS_Singularity==true)'"
     --singularity-image=/cvmfs/singularity.opensciencegrid.org/fermilab/fnal-wn-sl7:latest

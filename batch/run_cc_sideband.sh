@@ -44,8 +44,15 @@ MEMORY_MB=4000                              # selection job memory
 DISK_GB=2000                                # selection job disk (GB); 2 TB is very
                                             #  large — lower if jobs stay Idle.
 LIFETIME=8h                                 # selection job lifetime
-HELD_MEMORY_MB=8000                         # bumped resources when RELEASING a held job
+HELD_MEMORY_MB=8000                         # bumped resources when RELEASING a held selection job
 HELD_DISK_GB=2000
+# Plot jobs are a different beast from selection jobs: they need lots of memory
+# (nonfid_XgNp_stage1 systematics) but little disk. The shared release path must
+# NOT downgrade a held plot job to the selection values above (8 GB / 2 TB) —
+# that guarantees an immediate re-hold. Release held PLOT jobs with these instead.
+PLOT_HELD_MEMORY_MB=80000                   # > the 64 GB launch default, for a memory-hold
+PLOT_HELD_DISK_GB=25                        # plot jobs don't want the selection 2 TB
+PLOT_HELD_RUNTIME_S=28800                   # best-effort wall-time bump (8h) for a time-hold
 POLL=300                                    # seconds between queue polls
 CRED_WAIT_MAX=14400                         # seconds to wait for creds to return (4h)
 
@@ -202,6 +209,12 @@ fetch_logs(){ # cluster schedd label
 # ---- monitor (native jobsub) -----------------------------------------
 monitor_cluster(){ # cluster schedd label
     local cluster="$1" schedd="$2" label="$3" q active held jid stable=0
+    # Held-release resources differ by job type. Plot jobs must not be released
+    # with the selection values (8 GB / 2 TB) or they re-hold instantly.
+    local rel_mem=$HELD_MEMORY_MB rel_disk=$HELD_DISK_GB rel_runtime=""
+    if [[ "$label" == plot:* ]]; then
+        rel_mem=$PLOT_HELD_MEMORY_MB; rel_disk=$PLOT_HELD_DISK_GB; rel_runtime=$PLOT_HELD_RUNTIME_S
+    fi
     log "$label: monitoring cluster $cluster@$schedd (poll ${POLL}s)"
     while true; do
         if ! check_creds; then wait_for_creds || { log "$label: giving up (no creds)"; return 1; }; fi
@@ -217,9 +230,17 @@ monitor_cluster(){ # cluster schedd label
         held=$(printf '%s\n' "$q" | awk -v c="$cluster" '$1 ~ (c "\\.[0-9]+@") && $5=="H"{print $1}')
         if [[ -n "$held" ]]; then
             for jid in $held; do
-                log "$label: releasing held $jid (mem=${HELD_MEMORY_MB}MB disk=${HELD_DISK_GB}GB)"
-                NAT "condor_qedit -name '$schedd' '${jid%@*}' RequestMemory $HELD_MEMORY_MB" >/dev/null 2>&1 || true
-                NAT "condor_qedit -name '$schedd' '${jid%@*}' RequestDisk $((HELD_DISK_GB*1024*1024))" >/dev/null 2>&1 || true
+                log "$label: releasing held $jid (mem=${rel_mem}MB disk=${rel_disk}GB${rel_runtime:+ runtime=${rel_runtime}s})"
+                NAT "condor_qedit -name '$schedd' '${jid%@*}' RequestMemory $rel_mem" >/dev/null 2>&1 || true
+                NAT "condor_qedit -name '$schedd' '${jid%@*}' RequestDisk $((rel_disk*1024*1024))" >/dev/null 2>&1 || true
+                # Best-effort wall-time bump for a time-hold: jobsub_lite's
+                # --expected-lifetime has no single canonical editable attr, so set
+                # the common ones; harmless if the pool ignores them. The real
+                # safeguard against time-holds is the high launch --expected-lifetime.
+                if [[ -n "$rel_runtime" ]]; then
+                    NAT "condor_qedit -name '$schedd' '${jid%@*}' MaxRuntime $rel_runtime" >/dev/null 2>&1 || true
+                    NAT "condor_qedit -name '$schedd' '${jid%@*}' JOB_EXPECTED_MAX_LIFETIME $rel_runtime" >/dev/null 2>&1 || true
+                fi
                 NAT "jobsub_release -G $EXPERIMENT --jobid '$jid'" >/dev/null 2>&1 || true
             done
         fi
