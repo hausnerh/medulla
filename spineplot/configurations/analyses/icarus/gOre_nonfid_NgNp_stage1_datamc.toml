@@ -1,17 +1,20 @@
-# Non-fiducial Xg + Np N-1 (cut-minus-one) diagnostic: gamma primary_softmax (softmax test disabled).
-# High-statistics non-fiducial preselection (!fiducial + >=1 photon + >=1
-# proton) + pi0_rejection with ONE sub-cut neutralised, so the freed variable
-# spans both sides of its threshold with far more events than the full-chain
-# nonfid stage2/3 (which collapse to <1 expected event in the 10% box). Stacked
-# by true_cc_sideband_category + off-beam cosmics (cat 9), so you see cosmic vs
-# neutrino on each side of the cut. e/gamma separation not applied (pi0-stage
-# N-1). yrange float (1.4) => auto-scale to 1.4x the tallest bin.
+# Non-fiducial Xγ + Np "outside-the-box" sideband, stage 1 (preselection (!fiducial + >=1 photon + >=1 proton)).
+# Max-statistics photon-ID cross-check in the region disjoint from the signal
+# box (!fiducial_cut): >=1 photon, >=1 proton, no muon/lepton/pion requirement,
+# no containment/flash, cosmics (cat 9) included. Shower-ID cuts run on the SAME
+# shared @-params as the signal + CC sideband. Truth breakdown reuses
+# true_cc_sideband_category (NC->8, cosmic->9) for a first look.
+#
+# yrange is a float (1.4) => auto-scale to 1.4x the tallest bin, so the plot
+# fits the (large, a priori unknown) non-fiducial statistics. ordinate_sample =
+# 'onbeam'; the orchestrator auto-switches to MC-only only if the onbeam tree
+# has 0 events (this loose region may well have data, giving a real data/MC).
 
 [[this_includes]]
 file = 'configurations/common/styles.toml'
 
 [output]
-path = '/exp/icarus/app/users/hhausner/plots/gOre_nonfid_XgNp/nm1_gOre_softmax'
+path = '/exp/icarus/app/users/hhausner/plots/gOre_nonfid_NgNp/stage1'
 
 [analysis]
 ordinate_sample = 'onbeam'
@@ -36,8 +39,8 @@ category_types  = ['histogram', 'histogram', 'histogram', 'histogram', 'histogra
 [samples.mc]
 key = 'full'
 exposure_type = 'pot'
-trees = ['selected_nonfid_XgNp_nm1_gOre_softmax']
-systematics = ['selected_nonfid_XgNp_nm1_gOre_softmax_multisimTree', 'selected_nonfid_XgNp_nm1_gOre_softmax_multisigmaTree', 'selected_nonfid_XgNp_nm1_gOre_softmax_variationTree']
+trees = ['selected_nonfid_NgNp_stage1']
+systematics = ['selected_nonfid_NgNp_stage1_multisimTree', 'selected_nonfid_NgNp_stage1_multisigmaTree', 'selected_nonfid_NgNp_stage1_variationTree']
 print_sys = true
 fillna = 9
 
@@ -48,24 +51,24 @@ n_selected_flag       = "0*reco_gOre_topology + 1"
 [samples.onbeam]
 key = 'onbeam'
 exposure_type = 'pot'
-trees = ['selected_nonfid_XgNp_nm1_gOre_softmax']
+trees = ['selected_nonfid_NgNp_stage1']
 
 [samples.onbeam.precompute]
 true_cc_sideband_category = "0*reco_gOre_topology + 10"
 reco_delta_mass_P_dev     = "abs(reco_delta_mass_P - 1232)"
 n_selected_flag           = "0*reco_gOre_topology + 1"
 
-# Off-beam (beam-off data) = the data-driven cosmic prediction, included at
-# EVERY stage so the cosmic background is always accounted for (even where we
-# expect ~0 to survive the cuts). Scaled by LIVETIME via Sample.set_weight: in
-# data/MC mode to the on-beam gate, in MC-only mode to the MC equivalent
-# livetime (coherent with the native-POT neutrino shape). Forced into the
-# Cosmic/Non-nu slot (category 9); MC's own cat-9 is ~empty in these regions so
-# there is no double-count.
+# Off-beam (beam-off data) = the cosmic prediction. This non-fiducial region is
+# cosmic-dominated in data (~2788 onbeam events) while the neutrino MC has ~0
+# cosmics, so MC-only under-predicts data ~4x. Off-beam supplies the cosmics,
+# scaled by LIVETIME (not POT) to the onbeam gate, and is forced into the
+# Cosmic/Non-ν category slot (9) — MC's own cat-9 is ~empty here, so no
+# double-count. Only needed at stage1 (cosmics do not survive pi0_rejection at
+# stage2/3, which are MC-only anyway).
 [samples.offbeam]
 key = 'offbeam'
 exposure_type = 'livetime'
-trees = ['selected_nonfid_XgNp_nm1_gOre_softmax']
+trees = ['selected_nonfid_NgNp_stage1']
 
 [samples.offbeam.precompute]
 true_cc_sideband_category = "0*reco_gOre_topology + 9"
@@ -76,12 +79,6 @@ n_selected_flag           = "0*reco_gOre_topology + 1"
 name = 'total'
 label = 'Total syst.'
 pattern = '.*'
-
-[variables.reco_leading_primary_gOre_primary_softmax]
-key = 'reco_leading_primary_gOre_primary_softmax'
-range = [0.99, 1.0]
-nbins = 10
-xlabel = 'Shower Primary Softmax'
 
 [variables.reco_leading_primary_gOre_shower_ke]
 key = 'reco_leading_primary_gOre_shower_ke'
@@ -101,6 +98,24 @@ range = [0.0, 1.0]
 nbins = 50
 xlabel = 'Shower Photon Softmax'
 
+[variables.reco_leading_primary_gOre_primary_softmax]
+key = 'reco_leading_primary_gOre_primary_softmax'
+range = [0.99, 1.0]
+nbins = 10
+xlabel = 'Shower Primary Softmax'
+
+[variables.reco_leading_primary_gOre_directional_spread]
+key = 'reco_leading_primary_gOre_directional_spread'
+range = [0.0, 1.0]
+nbins = 50
+xlabel = 'Shower Directional Spread'
+
+[variables.reco_leading_primary_gOre_axial_spread]
+key = 'reco_leading_primary_gOre_axial_spread'
+range = [-0.5, 1.0]
+nbins = 50
+xlabel = 'Shower Axial Spread'
+
 [variables.reco_delta_mass_P]
 key = 'reco_delta_mass_P'
 range = [950.0, 1600.0]
@@ -119,44 +134,68 @@ range = [0.0, 1.0]
 nbins = 50
 xlabel = 'Leading Proton Primary Softmax'
 
-[[figure]]
-name = 'reco_leading_primary_gOre_primary_softmax'
-type = 'SimpleFigure'
-style = 'selected_icarus_nonfid_XgNp'
-artists = [{type = 'SpineSpectra1D', yrange = 1.4, variable = 'reco_leading_primary_gOre_primary_softmax', draw_kwargs = {draw_error = 'total'}}]
+[variables.reco_leading_primary_proton_ke]
+key = 'reco_leading_primary_proton_ke'
+range = [0.0, 1000.0]
+nbins = 50
+xlabel = 'Proton KE [MeV]'
 
 [[figure]]
 name = 'reco_leading_primary_gOre_shower_ke'
 type = 'SimpleFigure'
-style = 'selected_icarus_nonfid_XgNp'
+style = 'selected_icarus_nonfid_NgNp'
 artists = [{type = 'SpineSpectra1D', yrange = 1.4, variable = 'reco_leading_primary_gOre_shower_ke', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_leading_primary_gOre_start_dedx'
 type = 'SimpleFigure'
-style = 'selected_icarus_nonfid_XgNp'
+style = 'selected_icarus_nonfid_NgNp'
 artists = [{type = 'SpineSpectra1D', yrange = 1.4, variable = 'reco_leading_primary_gOre_start_dedx', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_leading_primary_gOre_photon_softmax'
 type = 'SimpleFigure'
-style = 'selected_icarus_nonfid_XgNp'
+style = 'selected_icarus_nonfid_NgNp'
 artists = [{type = 'SpineSpectra1D', yrange = 1.4, variable = 'reco_leading_primary_gOre_photon_softmax', draw_kwargs = {draw_error = 'total'}}]
+
+[[figure]]
+name = 'reco_leading_primary_gOre_primary_softmax'
+type = 'SimpleFigure'
+style = 'selected_icarus_nonfid_NgNp'
+artists = [{type = 'SpineSpectra1D', yrange = 1.4, variable = 'reco_leading_primary_gOre_primary_softmax', draw_kwargs = {draw_error = 'total'}}]
+
+[[figure]]
+name = 'reco_leading_primary_gOre_directional_spread'
+type = 'SimpleFigure'
+style = 'selected_icarus_nonfid_NgNp'
+artists = [{type = 'SpineSpectra1D', yrange = 1.4, variable = 'reco_leading_primary_gOre_directional_spread', draw_kwargs = {draw_error = 'total'}}]
+
+[[figure]]
+name = 'reco_leading_primary_gOre_axial_spread'
+type = 'SimpleFigure'
+style = 'selected_icarus_nonfid_NgNp'
+artists = [{type = 'SpineSpectra1D', yrange = 1.4, variable = 'reco_leading_primary_gOre_axial_spread', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_delta_mass_P'
 type = 'SimpleFigure'
-style = 'selected_icarus_nonfid_XgNp'
+style = 'selected_icarus_nonfid_NgNp'
 artists = [{type = 'SpineSpectra1D', yrange = 1.4, variable = 'reco_delta_mass_P', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_delta_mass_P_dev'
 type = 'SimpleFigure'
-style = 'selected_icarus_nonfid_XgNp'
+style = 'selected_icarus_nonfid_NgNp'
 artists = [{type = 'SpineSpectra1D', yrange = 1.4, variable = 'reco_delta_mass_P_dev', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_leading_primary_proton_primary_softmax'
 type = 'SimpleFigure'
-style = 'selected_icarus_nonfid_XgNp'
+style = 'selected_icarus_nonfid_NgNp'
 artists = [{type = 'SpineSpectra1D', yrange = 1.4, variable = 'reco_leading_primary_proton_primary_softmax', draw_kwargs = {draw_error = 'total'}}]
+
+[[figure]]
+name = 'reco_leading_primary_proton_ke'
+type = 'SimpleFigure'
+style = 'selected_icarus_nonfid_NgNp'
+artists = [{type = 'SpineSpectra1D', yrange = 1.4, variable = 'reco_leading_primary_proton_ke', draw_kwargs = {draw_error = 'total'}}]

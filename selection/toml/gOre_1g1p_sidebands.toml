@@ -28,6 +28,13 @@ flash_pe_neutron_scaling = 0.019
 angle_neutron_scaling    = 1.31
 # pi0 rejection thresholds
 gOre_primary_softmax_min   = 0.999100
+# Sideband-only photon primary-softmax threshold. The nominal 0.9991 cut is so
+# tight it leaves ~0 DATA (onbeam) events in the pi0-rejection sideband stages
+# (10% box), so there is nothing to compare MC against. Loosen it to 0.999 for
+# the SIDEBAND pi0_rejection cuts only (cc_Xg1p + nonfid_NgNp), keeping ~40
+# stage-1 events so the shower photon-ID can be validated with data. The SIGNAL
+# selection (selected_1g1p_stage2/3) still uses gOre_primary_softmax_min above.
+gOre_primary_softmax_sideband = 0.999000
 proton_primary_softmax_min = 0.951300
 delta_mass_center          = 1232.0
 delta_mass_halfwidth       = 59.700000
@@ -562,7 +569,7 @@ cut = [
   { name = "flash_cut",       type = "reco", parameters = [ "@flash_low_t", "@flash_high_t" ] },
   { name = "cc_Xg_topology",  type = "reco", parameters = [ "@gOre_threshold", "@muon_threshold", "@pion_threshold" ] },
   { name = "single_proton",   type = "reco", parameters = [ "@proton_threshold" ] },
-  { name = "pi0_rejection",   type = "reco", parameters = [ "@gOre_primary_softmax_min", "@proton_primary_softmax_min", "@delta_mass_center", "@delta_mass_halfwidth", "@sideband_allow_leptons" ] },
+  { name = "pi0_rejection",   type = "reco", parameters = [ "@gOre_primary_softmax_sideband", "@proton_primary_softmax_min", "@delta_mass_center", "@delta_mass_halfwidth", "@sideband_allow_leptons" ] },
 ]
 branch = [
   { name = "cc",               type = "mctruth" },
@@ -624,7 +631,7 @@ cut = [
   { name = "flash_cut",          type = "reco", parameters = [ "@flash_low_t", "@flash_high_t" ] },
   { name = "cc_Xg_topology",     type = "reco", parameters = [ "@gOre_threshold", "@muon_threshold", "@pion_threshold" ] },
   { name = "single_proton",      type = "reco", parameters = [ "@proton_threshold" ] },
-  { name = "pi0_rejection",      type = "reco", parameters = [ "@gOre_primary_softmax_min", "@proton_primary_softmax_min", "@delta_mass_center", "@delta_mass_halfwidth", "@sideband_allow_leptons" ] },
+  { name = "pi0_rejection",      type = "reco", parameters = [ "@gOre_primary_softmax_sideband", "@proton_primary_softmax_min", "@delta_mass_center", "@delta_mass_halfwidth", "@sideband_allow_leptons" ] },
   { name = "egamma_separation",  type = "reco", parameters = [ "@start_dedx_min", "@axial_spread_min", "@directional_spread_max", "@photon_softmax_min", "@sideband_allow_leptons" ] },
 ]
 branch = [
@@ -734,7 +741,7 @@ cut = [
   { name = "flash_cut",       type = "reco", parameters = [ "@flash_low_t", "@flash_high_t" ] },
   { name = "cc_Xg_topology",  type = "reco", parameters = [ "@gOre_threshold", "@muon_threshold", "@pion_threshold" ] },
   { name = "single_proton",   type = "reco", parameters = [ "@proton_threshold" ] },
-  { name = "pi0_rejection",   type = "reco", parameters = [ "@gOre_primary_softmax_min", "@proton_primary_softmax_min", "@delta_mass_center", "@delta_mass_halfwidth_off", "@sideband_allow_leptons" ] },
+  { name = "pi0_rejection",   type = "reco", parameters = [ "@gOre_primary_softmax_sideband", "@proton_primary_softmax_min", "@delta_mass_center", "@delta_mass_halfwidth_off", "@sideband_allow_leptons" ] },
 ]
 branch = [
   { name = "cc",                   type = "mctruth" },
@@ -771,7 +778,7 @@ cut = [
   { name = "flash_cut",       type = "reco", parameters = [ "@flash_low_t", "@flash_high_t" ] },
   { name = "cc_Xg_topology",  type = "reco", parameters = [ "@gOre_threshold", "@muon_threshold", "@pion_threshold" ] },
   { name = "!no_protons",     type = "reco", parameters = [ "@proton_threshold" ] },
-  { name = "pi0_rejection",   type = "reco", parameters = [ "@gOre_primary_softmax_min", "@proton_primary_softmax_min", "@delta_mass_center", "@delta_mass_halfwidth", "@sideband_allow_leptons" ] },
+  { name = "pi0_rejection",   type = "reco", parameters = [ "@gOre_primary_softmax_sideband", "@proton_primary_softmax_min", "@delta_mass_center", "@delta_mass_halfwidth", "@sideband_allow_leptons" ] },
 ]
 branch = [
   { name = "cc",                   type = "mctruth" },
@@ -812,10 +819,10 @@ branch = [
 # MEMORY: stage1 is the largest region in this file by far. Stage-3
 # run_systematics builds nuniv=1000 multisim matrices over the full sample and
 # may OOM on a standard gpvm here. If it does: run Stage 3 on a high-memory node,
-# or drop selected_nonfid_XgNp_stage1 to a copy-only (stat-only) sys block.
+# or drop selected_nonfid_NgNp_stage1 to a copy-only (stat-only) sys block.
 # -----------------------------------------------------------------------------
 [[tree]] # non-fiducial stage1: !fiducial + >=1 photon + >=1 proton (max stats)
-name = "selected_nonfid_XgNp_stage1"
+name = "selected_nonfid_NgNp_stage1"
 sim_only = false
 add_systematics = true
 add_exposure = true
@@ -849,7 +856,7 @@ branch = [
 ]
 
 [[tree]] # non-fiducial stage2: stage1 + pi0_rejection (shared params)
-name = "selected_nonfid_XgNp_stage2"
+name = "selected_nonfid_NgNp_stage2"
 sim_only = false
 add_systematics = true
 add_exposure = true
@@ -858,7 +865,7 @@ cut = [
   { name = "!fiducial_cut",      type = "reco" },
   { name = "at_least_one_photon", type = "reco", parameters = [ "@gOre_threshold" ] },
   { name = "!no_protons",        type = "reco", parameters = [ "@proton_threshold" ] },
-  { name = "pi0_rejection",      type = "reco", parameters = [ "@gOre_primary_softmax_min", "@proton_primary_softmax_min", "@delta_mass_center", "@delta_mass_halfwidth", "@sideband_allow_leptons" ] },
+  { name = "pi0_rejection",      type = "reco", parameters = [ "@gOre_primary_softmax_sideband", "@proton_primary_softmax_min", "@delta_mass_center", "@delta_mass_halfwidth", "@sideband_allow_leptons" ] },
 ]
 branch = [
   { name = "cc",                   type = "mctruth" },
@@ -884,7 +891,7 @@ branch = [
 ]
 
 [[tree]] # non-fiducial stage3: stage2 + egamma_separation (shared params)
-name = "selected_nonfid_XgNp_stage3"
+name = "selected_nonfid_NgNp_stage3"
 sim_only = false
 add_systematics = true
 add_exposure = true
@@ -893,7 +900,7 @@ cut = [
   { name = "!fiducial_cut",      type = "reco" },
   { name = "at_least_one_photon", type = "reco", parameters = [ "@gOre_threshold" ] },
   { name = "!no_protons",        type = "reco", parameters = [ "@proton_threshold" ] },
-  { name = "pi0_rejection",      type = "reco", parameters = [ "@gOre_primary_softmax_min", "@proton_primary_softmax_min", "@delta_mass_center", "@delta_mass_halfwidth", "@sideband_allow_leptons" ] },
+  { name = "pi0_rejection",      type = "reco", parameters = [ "@gOre_primary_softmax_sideband", "@proton_primary_softmax_min", "@delta_mass_center", "@delta_mass_halfwidth", "@sideband_allow_leptons" ] },
   { name = "egamma_separation",  type = "reco", parameters = [ "@start_dedx_min", "@axial_spread_min", "@directional_spread_max", "@photon_softmax_min", "@sideband_allow_leptons" ] },
 ]
 branch = [
@@ -929,7 +936,7 @@ branch = [
 # side of the cut. e/gamma separation not applied (pi0-stage N-1).
 # -----------------------------------------------------------------------------
 [[tree]] # non-fiducial N-1 on gamma primary_softmax (softmax cut -> no-op)
-name = "selected_nonfid_XgNp_nm1_gOre_softmax"
+name = "selected_nonfid_NgNp_nm1_gOre_softmax"
 sim_only = false
 add_systematics = true
 add_exposure = true
@@ -964,7 +971,7 @@ branch = [
 ]
 
 [[tree]] # non-fiducial N-1 on delta-mass window (window -> no-op)
-name = "selected_nonfid_XgNp_nm1_delta_mass"
+name = "selected_nonfid_NgNp_nm1_delta_mass"
 sim_only = false
 add_systematics = true
 add_exposure = true
@@ -973,7 +980,7 @@ cut = [
   { name = "!fiducial_cut",      type = "reco" },
   { name = "at_least_one_photon", type = "reco", parameters = [ "@gOre_threshold" ] },
   { name = "!no_protons",        type = "reco", parameters = [ "@proton_threshold" ] },
-  { name = "pi0_rejection",      type = "reco", parameters = [ "@gOre_primary_softmax_min", "@proton_primary_softmax_min", "@delta_mass_center", "@delta_mass_halfwidth_off", "@sideband_allow_leptons" ] },
+  { name = "pi0_rejection",      type = "reco", parameters = [ "@gOre_primary_softmax_sideband", "@proton_primary_softmax_min", "@delta_mass_center", "@delta_mass_halfwidth_off", "@sideband_allow_leptons" ] },
 ]
 branch = [
   { name = "cc",                   type = "mctruth" },

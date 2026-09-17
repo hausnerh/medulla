@@ -48,11 +48,16 @@ plot_kwargs = {'histtype' = 'barstacked', 'stacked' = true}
 # the max-stats non-fiducial photon+proton plots are not confused with either
 # the NC signal or the CC sideband.
 [[style]]
-name = 'selected_icarus_nonfid_XgNp'
+name = 'selected_icarus_nonfid_NgNp'
 style_sheet = "styles/muon2024.mplstyle"
 markers = ['o', '^', 's', 'P', 'D']
-default_figsize = [9.0,6.0]
-title = '$\bf{ICARUS}$ Non-Fiducial $X\gamma + Xp$ Sideband'
+# Widest title in the file ('Non-Fiducial Ngamma + Np Sideband' ~995px at the
+# 36pt muon2024 titlesize), so it needs a 12" canvas: at 9" it was 111% of the
+# width and clipped both ends. 12" puts it at 83% (matching the CC style's fit).
+default_figsize = [12.0,6.5]
+# N = 1-or-more (cut is at_least_one_photon + !no_protons), NOT X = any. The
+# region requires >=1 photon AND >=1 proton, so it is Ngamma + Np, not Xgamma + Xp.
+title = '$\bf{ICARUS}$ Non-Fiducial $N\gamma + Np$ Sideband'
 mark_pot = true
 mark_preliminary = '$\bf{ICARUS}$ Work-in-Progress'
 plot_kwargs = {'histtype' = 'barstacked', 'stacked' = true}

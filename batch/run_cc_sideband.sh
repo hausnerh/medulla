@@ -47,7 +47,7 @@ LIFETIME=8h                                 # selection job lifetime
 HELD_MEMORY_MB=8000                         # bumped resources when RELEASING a held selection job
 HELD_DISK_GB=2000
 # Plot jobs are a different beast from selection jobs: they need lots of memory
-# (nonfid_XgNp_stage1 systematics) but little disk. The shared release path must
+# (nonfid_NgNp_stage1 systematics) but little disk. The shared release path must
 # NOT downgrade a held plot job to the selection values above (8 GB / 2 TB) —
 # that guarantees an immediate re-hold. Release held PLOT jobs with these instead.
 PLOT_HELD_MEMORY_MB=80000                   # > the 64 GB launch default, for a memory-hold
@@ -77,8 +77,8 @@ SEL_HADD=$PWD/build/output_gOre_1g1p.root
 SYS_ROOT=$PWD/build/output_gOre_1g1p_sys.root
 CONFIGS=(gOre_cc_Xg1p_stage1_datamc gOre_cc_Xg1p_stage2_datamc gOre_cc_Xg1p_stage3_datamc
          gOre_cc_Xg1p_nm1_gOre_softmax_datamc gOre_cc_Xg1p_nm1_delta_mass_datamc
-         gOre_nonfid_XgNp_stage1_datamc gOre_nonfid_XgNp_stage2_datamc gOre_nonfid_XgNp_stage3_datamc
-         gOre_nonfid_XgNp_nm1_gOre_softmax_datamc gOre_nonfid_XgNp_nm1_delta_mass_datamc)
+         gOre_nonfid_NgNp_stage1_datamc gOre_nonfid_NgNp_stage2_datamc gOre_nonfid_NgNp_stage3_datamc
+         gOre_nonfid_NgNp_nm1_gOre_softmax_datamc gOre_nonfid_NgNp_nm1_delta_mass_datamc)
 REPO="$PWD"
 #######################################################################
 
@@ -359,7 +359,7 @@ submit_plots(){
     for cfg in "${CONFIGS[@]}"; do
         # Tree name = 'selected_' + config basename minus the 'gOre_' prefix and
         # '_datamc' suffix. Derives from the FULL basename so it covers cc_Xg1p
-        # stageN, the nm1_* diagnostics, AND the nonfid_XgNp_* stages alike — the
+        # stageN, the nm1_* diagnostics, AND the nonfid_NgNp_* stages alike — the
         # old 'cc_Xg1p_stageN' assumption looked up a non-existent tree for the
         # others and silently skipped them.
         tree=${cfg#gOre_}; tree=selected_${tree%_datamc}

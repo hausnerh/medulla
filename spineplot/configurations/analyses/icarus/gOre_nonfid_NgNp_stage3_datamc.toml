@@ -1,4 +1,4 @@
-# Non-fiducial Xγ + Np "outside-the-box" sideband, stage 1 (preselection (!fiducial + >=1 photon + >=1 proton)).
+# Non-fiducial Xγ + Np "outside-the-box" sideband, stage 3 (+ pi0_rejection + egamma_separation).
 # Max-statistics photon-ID cross-check in the region disjoint from the signal
 # box (!fiducial_cut): >=1 photon, >=1 proton, no muon/lepton/pion requirement,
 # no containment/flash, cosmics (cat 9) included. Shower-ID cuts run on the SAME
@@ -14,7 +14,7 @@
 file = 'configurations/common/styles.toml'
 
 [output]
-path = '/exp/icarus/app/users/hhausner/plots/gOre_nonfid_XgNp/stage1'
+path = '/exp/icarus/app/users/hhausner/plots/gOre_nonfid_NgNp/stage3'
 
 [analysis]
 ordinate_sample = 'onbeam'
@@ -39,8 +39,8 @@ category_types  = ['histogram', 'histogram', 'histogram', 'histogram', 'histogra
 [samples.mc]
 key = 'full'
 exposure_type = 'pot'
-trees = ['selected_nonfid_XgNp_stage1']
-systematics = ['selected_nonfid_XgNp_stage1_multisimTree', 'selected_nonfid_XgNp_stage1_multisigmaTree', 'selected_nonfid_XgNp_stage1_variationTree']
+trees = ['selected_nonfid_NgNp_stage3']
+systematics = ['selected_nonfid_NgNp_stage3_multisimTree', 'selected_nonfid_NgNp_stage3_multisigmaTree', 'selected_nonfid_NgNp_stage3_variationTree']
 print_sys = true
 fillna = 9
 
@@ -51,24 +51,24 @@ n_selected_flag       = "0*reco_gOre_topology + 1"
 [samples.onbeam]
 key = 'onbeam'
 exposure_type = 'pot'
-trees = ['selected_nonfid_XgNp_stage1']
+trees = ['selected_nonfid_NgNp_stage3']
 
 [samples.onbeam.precompute]
 true_cc_sideband_category = "0*reco_gOre_topology + 10"
 reco_delta_mass_P_dev     = "abs(reco_delta_mass_P - 1232)"
 n_selected_flag           = "0*reco_gOre_topology + 1"
 
-# Off-beam (beam-off data) = the cosmic prediction. This non-fiducial region is
-# cosmic-dominated in data (~2788 onbeam events) while the neutrino MC has ~0
-# cosmics, so MC-only under-predicts data ~4x. Off-beam supplies the cosmics,
-# scaled by LIVETIME (not POT) to the onbeam gate, and is forced into the
-# Cosmic/Non-ν category slot (9) — MC's own cat-9 is ~empty here, so no
-# double-count. Only needed at stage1 (cosmics do not survive pi0_rejection at
-# stage2/3, which are MC-only anyway).
+# Off-beam (beam-off data) = the data-driven cosmic prediction, included at
+# EVERY stage so the cosmic background is always accounted for (even where we
+# expect ~0 to survive the cuts). Scaled by LIVETIME via Sample.set_weight: in
+# data/MC mode to the on-beam gate, in MC-only mode to the MC equivalent
+# livetime (coherent with the native-POT neutrino shape). Forced into the
+# Cosmic/Non-nu slot (category 9); MC's own cat-9 is ~empty in these regions so
+# there is no double-count.
 [samples.offbeam]
 key = 'offbeam'
 exposure_type = 'livetime'
-trees = ['selected_nonfid_XgNp_stage1']
+trees = ['selected_nonfid_NgNp_stage3']
 
 [samples.offbeam.precompute]
 true_cc_sideband_category = "0*reco_gOre_topology + 9"
@@ -143,59 +143,59 @@ xlabel = 'Proton KE [MeV]'
 [[figure]]
 name = 'reco_leading_primary_gOre_shower_ke'
 type = 'SimpleFigure'
-style = 'selected_icarus_nonfid_XgNp'
+style = 'selected_icarus_nonfid_NgNp'
 artists = [{type = 'SpineSpectra1D', yrange = 1.4, variable = 'reco_leading_primary_gOre_shower_ke', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_leading_primary_gOre_start_dedx'
 type = 'SimpleFigure'
-style = 'selected_icarus_nonfid_XgNp'
+style = 'selected_icarus_nonfid_NgNp'
 artists = [{type = 'SpineSpectra1D', yrange = 1.4, variable = 'reco_leading_primary_gOre_start_dedx', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_leading_primary_gOre_photon_softmax'
 type = 'SimpleFigure'
-style = 'selected_icarus_nonfid_XgNp'
+style = 'selected_icarus_nonfid_NgNp'
 artists = [{type = 'SpineSpectra1D', yrange = 1.4, variable = 'reco_leading_primary_gOre_photon_softmax', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_leading_primary_gOre_primary_softmax'
 type = 'SimpleFigure'
-style = 'selected_icarus_nonfid_XgNp'
+style = 'selected_icarus_nonfid_NgNp'
 artists = [{type = 'SpineSpectra1D', yrange = 1.4, variable = 'reco_leading_primary_gOre_primary_softmax', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_leading_primary_gOre_directional_spread'
 type = 'SimpleFigure'
-style = 'selected_icarus_nonfid_XgNp'
+style = 'selected_icarus_nonfid_NgNp'
 artists = [{type = 'SpineSpectra1D', yrange = 1.4, variable = 'reco_leading_primary_gOre_directional_spread', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_leading_primary_gOre_axial_spread'
 type = 'SimpleFigure'
-style = 'selected_icarus_nonfid_XgNp'
+style = 'selected_icarus_nonfid_NgNp'
 artists = [{type = 'SpineSpectra1D', yrange = 1.4, variable = 'reco_leading_primary_gOre_axial_spread', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_delta_mass_P'
 type = 'SimpleFigure'
-style = 'selected_icarus_nonfid_XgNp'
+style = 'selected_icarus_nonfid_NgNp'
 artists = [{type = 'SpineSpectra1D', yrange = 1.4, variable = 'reco_delta_mass_P', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_delta_mass_P_dev'
 type = 'SimpleFigure'
-style = 'selected_icarus_nonfid_XgNp'
+style = 'selected_icarus_nonfid_NgNp'
 artists = [{type = 'SpineSpectra1D', yrange = 1.4, variable = 'reco_delta_mass_P_dev', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_leading_primary_proton_primary_softmax'
 type = 'SimpleFigure'
-style = 'selected_icarus_nonfid_XgNp'
+style = 'selected_icarus_nonfid_NgNp'
 artists = [{type = 'SpineSpectra1D', yrange = 1.4, variable = 'reco_leading_primary_proton_primary_softmax', draw_kwargs = {draw_error = 'total'}}]
 
 [[figure]]
 name = 'reco_leading_primary_proton_ke'
 type = 'SimpleFigure'
-style = 'selected_icarus_nonfid_XgNp'
+style = 'selected_icarus_nonfid_NgNp'
 artists = [{type = 'SpineSpectra1D', yrange = 1.4, variable = 'reco_leading_primary_proton_ke', draw_kwargs = {draw_error = 'total'}}]

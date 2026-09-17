@@ -6,11 +6,11 @@
 # utilities.launch_jobsub, but for plotting: there is exactly one job,
 # so no project.db / jobs table is needed.
 #
-# The big samples (cc_Xg1p_stage1, and especially nonfid_XgNp_stage1
+# The big samples (cc_Xg1p_stage1, and especially nonfid_NgNp_stage1
 # with ~50k MC events + an off-beam sample) are both memory- and
 # time-hungry: the develop-line Systematic.process path builds nuniv=1000
 # universe matrices and runs np.apply_along_axis per knob over every event.
-# At 32 GB / 2h the nonfid_XgNp stages kept getting HELD for both memory and
+# At 32 GB / 2h the nonfid_NgNp stages kept getting HELD for both memory and
 # runtime, so the defaults are now --memory=64000MB and --expected-lifetime=8h
 # (DEDICATED/OPPORTUNISTIC only; OFFSITE dropped: high-memory is hard to match
 # offsite and the runtime pip install wants reliable egress). A 64 GB / 8h slot

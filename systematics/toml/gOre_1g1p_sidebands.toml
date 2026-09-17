@@ -312,129 +312,129 @@ action = 'copy'
 # standard gpvm. If so, run Stage 3 on a high-memory node or switch the stage1
 # events/full block below from add_weights to action='copy' (stat-only).
 [[tree]]
-origin = 'events/cvext/selected_nonfid_XgNp_stage1'
+origin = 'events/cvext/selected_nonfid_NgNp_stage1'
 destination = 'events/full/'
-name = 'selected_nonfid_XgNp_stage1'
+name = 'selected_nonfid_NgNp_stage1'
 action = 'add_weights'
 table_types = ['multisim', 'multisigma', 'variation']
 
 [[tree]]
-origin = 'events/cv/selected_nonfid_XgNp_stage1'
+origin = 'events/cv/selected_nonfid_NgNp_stage1'
 destination = 'events/cv/'
-name = 'selected_nonfid_XgNp_stage1'
+name = 'selected_nonfid_NgNp_stage1'
 action = 'copy'
 
 [[tree]]
-origin = 'events/offbeam/selected_nonfid_XgNp_stage1'
+origin = 'events/offbeam/selected_nonfid_NgNp_stage1'
 destination = 'events/offbeam/'
-name = 'selected_nonfid_XgNp_stage1'
+name = 'selected_nonfid_NgNp_stage1'
 action = 'copy'
 
 [[tree]]
-origin = 'events/onbeam/selected_nonfid_XgNp_stage1'
+origin = 'events/onbeam/selected_nonfid_NgNp_stage1'
 destination = 'events/onbeam/'
-name = 'selected_nonfid_XgNp_stage1'
+name = 'selected_nonfid_NgNp_stage1'
 action = 'copy'
 
 [[tree]]
-origin = 'events/cvext/selected_nonfid_XgNp_stage2'
+origin = 'events/cvext/selected_nonfid_NgNp_stage2'
 destination = 'events/full/'
-name = 'selected_nonfid_XgNp_stage2'
+name = 'selected_nonfid_NgNp_stage2'
 action = 'add_weights'
 table_types = ['multisim', 'multisigma', 'variation']
 
 [[tree]]
-origin = 'events/cv/selected_nonfid_XgNp_stage2'
+origin = 'events/cv/selected_nonfid_NgNp_stage2'
 destination = 'events/cv/'
-name = 'selected_nonfid_XgNp_stage2'
+name = 'selected_nonfid_NgNp_stage2'
 action = 'copy'
 
 [[tree]]
-origin = 'events/offbeam/selected_nonfid_XgNp_stage2'
+origin = 'events/offbeam/selected_nonfid_NgNp_stage2'
 destination = 'events/offbeam/'
-name = 'selected_nonfid_XgNp_stage2'
+name = 'selected_nonfid_NgNp_stage2'
 action = 'copy'
 
 [[tree]]
-origin = 'events/onbeam/selected_nonfid_XgNp_stage2'
+origin = 'events/onbeam/selected_nonfid_NgNp_stage2'
 destination = 'events/onbeam/'
-name = 'selected_nonfid_XgNp_stage2'
+name = 'selected_nonfid_NgNp_stage2'
 action = 'copy'
 
 [[tree]]
-origin = 'events/cvext/selected_nonfid_XgNp_stage3'
+origin = 'events/cvext/selected_nonfid_NgNp_stage3'
 destination = 'events/full/'
-name = 'selected_nonfid_XgNp_stage3'
+name = 'selected_nonfid_NgNp_stage3'
 action = 'add_weights'
 table_types = ['multisim', 'multisigma', 'variation']
 
 [[tree]]
-origin = 'events/cv/selected_nonfid_XgNp_stage3'
+origin = 'events/cv/selected_nonfid_NgNp_stage3'
 destination = 'events/cv/'
-name = 'selected_nonfid_XgNp_stage3'
+name = 'selected_nonfid_NgNp_stage3'
 action = 'copy'
 
 [[tree]]
-origin = 'events/offbeam/selected_nonfid_XgNp_stage3'
+origin = 'events/offbeam/selected_nonfid_NgNp_stage3'
 destination = 'events/offbeam/'
-name = 'selected_nonfid_XgNp_stage3'
+name = 'selected_nonfid_NgNp_stage3'
 action = 'copy'
 
 [[tree]]
-origin = 'events/onbeam/selected_nonfid_XgNp_stage3'
+origin = 'events/onbeam/selected_nonfid_NgNp_stage3'
 destination = 'events/onbeam/'
-name = 'selected_nonfid_XgNp_stage3'
+name = 'selected_nonfid_NgNp_stage3'
 action = 'copy'
 
 # --- non-fiducial N-1 diagnostic trees (recover statistics vs full chain) ---
 [[tree]]
-origin = 'events/cvext/selected_nonfid_XgNp_nm1_gOre_softmax'
+origin = 'events/cvext/selected_nonfid_NgNp_nm1_gOre_softmax'
 destination = 'events/full/'
-name = 'selected_nonfid_XgNp_nm1_gOre_softmax'
+name = 'selected_nonfid_NgNp_nm1_gOre_softmax'
 action = 'add_weights'
 table_types = ['multisim', 'multisigma', 'variation']
 
 [[tree]]
-origin = 'events/cv/selected_nonfid_XgNp_nm1_gOre_softmax'
+origin = 'events/cv/selected_nonfid_NgNp_nm1_gOre_softmax'
 destination = 'events/cv/'
-name = 'selected_nonfid_XgNp_nm1_gOre_softmax'
+name = 'selected_nonfid_NgNp_nm1_gOre_softmax'
 action = 'copy'
 
 [[tree]]
-origin = 'events/offbeam/selected_nonfid_XgNp_nm1_gOre_softmax'
+origin = 'events/offbeam/selected_nonfid_NgNp_nm1_gOre_softmax'
 destination = 'events/offbeam/'
-name = 'selected_nonfid_XgNp_nm1_gOre_softmax'
+name = 'selected_nonfid_NgNp_nm1_gOre_softmax'
 action = 'copy'
 
 [[tree]]
-origin = 'events/onbeam/selected_nonfid_XgNp_nm1_gOre_softmax'
+origin = 'events/onbeam/selected_nonfid_NgNp_nm1_gOre_softmax'
 destination = 'events/onbeam/'
-name = 'selected_nonfid_XgNp_nm1_gOre_softmax'
+name = 'selected_nonfid_NgNp_nm1_gOre_softmax'
 action = 'copy'
 
 [[tree]]
-origin = 'events/cvext/selected_nonfid_XgNp_nm1_delta_mass'
+origin = 'events/cvext/selected_nonfid_NgNp_nm1_delta_mass'
 destination = 'events/full/'
-name = 'selected_nonfid_XgNp_nm1_delta_mass'
+name = 'selected_nonfid_NgNp_nm1_delta_mass'
 action = 'add_weights'
 table_types = ['multisim', 'multisigma', 'variation']
 
 [[tree]]
-origin = 'events/cv/selected_nonfid_XgNp_nm1_delta_mass'
+origin = 'events/cv/selected_nonfid_NgNp_nm1_delta_mass'
 destination = 'events/cv/'
-name = 'selected_nonfid_XgNp_nm1_delta_mass'
+name = 'selected_nonfid_NgNp_nm1_delta_mass'
 action = 'copy'
 
 [[tree]]
-origin = 'events/offbeam/selected_nonfid_XgNp_nm1_delta_mass'
+origin = 'events/offbeam/selected_nonfid_NgNp_nm1_delta_mass'
 destination = 'events/offbeam/'
-name = 'selected_nonfid_XgNp_nm1_delta_mass'
+name = 'selected_nonfid_NgNp_nm1_delta_mass'
 action = 'copy'
 
 [[tree]]
-origin = 'events/onbeam/selected_nonfid_XgNp_nm1_delta_mass'
+origin = 'events/onbeam/selected_nonfid_NgNp_nm1_delta_mass'
 destination = 'events/onbeam/'
-name = 'selected_nonfid_XgNp_nm1_delta_mass'
+name = 'selected_nonfid_NgNp_nm1_delta_mass'
 action = 'copy'
 
 # --- signal tree (true-mode, MC only) ---
