@@ -78,7 +78,8 @@ SYS_ROOT=$PWD/build/output_gOre_1g1p_sys.root
 CONFIGS=(gOre_cc_Xg1p_stage1_datamc gOre_cc_Xg1p_stage2_datamc gOre_cc_Xg1p_stage3_datamc
          gOre_cc_Xg1p_nm1_gOre_softmax_datamc gOre_cc_Xg1p_nm1_delta_mass_datamc
          gOre_nonfid_NgNp_stage1_datamc gOre_nonfid_NgNp_stage2_datamc gOre_nonfid_NgNp_stage3_datamc
-         gOre_nonfid_NgNp_nm1_gOre_softmax_datamc gOre_nonfid_NgNp_nm1_delta_mass_datamc)
+         gOre_nonfid_NgNp_nm1_gOre_softmax_datamc gOre_nonfid_NgNp_nm1_delta_mass_datamc
+         gOre_1g1p_nm1_gOre_softmax_datamc gOre_1g1p_nm1_delta_mass_datamc)
 REPO="$PWD"
 #######################################################################
 

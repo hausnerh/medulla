@@ -1,0 +1,152 @@
+# Signal 1γ1p N-1 (cut-minus-one) on the γ primary_softmax sub-cut.
+# Signal preselection (fiducial + containment + flash + gOre_topology +
+# single_proton) + pi0_rejection with the γ primary_softmax test DISABLED
+# (threshold -> -1), the OTHER pi0 sub-cuts (single-photon, proton softmax,
+# Δmass window) still live. So the reco_leading_primary_gOre_primary_softmax axis
+# spans both sides of the real 0.9991 cut IN THE SIGNAL REGION: NC Δ→Nγ 1γ1p
+# (cat 0) should pile up in the top bin (keep), close background below (reject).
+#
+# This is the SIGNAL N-1 — same true_category / selected_icarus_1g1p style as the
+# signal stages, and it uses the NOMINAL cut mode (no sideband_allow_leptons, no
+# loosened 0.999). It is additive and shares nothing with the CC / non-fiducial
+# sideband N-1 configs. e/γ separation is not applied (pi0-stage N-1).
+# yrange is a float (1.4) => auto-scale to 1.4× the tallest bin.
+
+[[this_includes]]
+file = 'configurations/common/styles.toml'
+
+[output]
+path = '/exp/icarus/app/users/hhausner/plots/gOre_1g1p/nm1_gOre_softmax'
+
+[analysis]
+ordinate_sample = 'onbeam'
+category_branch = 'true_category'
+category_assignment = [[0], [1], [2], [3], [4], [5], [6], [7], [8], [10]]
+category_labels = [
+  'NC $\Delta{\to}N\gamma$ (1$\gamma$1p)',
+  'NC $\Delta{\to}N\gamma$ (Other Topo.)',
+  'Other NC 1$\gamma$Xp Post-FSI',
+  'NC $\pi^0$ ($\Delta$ Res)',
+  'NC $\pi^0$ (Other)',
+  'NC $\pi^{\pm}$',
+  'Other NC',
+  'CC e',
+  'Other CC',
+  'Data (BNB)',
+]
+category_colors = ['#E69900', '#59B3E6', '#009980', '#F2E640', '#0073B3', '#CC6600', '#CC99B3', '#9980CC', '#E6338C', '#000000']
+category_types  = ['histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'scatter']
+
+[samples.mc]
+key = 'full'
+exposure_type = 'pot'
+trees = ['selected_1g1p_nm1_gOre_softmax']
+systematics = ['selected_1g1p_nm1_gOre_softmax_multisimTree', 'selected_1g1p_nm1_gOre_softmax_multisigmaTree', 'selected_1g1p_nm1_gOre_softmax_variationTree']
+print_sys = true
+fillna = 8
+
+[samples.mc.precompute]
+reco_delta_mass_P_dev = "abs(reco_delta_mass_P - 1232)"
+n_selected_flag       = "0*reco_gOre_topology + 1"
+
+[samples.onbeam]
+key = 'onbeam'
+exposure_type = 'pot'
+trees = ['selected_1g1p_nm1_gOre_softmax']
+
+[samples.onbeam.precompute]
+true_category         = "0*reco_gOre_topology + 10"
+reco_delta_mass_P_dev = "abs(reco_delta_mass_P - 1232)"
+n_selected_flag       = "0*reco_gOre_topology + 1"
+
+[[systematic_recipe]]
+name = 'total'
+label = 'Total syst.'
+pattern = '.*'
+
+# --- freed variable: the γ primary_softmax the cut acts on -------------------
+[variables.reco_leading_primary_gOre_primary_softmax]
+key = 'reco_leading_primary_gOre_primary_softmax'
+range = [0.99, 1.0]
+nbins = 10
+xlabel = 'Shower Primary Softmax'
+
+# --- context variables ------------------------------------------------------
+[variables.reco_leading_primary_gOre_shower_ke]
+key = 'reco_leading_primary_gOre_shower_ke'
+range = [0.0, 1000.0]
+nbins = 50
+xlabel = 'Shower KE [MeV]'
+
+[variables.reco_leading_primary_gOre_start_dedx]
+key = 'reco_leading_primary_gOre_start_dedx'
+range = [0.0, 25.0]
+nbins = 50
+xlabel = 'Shower Start dE/dx [MeV/cm]'
+
+[variables.reco_leading_primary_gOre_photon_softmax]
+key = 'reco_leading_primary_gOre_photon_softmax'
+range = [0.0, 1.0]
+nbins = 50
+xlabel = 'Shower Photon Softmax'
+
+[variables.reco_delta_mass_P]
+key = 'reco_delta_mass_P'
+range = [950.0, 1600.0]
+nbins = 25
+xlabel = 'Reconstructed $M_\Delta$ Peak [MeV/$c^2$]'
+
+[variables.reco_delta_mass_P_dev]
+key = 'reco_delta_mass_P_dev'
+range = [0.0, 300.0]
+nbins = 30
+xlabel = '$|\mathrm{Reco}\; M_\Delta - 1232\;\mathrm{MeV}/c^2|$'
+
+[variables.reco_leading_primary_proton_primary_softmax]
+key = 'reco_leading_primary_proton_primary_softmax'
+range = [0.0, 1.0]
+nbins = 50
+xlabel = 'Leading Proton Primary Softmax'
+
+# --- figures (yrange float => auto 1.4× tallest bin) ------------------------
+[[figure]]
+name = 'reco_leading_primary_gOre_primary_softmax'
+type = 'SimpleFigure'
+style = 'selected_icarus_1g1p'
+artists = [{type = 'SpineSpectra1D', yrange = 1.4, variable = 'reco_leading_primary_gOre_primary_softmax', draw_kwargs = {draw_error = 'total'}}]
+
+[[figure]]
+name = 'reco_leading_primary_gOre_shower_ke'
+type = 'SimpleFigure'
+style = 'selected_icarus_1g1p'
+artists = [{type = 'SpineSpectra1D', yrange = 1.4, variable = 'reco_leading_primary_gOre_shower_ke', draw_kwargs = {draw_error = 'total'}}]
+
+[[figure]]
+name = 'reco_leading_primary_gOre_start_dedx'
+type = 'SimpleFigure'
+style = 'selected_icarus_1g1p'
+artists = [{type = 'SpineSpectra1D', yrange = 1.4, variable = 'reco_leading_primary_gOre_start_dedx', draw_kwargs = {draw_error = 'total'}}]
+
+[[figure]]
+name = 'reco_leading_primary_gOre_photon_softmax'
+type = 'SimpleFigure'
+style = 'selected_icarus_1g1p'
+artists = [{type = 'SpineSpectra1D', yrange = 1.4, variable = 'reco_leading_primary_gOre_photon_softmax', draw_kwargs = {draw_error = 'total'}}]
+
+[[figure]]
+name = 'reco_delta_mass_P'
+type = 'SimpleFigure'
+style = 'selected_icarus_1g1p'
+artists = [{type = 'SpineSpectra1D', yrange = 1.4, variable = 'reco_delta_mass_P', draw_kwargs = {draw_error = 'total'}}]
+
+[[figure]]
+name = 'reco_delta_mass_P_dev'
+type = 'SimpleFigure'
+style = 'selected_icarus_1g1p'
+artists = [{type = 'SpineSpectra1D', yrange = 1.4, variable = 'reco_delta_mass_P_dev', draw_kwargs = {draw_error = 'total'}}]
+
+[[figure]]
+name = 'reco_leading_primary_proton_primary_softmax'
+type = 'SimpleFigure'
+style = 'selected_icarus_1g1p'
+artists = [{type = 'SpineSpectra1D', yrange = 1.4, variable = 'reco_leading_primary_proton_primary_softmax', draw_kwargs = {draw_error = 'total'}}]
