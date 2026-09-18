@@ -25,12 +25,12 @@
 # variations key + ordinate + nominal-copy [[tree]] block below uses `cv`.
 
 [input]
-path = 'output_gOre_1g1p.root'
+path = 'output_gOre_1g1p_signal.root'
 weights = '/pnfs/icarus/persistent/users/mueller/production/simulation/cvext/*.flat.root'
 use_additional_hash = true
 
 [output]
-path = 'output_gOre_1g1p_sys.root'
+path = 'output_gOre_1g1p_signal_sys.root'
 histogram_destination = 'variations/'
 
 # Variables that get sys histograms / covariance summaries. Add more as needed
@@ -55,367 +55,353 @@ bins = [5, 0, 5]
 name = 'reco_leading_primary_proton_ke'
 bins = [25, 0, 500]
 
-# --- CC Xγ + 1p control region ---
+# Detsys variation block: runs `varNN` ratio against `nominal` on stage3.
+# Only one [variations] block supported per run; pick the primary tree.
+[variations]
+keys = ['cv', 'var00', 'var01', 'var02', 'var03m', 'var03p', 'var04', 'var05', 'var06', 'var07', 'var09m', 'var09p', 'var10m', 'var10p', 'var11', 'var12m', 'var12p', 'var13m', 'var13p']
+origin = 'events/'
+tree = 'selected_1g1p_stage3'
+result_destination = 'detsys_results/'
+variable = 'reco_leading_primary_gOre_shower_ke'
+variable_length = true
+bins = [0, 50, 100, 150, 200, 250, 300, 350, 400, 500, 600]
+nuniverses = 10
+
+# ----------------------------------------------------------------------------
+# Tree copies / weight-attach for each stage of the 1γ1p chain.
+# Pattern per tree: cvext -> events/full (add_weights); nominal/offbeam/onbeam -> copy.
+# ----------------------------------------------------------------------------
+
+# --- stage1: preselection ---
 [[tree]]
-origin = 'events/cvext/selected_cc_Xg1p_stage1'
+origin = 'events/cvext/selected_1g1p_stage1'
 destination = 'events/full/'
-name = 'selected_cc_Xg1p_stage1'
+name = 'selected_1g1p_stage1'
 action = 'add_weights'
 table_types = ['multisim', 'multisigma', 'variation']
 
 [[tree]]
-origin = 'events/cv/selected_cc_Xg1p_stage1'
+origin = 'events/cv/selected_1g1p_stage1'
 destination = 'events/cv/'
-name = 'selected_cc_Xg1p_stage1'
+name = 'selected_1g1p_stage1'
 action = 'copy'
 
 [[tree]]
-origin = 'events/offbeam/selected_cc_Xg1p_stage1'
+origin = 'events/offbeam/selected_1g1p_stage1'
 destination = 'events/offbeam/'
-name = 'selected_cc_Xg1p_stage1'
+name = 'selected_1g1p_stage1'
 action = 'copy'
 
 [[tree]]
-origin = 'events/onbeam/selected_cc_Xg1p_stage1'
+origin = 'events/onbeam/selected_1g1p_stage1'
 destination = 'events/onbeam/'
-name = 'selected_cc_Xg1p_stage1'
+name = 'selected_1g1p_stage1'
 action = 'copy'
 
-# --- CC Xγ + 1p control region, stage2 (+ pi0 rejection) ---
+# --- stage2: + π0 rejection ---
 [[tree]]
-origin = 'events/cvext/selected_cc_Xg1p_stage2'
+origin = 'events/cvext/selected_1g1p_stage2'
 destination = 'events/full/'
-name = 'selected_cc_Xg1p_stage2'
+name = 'selected_1g1p_stage2'
 action = 'add_weights'
 table_types = ['multisim', 'multisigma', 'variation']
 
 [[tree]]
-origin = 'events/cv/selected_cc_Xg1p_stage2'
+origin = 'events/cv/selected_1g1p_stage2'
 destination = 'events/cv/'
-name = 'selected_cc_Xg1p_stage2'
+name = 'selected_1g1p_stage2'
 action = 'copy'
 
 [[tree]]
-origin = 'events/offbeam/selected_cc_Xg1p_stage2'
+origin = 'events/offbeam/selected_1g1p_stage2'
 destination = 'events/offbeam/'
-name = 'selected_cc_Xg1p_stage2'
+name = 'selected_1g1p_stage2'
 action = 'copy'
 
 [[tree]]
-origin = 'events/onbeam/selected_cc_Xg1p_stage2'
+origin = 'events/onbeam/selected_1g1p_stage2'
 destination = 'events/onbeam/'
-name = 'selected_cc_Xg1p_stage2'
+name = 'selected_1g1p_stage2'
 action = 'copy'
 
-# --- CC Xγ + 1p control region, stage3 (+ pi0 rejection + e/γ separation) ---
+# --- stage3: + e/γ separation (final) ---
 [[tree]]
-origin = 'events/cvext/selected_cc_Xg1p_stage3'
+origin = 'events/cvext/selected_1g1p_stage3'
 destination = 'events/full/'
-name = 'selected_cc_Xg1p_stage3'
+name = 'selected_1g1p_stage3'
 action = 'add_weights'
 table_types = ['multisim', 'multisigma', 'variation']
 
 [[tree]]
-origin = 'events/cv/selected_cc_Xg1p_stage3'
+origin = 'events/cv/selected_1g1p_stage3'
 destination = 'events/cv/'
-name = 'selected_cc_Xg1p_stage3'
+name = 'selected_1g1p_stage3'
 action = 'copy'
 
 [[tree]]
-origin = 'events/offbeam/selected_cc_Xg1p_stage3'
+origin = 'events/offbeam/selected_1g1p_stage3'
 destination = 'events/offbeam/'
-name = 'selected_cc_Xg1p_stage3'
+name = 'selected_1g1p_stage3'
 action = 'copy'
 
 [[tree]]
-origin = 'events/onbeam/selected_cc_Xg1p_stage3'
+origin = 'events/onbeam/selected_1g1p_stage3'
 destination = 'events/onbeam/'
-name = 'selected_cc_Xg1p_stage3'
+name = 'selected_1g1p_stage3'
 action = 'copy'
 
-# --- CC Xγ + 1p N-1 diagnostic + Np stats-probe trees ---
-# Stat + reweight (multisim/multisigma) band only; not in detsys [variations],
-# so their _variation tree is an empty pass-through (same as the signal tree
-# below) purely to satisfy the trees.cc Branch() dereference noted there.
+# --- Signal 1γ1p N-1 diagnostics (stat + multisim/multisigma band; the
+#     _variation tree is an empty pass-through, same as the stage trees, since
+#     only selected_1g1p_stage3 is in the detsys [variations] block above) ---
 [[tree]]
-origin = 'events/cvext/selected_cc_Xg1p_nm1_gOre_softmax'
+origin = 'events/cvext/selected_1g1p_nm1_gOre_softmax'
 destination = 'events/full/'
-name = 'selected_cc_Xg1p_nm1_gOre_softmax'
+name = 'selected_1g1p_nm1_gOre_softmax'
 action = 'add_weights'
 table_types = ['multisim', 'multisigma', 'variation']
 
 [[tree]]
-origin = 'events/cv/selected_cc_Xg1p_nm1_gOre_softmax'
+origin = 'events/cv/selected_1g1p_nm1_gOre_softmax'
 destination = 'events/cv/'
-name = 'selected_cc_Xg1p_nm1_gOre_softmax'
+name = 'selected_1g1p_nm1_gOre_softmax'
 action = 'copy'
 
 [[tree]]
-origin = 'events/offbeam/selected_cc_Xg1p_nm1_gOre_softmax'
+origin = 'events/offbeam/selected_1g1p_nm1_gOre_softmax'
 destination = 'events/offbeam/'
-name = 'selected_cc_Xg1p_nm1_gOre_softmax'
+name = 'selected_1g1p_nm1_gOre_softmax'
 action = 'copy'
 
 [[tree]]
-origin = 'events/onbeam/selected_cc_Xg1p_nm1_gOre_softmax'
+origin = 'events/onbeam/selected_1g1p_nm1_gOre_softmax'
 destination = 'events/onbeam/'
-name = 'selected_cc_Xg1p_nm1_gOre_softmax'
+name = 'selected_1g1p_nm1_gOre_softmax'
 action = 'copy'
 
 [[tree]]
-origin = 'events/cvext/selected_cc_Xg1p_nm1_delta_mass'
+origin = 'events/cvext/selected_1g1p_nm1_delta_mass'
 destination = 'events/full/'
-name = 'selected_cc_Xg1p_nm1_delta_mass'
+name = 'selected_1g1p_nm1_delta_mass'
 action = 'add_weights'
 table_types = ['multisim', 'multisigma', 'variation']
 
 [[tree]]
-origin = 'events/cv/selected_cc_Xg1p_nm1_delta_mass'
+origin = 'events/cv/selected_1g1p_nm1_delta_mass'
 destination = 'events/cv/'
-name = 'selected_cc_Xg1p_nm1_delta_mass'
+name = 'selected_1g1p_nm1_delta_mass'
 action = 'copy'
 
 [[tree]]
-origin = 'events/offbeam/selected_cc_Xg1p_nm1_delta_mass'
+origin = 'events/offbeam/selected_1g1p_nm1_delta_mass'
 destination = 'events/offbeam/'
-name = 'selected_cc_Xg1p_nm1_delta_mass'
+name = 'selected_1g1p_nm1_delta_mass'
 action = 'copy'
 
 [[tree]]
-origin = 'events/onbeam/selected_cc_Xg1p_nm1_delta_mass'
+origin = 'events/onbeam/selected_1g1p_nm1_delta_mass'
 destination = 'events/onbeam/'
-name = 'selected_cc_Xg1p_nm1_delta_mass'
+name = 'selected_1g1p_nm1_delta_mass'
 action = 'copy'
 
+# ----------------------------------------------------------------------------
+# Exposure-tree copies. Requires `add_exposure = true` on each `[[tree]]`
+# in the selection toml + rerunning medulla. Each exposure tree carries
+# `pot` and `livetime` SpillMultiVars used for POT normalization.
+# ----------------------------------------------------------------------------
+# --- stage1 exposure ---
 [[tree]]
-origin = 'events/cvext/selected_cc_Xg1p_stage2_Np'
+origin = 'events/cvext/selected_1g1p_stage1_exposure'
 destination = 'events/full/'
-name = 'selected_cc_Xg1p_stage2_Np'
-action = 'add_weights'
-table_types = ['multisim', 'multisigma', 'variation']
+name = 'selected_1g1p_stage1_exposure'
+action = 'copy'
 
 [[tree]]
-origin = 'events/cv/selected_cc_Xg1p_stage2_Np'
+origin = 'events/cv/selected_1g1p_stage1_exposure'
 destination = 'events/cv/'
-name = 'selected_cc_Xg1p_stage2_Np'
+name = 'selected_1g1p_stage1_exposure'
 action = 'copy'
 
 [[tree]]
-origin = 'events/offbeam/selected_cc_Xg1p_stage2_Np'
+origin = 'events/offbeam/selected_1g1p_stage1_exposure'
 destination = 'events/offbeam/'
-name = 'selected_cc_Xg1p_stage2_Np'
+name = 'selected_1g1p_stage1_exposure'
 action = 'copy'
 
 [[tree]]
-origin = 'events/onbeam/selected_cc_Xg1p_stage2_Np'
+origin = 'events/onbeam/selected_1g1p_stage1_exposure'
 destination = 'events/onbeam/'
-name = 'selected_cc_Xg1p_stage2_Np'
+name = 'selected_1g1p_stage1_exposure'
 action = 'copy'
 
-# --- non-fiducial Xγ + Np "outside-the-box" sideband, stages 1/2/3 ---
-# stage1 is the largest region in the file; run_systematics may OOM here on a
-# standard gpvm. If so, run Stage 3 on a high-memory node or switch the stage1
-# events/full block below from add_weights to action='copy' (stat-only).
+# --- stage2 exposure ---
 [[tree]]
-origin = 'events/cvext/selected_nonfid_NgNp_stage1'
+origin = 'events/cvext/selected_1g1p_stage2_exposure'
 destination = 'events/full/'
-name = 'selected_nonfid_NgNp_stage1'
-action = 'add_weights'
-table_types = ['multisim', 'multisigma', 'variation']
+name = 'selected_1g1p_stage2_exposure'
+action = 'copy'
 
 [[tree]]
-origin = 'events/cv/selected_nonfid_NgNp_stage1'
+origin = 'events/cv/selected_1g1p_stage2_exposure'
 destination = 'events/cv/'
-name = 'selected_nonfid_NgNp_stage1'
+name = 'selected_1g1p_stage2_exposure'
 action = 'copy'
 
 [[tree]]
-origin = 'events/offbeam/selected_nonfid_NgNp_stage1'
+origin = 'events/offbeam/selected_1g1p_stage2_exposure'
 destination = 'events/offbeam/'
-name = 'selected_nonfid_NgNp_stage1'
+name = 'selected_1g1p_stage2_exposure'
 action = 'copy'
 
 [[tree]]
-origin = 'events/onbeam/selected_nonfid_NgNp_stage1'
+origin = 'events/onbeam/selected_1g1p_stage2_exposure'
 destination = 'events/onbeam/'
-name = 'selected_nonfid_NgNp_stage1'
+name = 'selected_1g1p_stage2_exposure'
 action = 'copy'
 
+# --- stage3 exposure ---
 [[tree]]
-origin = 'events/cvext/selected_nonfid_NgNp_stage2'
+origin = 'events/cvext/selected_1g1p_stage3_exposure'
 destination = 'events/full/'
-name = 'selected_nonfid_NgNp_stage2'
-action = 'add_weights'
-table_types = ['multisim', 'multisigma', 'variation']
+name = 'selected_1g1p_stage3_exposure'
+action = 'copy'
 
 [[tree]]
-origin = 'events/cv/selected_nonfid_NgNp_stage2'
+origin = 'events/cv/selected_1g1p_stage3_exposure'
 destination = 'events/cv/'
-name = 'selected_nonfid_NgNp_stage2'
+name = 'selected_1g1p_stage3_exposure'
 action = 'copy'
 
 [[tree]]
-origin = 'events/offbeam/selected_nonfid_NgNp_stage2'
+origin = 'events/offbeam/selected_1g1p_stage3_exposure'
 destination = 'events/offbeam/'
-name = 'selected_nonfid_NgNp_stage2'
+name = 'selected_1g1p_stage3_exposure'
 action = 'copy'
 
 [[tree]]
-origin = 'events/onbeam/selected_nonfid_NgNp_stage2'
+origin = 'events/onbeam/selected_1g1p_stage3_exposure'
 destination = 'events/onbeam/'
-name = 'selected_nonfid_NgNp_stage2'
+name = 'selected_1g1p_stage3_exposure'
 action = 'copy'
 
-[[tree]]
-origin = 'events/cvext/selected_nonfid_NgNp_stage3'
-destination = 'events/full/'
-name = 'selected_nonfid_NgNp_stage3'
-action = 'add_weights'
-table_types = ['multisim', 'multisigma', 'variation']
+# ----------------------------------------------------------------------------
+# Detector variation systs — same scale/point pattern as icarus_disappearance.
+# ----------------------------------------------------------------------------
+[[sys]]
+name = 'var00'
+type = 'variation'
+index = -1
+nsigma = [-3, -2, -1, 0, 1, 2, 3]
+scale = [-3, -2, -1, 1, 1, 2, 3]
+ordinate = 'cv'
+points = ['var00', 'var00', 'var00', 'cv', 'var00', 'var00', 'var00']
 
-[[tree]]
-origin = 'events/cv/selected_nonfid_NgNp_stage3'
-destination = 'events/cv/'
-name = 'selected_nonfid_NgNp_stage3'
-action = 'copy'
+[[sys]]
+name = 'var01'
+type = 'variation'
+index = -1
+nsigma = [-3, -2, -1, 0, 1, 2, 3]
+scale = [-3, -2, -1, 1, 1, 2, 3]
+ordinate = 'cv'
+points = ['var01', 'var01', 'var01', 'cv', 'var01', 'var01', 'var01']
 
-[[tree]]
-origin = 'events/offbeam/selected_nonfid_NgNp_stage3'
-destination = 'events/offbeam/'
-name = 'selected_nonfid_NgNp_stage3'
-action = 'copy'
+[[sys]]
+name = 'var02'
+type = 'variation'
+index = -1
+nsigma = [-3, -2, -1, 0, 1, 2, 3]
+scale = [-3, -2, -1, 1, 1, 2, 3]
+ordinate = 'cv'
+points = ['var02', 'var02', 'var02', 'cv', 'var02', 'var02', 'var02']
 
-[[tree]]
-origin = 'events/onbeam/selected_nonfid_NgNp_stage3'
-destination = 'events/onbeam/'
-name = 'selected_nonfid_NgNp_stage3'
-action = 'copy'
+[[sys]]
+name = 'var03'
+type = 'variation'
+index = -1
+nsigma = [-3, -2, -1, 0, 1, 2, 3]
+scale = [1.0, 0.666666, 0.333333, 1, 0.333333, 0.666666, 1.0]
+ordinate = 'cv'
+points = ['var03m', 'var03m', 'var03m', 'cv', 'var03p', 'var03p', 'var03p']
 
-# --- non-fiducial N-1 diagnostic trees (recover statistics vs full chain) ---
-[[tree]]
-origin = 'events/cvext/selected_nonfid_NgNp_nm1_gOre_softmax'
-destination = 'events/full/'
-name = 'selected_nonfid_NgNp_nm1_gOre_softmax'
-action = 'add_weights'
-table_types = ['multisim', 'multisigma', 'variation']
+[[sys]]
+name = 'var04'
+type = 'variation'
+index = -1
+nsigma = [-3, -2, -1, 0, 1, 2, 3]
+scale = [-3, -2, -1, 1, 1, 2, 3]
+ordinate = 'cv'
+points = ['var04', 'var04', 'var04', 'cv', 'var04', 'var04', 'var04']
 
-[[tree]]
-origin = 'events/cv/selected_nonfid_NgNp_nm1_gOre_softmax'
-destination = 'events/cv/'
-name = 'selected_nonfid_NgNp_nm1_gOre_softmax'
-action = 'copy'
+[[sys]]
+name = 'var05'
+type = 'variation'
+index = -1
+nsigma = [-3, -2, -1, 0, 1, 2, 3]
+scale = [-3, -2, -1, 1, 1, 2, 3]
+ordinate = 'cv'
+points = ['var05', 'var05', 'var05', 'cv', 'var05', 'var05', 'var05']
 
-[[tree]]
-origin = 'events/offbeam/selected_nonfid_NgNp_nm1_gOre_softmax'
-destination = 'events/offbeam/'
-name = 'selected_nonfid_NgNp_nm1_gOre_softmax'
-action = 'copy'
+[[sys]]
+name = 'var06'
+type = 'variation'
+index = -1
+nsigma = [-3, -2, -1, 0, 1, 2, 3]
+scale = [-3, -2, -1, 1, 1, 2, 3]
+ordinate = 'cv'
+points = ['var06', 'var06', 'var06', 'cv', 'var06', 'var06', 'var06']
 
-[[tree]]
-origin = 'events/onbeam/selected_nonfid_NgNp_nm1_gOre_softmax'
-destination = 'events/onbeam/'
-name = 'selected_nonfid_NgNp_nm1_gOre_softmax'
-action = 'copy'
+[[sys]]
+name = 'var07'
+type = 'variation'
+index = -1
+nsigma = [-3, -2, -1, 0, 1, 2, 3]
+scale = [-3, -2, -1, 1, 1, 2, 3]
+ordinate = 'cv'
+points = ['var07', 'var07', 'var07', 'cv', 'var07', 'var07', 'var07']
 
-[[tree]]
-origin = 'events/cvext/selected_nonfid_NgNp_nm1_delta_mass'
-destination = 'events/full/'
-name = 'selected_nonfid_NgNp_nm1_delta_mass'
-action = 'add_weights'
-table_types = ['multisim', 'multisigma', 'variation']
+[[sys]]
+name = 'var09'
+type = 'variation'
+index = -1
+nsigma = [-3, -2, -1, 0, 1, 2, 3]
+scale = [3, 2, 1, 1, 1, 2, 3]
+ordinate = 'cv'
+points = ['var09m', 'var09m', 'var09m', 'cv', 'var09p', 'var09p', 'var09p']
 
-[[tree]]
-origin = 'events/cv/selected_nonfid_NgNp_nm1_delta_mass'
-destination = 'events/cv/'
-name = 'selected_nonfid_NgNp_nm1_delta_mass'
-action = 'copy'
+[[sys]]
+name = 'var10'
+type = 'variation'
+index = -1
+nsigma = [-3, -2, -1, 0, 1, 2, 3]
+scale = [3, 2, 1, 1, 1, 2, 3]
+ordinate = 'cv'
+points = ['var10m', 'var10m', 'var10m', 'cv', 'var10p', 'var10p', 'var10p']
 
-[[tree]]
-origin = 'events/offbeam/selected_nonfid_NgNp_nm1_delta_mass'
-destination = 'events/offbeam/'
-name = 'selected_nonfid_NgNp_nm1_delta_mass'
-action = 'copy'
+[[sys]]
+name = 'var11'
+type = 'variation'
+index = -1
+nsigma = [-3, -2, -1, 0, 1, 2, 3]
+scale = [-3, -2, -1, 1, 1, 2, 3]
+ordinate = 'cv'
+points = ['var11', 'var11', 'var11', 'cv', 'var11', 'var11', 'var11']
 
-[[tree]]
-origin = 'events/onbeam/selected_nonfid_NgNp_nm1_delta_mass'
-destination = 'events/onbeam/'
-name = 'selected_nonfid_NgNp_nm1_delta_mass'
-action = 'copy'
+[[sys]]
+name = 'var12'
+type = 'variation'
+index = -1
+nsigma = [-3, -2, -1, 0, 1, 2, 3]
+scale = [1.5, 1.0, 0.5, 1, 0.5, 1.0, 1.5]
+ordinate = 'cv'
+points = ['var12m', 'var12m', 'var12m', 'cv', 'var12p', 'var12p', 'var12p']
 
-# --- cc_Xg1p_stage1 exposure ---
-[[tree]]
-origin = 'events/cvext/selected_cc_Xg1p_stage1_exposure'
-destination = 'events/full/'
-name = 'selected_cc_Xg1p_stage1_exposure'
-action = 'copy'
-
-[[tree]]
-origin = 'events/cv/selected_cc_Xg1p_stage1_exposure'
-destination = 'events/cv/'
-name = 'selected_cc_Xg1p_stage1_exposure'
-action = 'copy'
-
-[[tree]]
-origin = 'events/offbeam/selected_cc_Xg1p_stage1_exposure'
-destination = 'events/offbeam/'
-name = 'selected_cc_Xg1p_stage1_exposure'
-action = 'copy'
-
-[[tree]]
-origin = 'events/onbeam/selected_cc_Xg1p_stage1_exposure'
-destination = 'events/onbeam/'
-name = 'selected_cc_Xg1p_stage1_exposure'
-action = 'copy'
-
-# --- cc_Xg1p_stage2 exposure ---
-[[tree]]
-origin = 'events/cvext/selected_cc_Xg1p_stage2_exposure'
-destination = 'events/full/'
-name = 'selected_cc_Xg1p_stage2_exposure'
-action = 'copy'
-
-[[tree]]
-origin = 'events/cv/selected_cc_Xg1p_stage2_exposure'
-destination = 'events/cv/'
-name = 'selected_cc_Xg1p_stage2_exposure'
-action = 'copy'
-
-[[tree]]
-origin = 'events/offbeam/selected_cc_Xg1p_stage2_exposure'
-destination = 'events/offbeam/'
-name = 'selected_cc_Xg1p_stage2_exposure'
-action = 'copy'
-
-[[tree]]
-origin = 'events/onbeam/selected_cc_Xg1p_stage2_exposure'
-destination = 'events/onbeam/'
-name = 'selected_cc_Xg1p_stage2_exposure'
-action = 'copy'
-
-# --- cc_Xg1p_stage3 exposure ---
-[[tree]]
-origin = 'events/cvext/selected_cc_Xg1p_stage3_exposure'
-destination = 'events/full/'
-name = 'selected_cc_Xg1p_stage3_exposure'
-action = 'copy'
-
-[[tree]]
-origin = 'events/cv/selected_cc_Xg1p_stage3_exposure'
-destination = 'events/cv/'
-name = 'selected_cc_Xg1p_stage3_exposure'
-action = 'copy'
-
-[[tree]]
-origin = 'events/offbeam/selected_cc_Xg1p_stage3_exposure'
-destination = 'events/offbeam/'
-name = 'selected_cc_Xg1p_stage3_exposure'
-action = 'copy'
-
-[[tree]]
-origin = 'events/onbeam/selected_cc_Xg1p_stage3_exposure'
-destination = 'events/onbeam/'
-name = 'selected_cc_Xg1p_stage3_exposure'
-action = 'copy'
+[[sys]]
+name = 'var13'
+type = 'variation'
+index = -1
+nsigma = [-3, -2, -1, 0, 1, 2, 3]
+scale = [3, 2, 1, 1, 1, 2, 3]
+ordinate = 'cv'
+points = ['var13m', 'var13m', 'var13m', 'cv', 'var13p', 'var13p', 'var13p']
 
 # ----------------------------------------------------------------------------
 # GENIE + flux systs (multisim/multisigma). Identical set to

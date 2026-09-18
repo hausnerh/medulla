@@ -22,7 +22,9 @@ plot_kwargs = {'histtype' = 'barstacked', 'stacked' = true}
 name = 'selected_icarus_1g1p'
 style_sheet = "styles/muon2024.mplstyle"
 markers = ['o', '^', 's', 'P', 'D']
-default_figsize = [6.4,4.8]
+# 6.4" clipped this title (653px vs 640px at the 36pt muon2024 titlesize). 9x6
+# puts it at ~73% of the width (matches the CC sideband style's fit).
+default_figsize = [9.0,6.0]
 title = '$\bf{ICARUS}$ NC $\Delta{\to}N\gamma$ ($1\gamma 1p$)'
 mark_pot = true
 mark_preliminary = '$\bf{ICARUS}$ Work-in-Progress'

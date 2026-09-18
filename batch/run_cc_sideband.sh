@@ -36,8 +36,13 @@ TAG=worktree-gOre-cc-sideband-category      # branch that has cc_sideband_catego
 GITUSER=hausnerh                            # fork owner (clone + tag validation)
 USERNAME=${USER:-hhausner}
 
-SEL_TOML=selection/toml/gOre_1g1p_sidebands.toml
-SYS_TOML=systematics/toml/gOre_1g1p_sidebands.toml
+# Run mode: 'sideband' (CC + non-fiducial control regions, default) or 'signal'
+# (NC 1g1p selection: stage1/2/3 + N-1). Each mode uses its own selection toml,
+# systematics toml, plot CONFIGS, hadd/sys ROOT filenames, dCache OUT dir and
+# project name, so the two run fully independently (the signal run no longer
+# computes the heavy CC/nonfid trees, and vice versa). Override with --signal.
+# Resolved into SEL_TOML/SYS_TOML/... in the `resolve mode` block after arg parse.
+MODE=sideband
 
 BATCH_SIZE=20                               # CAF files per selection job
 MEMORY_MB=4000                              # selection job memory
@@ -72,15 +77,9 @@ SL7_SETUP='setup_spine'
 NATIVE_SETUP=''
 
 STAMP=$(date +%Y%m%d_%H%M%S)
-OUT=/pnfs/icarus/scratch/users/$USERNAME/CCSidebandPlots
-SEL_HADD=$PWD/build/output_gOre_1g1p.root
-SYS_ROOT=$PWD/build/output_gOre_1g1p_sys.root
-CONFIGS=(gOre_cc_Xg1p_stage1_datamc gOre_cc_Xg1p_stage2_datamc gOre_cc_Xg1p_stage3_datamc
-         gOre_cc_Xg1p_nm1_gOre_softmax_datamc gOre_cc_Xg1p_nm1_delta_mass_datamc
-         gOre_nonfid_NgNp_stage1_datamc gOre_nonfid_NgNp_stage2_datamc gOre_nonfid_NgNp_stage3_datamc
-         gOre_nonfid_NgNp_nm1_gOre_softmax_datamc gOre_nonfid_NgNp_nm1_delta_mass_datamc
-         gOre_1g1p_nm1_gOre_softmax_datamc gOre_1g1p_nm1_delta_mass_datamc)
 REPO="$PWD"
+# SEL_TOML / SYS_TOML / SEL_HADD / SYS_ROOT / OUT / CONFIGS / PROJ_PREFIX /
+# STAGE_PREFIX are set per MODE in the `resolve mode` block below (after arg parse).
 #######################################################################
 
 # Run a single command string inside the SL7 container, from the repo dir,
@@ -96,8 +95,12 @@ NAT(){ if [[ -n "$NATIVE_SETUP" ]]; then bash -lc "{ $NATIVE_SETUP ; } >/dev/nul
 RESUME_PROJ=""; PLOTS_ONLY=0; SYS_ROOT_OVERRIDE=""; CHECK_ENV=0
 usage(){
   cat <<EOF
-Usage: $0 [--resume PROJECT_DIR] [--plots-only [SYS_ROOT]] [--check-env] [--help]
+Usage: $0 [--signal|--sideband] [--resume PROJECT_DIR] [--plots-only [SYS_ROOT]] [--check-env] [--help]
 
+  --sideband             (default) Run the CC + non-fiducial control regions.
+  --signal               Run the NC 1g1p signal selection (stage1/2/3 + N-1)
+                         instead. Independent toml/systematics/configs/outputs,
+                         so it does NOT compute the heavy CC/nonfid trees.
   --resume PROJECT_DIR   Skip Stage 1; continue from an existing project's
                          outputs on /pnfs (root or its output/ subdir).
   --plots-only [SYS_ROOT]
@@ -118,10 +121,39 @@ while [[ $# -gt 0 ]]; do
                        if [[ $# -gt 0 && "$1" != -* ]]; then SYS_ROOT_OVERRIDE="$1"; shift; fi ;;
         --plots-only=*) PLOTS_ONLY=1; SYS_ROOT_OVERRIDE="${1#*=}"; shift ;;
         --check-env)   CHECK_ENV=1; shift ;;
+        --signal)      MODE=signal; shift ;;
+        --sideband)    MODE=sideband; shift ;;
         -h|--help)     usage; exit 0 ;;
         *) echo "Unknown option: $1" >&2; usage; exit 1 ;;
     esac
 done
+
+# ---- resolve mode -> tomls / configs / filenames ---------------------
+case "$MODE" in
+  signal)
+    SEL_TOML=selection/toml/gOre_1g1p_signal.toml
+    SYS_TOML=systematics/toml/gOre_1g1p_signal_datamc.toml
+    SEL_HADD=$PWD/build/output_gOre_1g1p_signal.root
+    SYS_ROOT=$PWD/build/output_gOre_1g1p_signal_sys.root
+    OUT=/pnfs/icarus/scratch/users/$USERNAME/SignalPlots
+    PROJ_PREFIX=gOre_signal
+    STAGE_PREFIX=selected_1g1p
+    CONFIGS=(gOre_1g1p_stage1_datamc gOre_1g1p_stage2_datamc gOre_1g1p_stage3_datamc
+             gOre_1g1p_nm1_gOre_softmax_datamc gOre_1g1p_nm1_delta_mass_datamc) ;;
+  sideband)
+    SEL_TOML=selection/toml/gOre_1g1p_sidebands.toml
+    SYS_TOML=systematics/toml/gOre_1g1p_sidebands.toml
+    SEL_HADD=$PWD/build/output_gOre_1g1p.root
+    SYS_ROOT=$PWD/build/output_gOre_1g1p_sys.root
+    OUT=/pnfs/icarus/scratch/users/$USERNAME/CCSidebandPlots
+    PROJ_PREFIX=gOre_cc_sideband
+    STAGE_PREFIX=selected_cc_Xg1p
+    CONFIGS=(gOre_cc_Xg1p_stage1_datamc gOre_cc_Xg1p_stage2_datamc gOre_cc_Xg1p_stage3_datamc
+             gOre_cc_Xg1p_nm1_gOre_softmax_datamc gOre_cc_Xg1p_nm1_delta_mass_datamc
+             gOre_nonfid_NgNp_stage1_datamc gOre_nonfid_NgNp_stage2_datamc gOre_nonfid_NgNp_stage3_datamc
+             gOre_nonfid_NgNp_nm1_gOre_softmax_datamc gOre_nonfid_NgNp_nm1_delta_mass_datamc) ;;
+  *) echo "Bad MODE '$MODE' (use --signal or --sideband)" >&2; exit 1 ;;
+esac
 
 if [[ -n "$RESUME_PROJ" ]]; then
     RESUME_PROJ=${RESUME_PROJ%/}
@@ -130,7 +162,7 @@ if [[ -n "$RESUME_PROJ" ]]; then
     if [[ "$(basename "$PROJ")" =~ _([0-9]{8}_[0-9]{6})$ ]]; then STAMP="${BASH_REMATCH[1]}_resume$(date +%H%M%S)"
     else STAMP="$(date +%Y%m%d_%H%M%S)_resume"; fi
 else
-    PROJ=/pnfs/icarus/scratch/users/$USERNAME/gOre_cc_sideband_$STAMP
+    PROJ=/pnfs/icarus/scratch/users/$USERNAME/${PROJ_PREFIX}_$STAMP
 fi
 [[ -n "$SYS_ROOT_OVERRIDE" ]] && SYS_ROOT="$SYS_ROOT_OVERRIDE"
 
@@ -170,12 +202,12 @@ parse_jobid(){ grep -oE '[0-9]+\.[0-9]+@[A-Za-z0-9._-]+' | head -1; }
 # hadd (SL7)
 do_hadd(){ SL7RUN "hadd -f '$SEL_HADD' $*" 2>&1 | tail -5 | tee -a "$LOGFILE"; return "${PIPESTATUS[0]}"; }
 
-# report which CC event trees exist under events/full/ (SL7 root via a temp macro
-# to avoid nested-quote hell). Echoes "s1=1 s2=1 s3=1".
+# report which stage event trees exist under events/full/ for the active mode
+# (SL7 root via a temp macro to avoid nested-quote hell). Echoes "s1=1 s2=1 s3=1".
 sys_stage_report(){ # sysroot
     local id=cc$$_$RANDOM
     local mac=/tmp/$id.C
-    printf 'void %s(){TFile f("%s");printf("s1=%%d s2=%%d s3=%%d\\n",f.Get("events/full/selected_cc_Xg1p_stage1")!=0,f.Get("events/full/selected_cc_Xg1p_stage2")!=0,f.Get("events/full/selected_cc_Xg1p_stage3")!=0);}\n' "$id" "$1" > "$mac"
+    printf 'void %s(){TFile f("%s");printf("s1=%%d s2=%%d s3=%%d\\n",f.Get("events/full/%s_stage1")!=0,f.Get("events/full/%s_stage2")!=0,f.Get("events/full/%s_stage3")!=0);}\n' "$id" "$1" "$STAGE_PREFIX" "$STAGE_PREFIX" "$STAGE_PREFIX" > "$mac"
     SL7RUN "root -l -b -q '$mac'" 2>/dev/null | grep -oE 's[123]=[01]' | tr '\n' ' ' || true
     rm -f "$mac"
 }
@@ -259,8 +291,8 @@ preflight(){
 
 submit_selection(){
     log "=== Stage 1: grid selection ==="
-    grep -q 'selected_cc_Xg1p_stage3' "$SEL_TOML" \
-        || die "local $SEL_TOML lacks the stage3 tree — git pull the $TAG branch first"
+    grep -q "${STAGE_PREFIX}_stage3" "$SEL_TOML" \
+        || die "local $SEL_TOML lacks ${STAGE_PREFIX}_stage3 — git pull the $TAG branch first"
 
     log "Creating project $PROJ (batch-size $BATCH_SIZE) [SL7]"
     SL7RUN "python3 batch/medulla.py --experiment $EXPERIMENT --project-dir '$PROJ' \
@@ -333,7 +365,7 @@ do_systematics(){
     # skips only what is genuinely missing.
     local chk; chk=$(sys_stage_report "$SYS_ROOT")
     if echo "$chk" | grep -q 's3=1'; then
-        log "sys ROOT CC event trees (events/full): $chk"
+        log "sys ROOT stage trees (events/full): $chk"
     else
         log "WARN: sys_stage_report could not confirm stage trees (${chk:-unknown}); this probe is flaky on large sys ROOTs, the file may be fine. Stage 4 per-config checks decide — continuing."
     fi
@@ -342,7 +374,7 @@ do_systematics(){
 submit_plots(){
     log "=== Stage 4: stage sys ROOT + plot stage1/2/3 on grid ==="
     [[ -s "$SYS_ROOT" ]] || die "sys ROOT not found: $SYS_ROOT (run systematics, or --plots-only <path>)"
-    log "sys ROOT CC event trees (events/full): $(sys_stage_report "$SYS_ROOT")"
+    log "sys ROOT stage trees (events/full): $(sys_stage_report "$SYS_ROOT")"
     ensure_creds || die "no credentials to stage sys ROOT"
     SL7RUN "ifdh mkdir_p '$OUT'" >/dev/null 2>&1 || true
     SL7RUN "ifdh rm '$OUT/output_gOre_1g1p_sys.root'" >/dev/null 2>&1 || true
@@ -351,10 +383,10 @@ submit_plots(){
         die "failed to stage $SYS_ROOT to $OUT (see $DEBUG_DIR/stage_ifdh.err)"
     fi
     log "Staged sys ROOT to $OUT/output_gOre_1g1p_sys.root"
-    # Np stats probe: does relaxing single_proton -> !no_protons (>=1 proton) at
-    # the pi0-rejection stage buy meaningful statistics? Report both counts so
-    # the Np region is only worth keeping if this number jumps.
-    log "Np probe: cc_Xg1p stage2 1p=$(tree_entries "$SYS_ROOT" "events/full/selected_cc_Xg1p_stage2") vs Np=$(tree_entries "$SYS_ROOT" "events/full/selected_cc_Xg1p_stage2_Np")"
+    # Np stats probe (sideband only): does relaxing single_proton -> !no_protons
+    # (>=1 proton) at the pi0-rejection stage buy meaningful statistics? Report
+    # both counts so the Np region is only worth keeping if this number jumps.
+    [[ "$MODE" == sideband ]] && log "Np probe: cc_Xg1p stage2 1p=$(tree_entries "$SYS_ROOT" "events/full/selected_cc_Xg1p_stage2") vs Np=$(tree_entries "$SYS_ROOT" "events/full/selected_cc_Xg1p_stage2_Np")"
 
     local plot_jobs=() cfg out jid pschedd pcluster tree n nd mcflag bn
     for cfg in "${CONFIGS[@]}"; do
