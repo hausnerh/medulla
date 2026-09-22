@@ -141,17 +141,17 @@ case "$MODE" in
     CONFIGS=(gOre_1g1p_stage1_datamc gOre_1g1p_stage2_datamc gOre_1g1p_stage3_datamc
              gOre_1g1p_nm1_gOre_softmax_datamc gOre_1g1p_nm1_delta_mass_datamc) ;;
   sideband)
+    # Non-fiducial ("outside the signal box") sideband. CC control region dropped.
     SEL_TOML=selection/toml/gOre_1g1p_sidebands.toml
     SYS_TOML=systematics/toml/gOre_1g1p_sidebands.toml
     SEL_HADD=$PWD/build/output_gOre_1g1p.root
     SYS_ROOT=$PWD/build/output_gOre_1g1p_sys.root
-    OUT=/pnfs/icarus/scratch/users/$USERNAME/CCSidebandPlots
-    PROJ_PREFIX=gOre_cc_sideband
-    STAGE_PREFIX=selected_cc_Xg1p
-    CONFIGS=(gOre_cc_Xg1p_stage1_datamc gOre_cc_Xg1p_stage2_datamc gOre_cc_Xg1p_stage3_datamc
-             gOre_cc_Xg1p_nm1_gOre_softmax_datamc gOre_cc_Xg1p_nm1_delta_mass_datamc
-             gOre_nonfid_NgNp_stage1_datamc gOre_nonfid_NgNp_stage2_datamc gOre_nonfid_NgNp_stage3_datamc
-             gOre_nonfid_NgNp_nm1_gOre_softmax_datamc gOre_nonfid_NgNp_nm1_delta_mass_datamc) ;;
+    OUT=/pnfs/icarus/scratch/users/$USERNAME/NonfidSidebandPlots
+    PROJ_PREFIX=gOre_nonfid_sideband
+    STAGE_PREFIX=selected_nonfid_NgNp
+    CONFIGS=(gOre_nonfid_NgNp_stage1_datamc gOre_nonfid_NgNp_stage2_datamc gOre_nonfid_NgNp_stage3_datamc
+             gOre_nonfid_NgNp_nm1_gOre_softmax_datamc gOre_nonfid_NgNp_nm1_second_shower_datamc
+             gOre_nonfid_NgNp_nm1_delta_mass_datamc) ;;
   *) echo "Bad MODE '$MODE' (use --signal or --sideband)" >&2; exit 1 ;;
 esac
 
@@ -383,10 +383,6 @@ submit_plots(){
         die "failed to stage $SYS_ROOT to $OUT (see $DEBUG_DIR/stage_ifdh.err)"
     fi
     log "Staged sys ROOT to $OUT/output_gOre_1g1p_sys.root"
-    # Np stats probe (sideband only): does relaxing single_proton -> !no_protons
-    # (>=1 proton) at the pi0-rejection stage buy meaningful statistics? Report
-    # both counts so the Np region is only worth keeping if this number jumps.
-    [[ "$MODE" == sideband ]] && log "Np probe: cc_Xg1p stage2 1p=$(tree_entries "$SYS_ROOT" "events/full/selected_cc_Xg1p_stage2") vs Np=$(tree_entries "$SYS_ROOT" "events/full/selected_cc_Xg1p_stage2_Np")"
 
     local plot_jobs=() cfg out jid pschedd pcluster tree n nd mcflag bn
     for cfg in "${CONFIGS[@]}"; do

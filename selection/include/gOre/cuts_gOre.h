@@ -98,6 +98,23 @@ namespace cuts::gOre
   REGISTER_CUT_SCOPE(RegistrationScope::Both, at_least_one_photon, at_least_one_photon);
 
   /**
+   * @brief Are there one or more primary EM showers (photon OR electron)?
+   * @details Like at_least_one_photon but counts electrons too, since a "gOre"
+   * shower is a primary EM shower of either PID (see leading_primary_gOre). Used
+   * by the non-fiducial max-stats sideband so electron showers enter the sample
+   * — giving the e/γ separation cut real electrons to reject.
+   * @param params first element is the gOre KE threshold.
+   * @return true if there is >=1 primary photon or electron above threshold.
+   **/
+  template<class T>
+    bool at_least_one_gOre(const T& obj, std::vector<double> params={GORE_MIN_GORE_ENERGY,})
+    {
+      return (cuts::particle_multiplicity(obj, 0, pvars::kPhoton,   params)
+            + cuts::particle_multiplicity(obj, 0, pvars::kElectron, params)) > 0;
+    }
+  REGISTER_CUT_SCOPE(RegistrationScope::Both, at_least_one_gOre, at_least_one_gOre);
+
+  /**
    * @brief CC Xγ topology: ≥1 photon + 1 primary muon + no charged pions.
    * @details Topology twin of `gOre_topology` with the NC veto inverted to
    * a CC tag. Used by the CC sideband to harvest high-stats events with
@@ -156,6 +173,21 @@ namespace cuts::gOre
              (vtx_z - GORE_WALL_Z_NEG > GORE_FID_THRESH_Z_NEG) ;
     }
   REGISTER_CUT_SCOPE(RegistrationScope::Both, gOre_fiducial_cut, gOre_fiducial_cut);
+
+  /**
+   * @brief Is the interaction OUTSIDE the signal box (non-fiducial OR uncontained)?
+   * @details The signal region requires fiducial AND contained, so its exact
+   * complement is `!fiducial || !contained`. This maximises the non-fiducial
+   * sideband statistics (it also picks up fiducial-but-uncontained events) while
+   * staying disjoint from the signal box by construction.
+   * @return true if the vertex is non-fiducial or the interaction is uncontained.
+   **/
+  template<class T>
+    bool outside_signal_box(const T& obj)
+    {
+      return (not cuts::fiducial_cut(obj)) || (not cuts::containment_cut(obj));
+    }
+  REGISTER_CUT_SCOPE(RegistrationScope::Reco, outside_signal_box, outside_signal_box);
 
   /** @brief gOre_topology & no protons **/
   template<class T>
@@ -237,13 +269,21 @@ namespace cuts::gOre
                        std::vector<double> params = {0.999100, 0.951300, 1232.0, 59.700000})
     {
       core::gOre::Interaction<T> interaction(obj, {GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY});
-      // Optional 5th param != 0: CC-sideband mode — gate on a single photon
-      // shower only, tolerating the muon/pion that is_valid vetoes (the CC
-      // region requires a muon, so is_valid is always false there). Default
-      // (<=4 params) keeps the original NC behavior untouched.
-      bool allow_leptons = (params.size() > 4) && (params.at(4) != 0.0);
-      if (not (allow_leptons ? (interaction.ngOres() == 1) : interaction.is_valid)) return false;
-      if (interaction.subleading_gore_ke > 0)                        return false; // no second shower
+      // Optional 5th param = shower-gate mode:
+      //   0 / absent : is_valid (signal — exactly 1 shower, no muon/pion/other)
+      //   1          : exactly 1 shower, tolerate leptons (legacy CC sideband)
+      //   2          : >=1 shower, tolerate leptons; operate on the LEADING
+      //                shower (non-fiducial max-stats sideband)
+      int gate = (params.size() > 4) ? static_cast<int>(params.at(4)) : 0;
+      bool gate_ok = (gate >= 2) ? (interaction.ngOres() >= 1)
+                   : (gate == 1) ? (interaction.ngOres() == 1)
+                   :               interaction.is_valid;
+      if (not gate_ok)                                              return false;
+      // No-second-shower veto: only in the single-shower modes (gate < 2). In the
+      // >=1-shower nonfid region it would defeat the multi-shower statistics, so
+      // it is skipped here and available as the standalone `no_second_shower` cut
+      // (added to the nonfid N-1 diagnostics to measure its cost).
+      if (gate < 2 && interaction.subleading_gore_ke > 0)          return false;
       auto const* gOre_p = interaction.primary_gOre();
       if (gOre_p == nullptr)                                         return false;
       if (pvars::primary_softmax<T>(*gOre_p) <= params.at(0))        return false;
@@ -275,9 +315,13 @@ namespace cuts::gOre
                            std::vector<double> params = {4.070000, -0.500000, 0.037000, 0.922500})
     {
       core::gOre::Interaction<T> interaction(obj, {GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY});
-      // Optional 5th param != 0: CC-sideband mode (see pi0_rejection).
-      bool allow_leptons = (params.size() > 4) && (params.at(4) != 0.0);
-      if (not (allow_leptons ? (interaction.ngOres() == 1) : interaction.is_valid)) return false;
+      // Optional 5th param = shower-gate mode (see pi0_rejection): 0 is_valid,
+      // 1 exactly-1-shower + leptons, 2 >=1-shower + leptons (leading shower).
+      int gate = (params.size() > 4) ? static_cast<int>(params.at(4)) : 0;
+      bool gate_ok = (gate >= 2) ? (interaction.ngOres() >= 1)
+                   : (gate == 1) ? (interaction.ngOres() == 1)
+                   :               interaction.is_valid;
+      if (not gate_ok)                                                   return false;
       auto const* gOre_p = interaction.primary_gOre();
       if (gOre_p == nullptr)                                              return false;
       if (gOre_p->start_dedx              <= params.at(0))                return false;
@@ -287,6 +331,22 @@ namespace cuts::gOre
       return true;
     }
   REGISTER_CUT_SCOPE(RegistrationScope::Reco, egamma_separation, egamma_separation);
+
+  /**
+   * @brief No second EM shower above threshold.
+   * @details Standalone form of the no-second-shower veto that pi0_rejection
+   * applies internally in single-shower modes. Kept separate so the non-fiducial
+   * max-stats region (which allows >=1 shower and does NOT veto a second shower)
+   * can add it as an N-1 diagnostic tree to measure what requiring a single
+   * shower would cost. Passes when there is no subleading gOre above threshold.
+   **/
+  template<class T>
+    bool no_second_shower(const T& obj)
+    {
+      core::gOre::Interaction<T> interaction(obj, {GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY});
+      return interaction.subleading_gore_ke <= 0;
+    }
+  REGISTER_CUT_SCOPE(RegistrationScope::Reco, no_second_shower, no_second_shower);
 
   /**
    * @brief Full 1γ1p selection = pi0_rejection AND egamma_separation.
