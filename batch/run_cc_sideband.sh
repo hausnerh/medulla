@@ -45,11 +45,16 @@ USERNAME=${USER:-hhausner}
 MODE=sideband
 
 BATCH_SIZE=20                               # CAF files per selection job
-MEMORY_MB=4000                              # selection job memory
+# The loosened non-fiducial selection (outside_signal_box + >=1 EM shower + >=1
+# proton, no vetoes) selects a large event count, and add_systematics copies the
+# per-event multisim/multisigma weight vectors onto every one — so the heavy
+# samples (cvext) peaked at ~4 GB against a 4 GB request and thrashed for 14h+.
+# Give real headroom. If cvext still hangs, go to 16000 / 24h.
+MEMORY_MB=8000                              # selection job memory
 DISK_GB=2000                                # selection job disk (GB); 2 TB is very
                                             #  large — lower if jobs stay Idle.
-LIFETIME=8h                                 # selection job lifetime
-HELD_MEMORY_MB=8000                         # bumped resources when RELEASING a held selection job
+LIFETIME=16h                                # selection job lifetime
+HELD_MEMORY_MB=12000                        # bumped resources when RELEASING a held selection job
 HELD_DISK_GB=2000
 # Plot jobs are a different beast from selection jobs: they need lots of memory
 # (nonfid_NgNp_stage1 systematics) but little disk. The shared release path must
