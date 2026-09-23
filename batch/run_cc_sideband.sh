@@ -44,12 +44,13 @@ USERNAME=${USER:-hhausner}
 # Resolved into SEL_TOML/SYS_TOML/... in the `resolve mode` block after arg parse.
 MODE=sideband
 
-BATCH_SIZE=20                               # CAF files per selection job
-# The loosened non-fiducial selection (outside_signal_box + >=1 EM shower + >=1
-# proton, no vetoes) selects a large event count, and add_systematics copies the
-# per-event multisim/multisigma weight vectors onto every one — so the heavy
-# samples (cvext) peaked at ~4 GB against a 4 GB request and thrashed for 14h+.
-# Give real headroom. If cvext still hangs, go to 16000 / 24h.
+# CAF files per selection job. Diagnosis of the 14h+ hang: the var jobs (7 files
+# each) finished in ~1.5h, but the 4 cvext jobs stuck at ~4 GB / 14h. cvext is
+# EXTENDED MC (dense — many neutrinos/file), so the loosened non-fiducial
+# selection + add_systematics (per-event multisim/multisigma weight-vector copy)
+# blows memory up on 20 cvext files. Fewer files/job = fewer events held at once
+# = the reliable fix; 10 keeps each cvext job well under the 8 GB below.
+BATCH_SIZE=10                               # CAF files per selection job
 MEMORY_MB=8000                              # selection job memory
 DISK_GB=2000                                # selection job disk (GB); 2 TB is very
                                             #  large — lower if jobs stay Idle.
