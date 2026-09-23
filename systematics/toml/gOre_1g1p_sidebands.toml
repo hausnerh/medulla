@@ -54,6 +54,21 @@ bins = [5, 0, 5]
 [[sysvar]]
 name = 'reco_leading_primary_proton_ke'
 bins = [25, 0, 500]
+# Detector-systematic (detsys) variation block for the non-fiducial sideband.
+# Builds the spline from the highest-stat nonfid tree (stage1) and applies it
+# to all nonfid trees by reco shower KE. Requires the varNN samples enabled in
+# the selection toml. (Signal detsys is a separate block in gOre_1g1p_signal_datamc.)
+# Only one [variations] block per run; change `tree`/`variable` to retarget.
+[variations]
+keys = ['cv', 'var00', 'var01', 'var02', 'var03m', 'var03p', 'var04', 'var05', 'var06', 'var07', 'var09m', 'var09p', 'var10m', 'var10p', 'var11', 'var12m', 'var12p', 'var13m', 'var13p']
+origin = 'events/'
+tree = 'selected_nonfid_NgNp_stage1'
+result_destination = 'detsys_results/'
+variable = 'reco_leading_primary_gOre_shower_ke'
+variable_length = true
+bins = [0, 50, 100, 150, 200, 250, 300, 350, 400, 500, 600]
+nuniverses = 10
+
 
 # --- non-fiducial Xγ + Np "outside-the-box" sideband, stages 1/2/3 ---
 # stage1 is the largest region in the file; run_systematics may OOM here on a
@@ -424,3 +439,139 @@ index = 126
 name = "piplus_Flux"
 type = "multisim"
 index = 127
+
+
+# --- detsys variation knobs (varNN), copied from the signal block ---
+
+
+# ----------------------------------------------------------------------------
+# Detector variation systs — same scale/point pattern as icarus_disappearance.
+# ----------------------------------------------------------------------------
+[[sys]]
+name = 'var00'
+type = 'variation'
+index = -1
+nsigma = [-3, -2, -1, 0, 1, 2, 3]
+scale = [-3, -2, -1, 1, 1, 2, 3]
+ordinate = 'cv'
+points = ['var00', 'var00', 'var00', 'cv', 'var00', 'var00', 'var00']
+
+
+[[sys]]
+name = 'var01'
+type = 'variation'
+index = -1
+nsigma = [-3, -2, -1, 0, 1, 2, 3]
+scale = [-3, -2, -1, 1, 1, 2, 3]
+ordinate = 'cv'
+points = ['var01', 'var01', 'var01', 'cv', 'var01', 'var01', 'var01']
+
+
+[[sys]]
+name = 'var02'
+type = 'variation'
+index = -1
+nsigma = [-3, -2, -1, 0, 1, 2, 3]
+scale = [-3, -2, -1, 1, 1, 2, 3]
+ordinate = 'cv'
+points = ['var02', 'var02', 'var02', 'cv', 'var02', 'var02', 'var02']
+
+
+[[sys]]
+name = 'var03'
+type = 'variation'
+index = -1
+nsigma = [-3, -2, -1, 0, 1, 2, 3]
+scale = [1.0, 0.666666, 0.333333, 1, 0.333333, 0.666666, 1.0]
+ordinate = 'cv'
+points = ['var03m', 'var03m', 'var03m', 'cv', 'var03p', 'var03p', 'var03p']
+
+
+[[sys]]
+name = 'var04'
+type = 'variation'
+index = -1
+nsigma = [-3, -2, -1, 0, 1, 2, 3]
+scale = [-3, -2, -1, 1, 1, 2, 3]
+ordinate = 'cv'
+points = ['var04', 'var04', 'var04', 'cv', 'var04', 'var04', 'var04']
+
+
+[[sys]]
+name = 'var05'
+type = 'variation'
+index = -1
+nsigma = [-3, -2, -1, 0, 1, 2, 3]
+scale = [-3, -2, -1, 1, 1, 2, 3]
+ordinate = 'cv'
+points = ['var05', 'var05', 'var05', 'cv', 'var05', 'var05', 'var05']
+
+
+[[sys]]
+name = 'var06'
+type = 'variation'
+index = -1
+nsigma = [-3, -2, -1, 0, 1, 2, 3]
+scale = [-3, -2, -1, 1, 1, 2, 3]
+ordinate = 'cv'
+points = ['var06', 'var06', 'var06', 'cv', 'var06', 'var06', 'var06']
+
+
+[[sys]]
+name = 'var07'
+type = 'variation'
+index = -1
+nsigma = [-3, -2, -1, 0, 1, 2, 3]
+scale = [-3, -2, -1, 1, 1, 2, 3]
+ordinate = 'cv'
+points = ['var07', 'var07', 'var07', 'cv', 'var07', 'var07', 'var07']
+
+
+[[sys]]
+name = 'var09'
+type = 'variation'
+index = -1
+nsigma = [-3, -2, -1, 0, 1, 2, 3]
+scale = [3, 2, 1, 1, 1, 2, 3]
+ordinate = 'cv'
+points = ['var09m', 'var09m', 'var09m', 'cv', 'var09p', 'var09p', 'var09p']
+
+
+[[sys]]
+name = 'var10'
+type = 'variation'
+index = -1
+nsigma = [-3, -2, -1, 0, 1, 2, 3]
+scale = [3, 2, 1, 1, 1, 2, 3]
+ordinate = 'cv'
+points = ['var10m', 'var10m', 'var10m', 'cv', 'var10p', 'var10p', 'var10p']
+
+
+[[sys]]
+name = 'var11'
+type = 'variation'
+index = -1
+nsigma = [-3, -2, -1, 0, 1, 2, 3]
+scale = [-3, -2, -1, 1, 1, 2, 3]
+ordinate = 'cv'
+points = ['var11', 'var11', 'var11', 'cv', 'var11', 'var11', 'var11']
+
+
+[[sys]]
+name = 'var12'
+type = 'variation'
+index = -1
+nsigma = [-3, -2, -1, 0, 1, 2, 3]
+scale = [1.5, 1.0, 0.5, 1, 0.5, 1.0, 1.5]
+ordinate = 'cv'
+points = ['var12m', 'var12m', 'var12m', 'cv', 'var12p', 'var12p', 'var12p']
+
+
+[[sys]]
+name = 'var13'
+type = 'variation'
+index = -1
+nsigma = [-3, -2, -1, 0, 1, 2, 3]
+scale = [3, 2, 1, 1, 1, 2, 3]
+ordinate = 'cv'
+points = ['var13m', 'var13m', 'var13m', 'cv', 'var13p', 'var13p', 'var13p']

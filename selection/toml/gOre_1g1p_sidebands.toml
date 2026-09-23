@@ -156,55 +156,55 @@ disable = false
 name = "var00"
 path = "/pnfs/icarus/persistent/users/mueller/production/simulation/var00/*.flat.root"
 ismc = true
-disable = true
+disable = false
 
 [[sample]]
 name = "var01"
 path = "/pnfs/icarus/persistent/users/mueller/production/simulation/var01/*.flat.root"
 ismc = true
-disable = true
+disable = false
 
 [[sample]]
 name = "var02"
 path = "/pnfs/icarus/persistent/users/mueller/production/simulation/var02/*.flat.root"
 ismc = true
-disable = true
+disable = false
 
 [[sample]]
 name = "var03m"
 path = "/pnfs/icarus/persistent/users/mueller/production/simulation/var03m/*.flat.root"
 ismc = true
-disable = true
+disable = false
 
 [[sample]]
 name = "var03p"
 path = "/pnfs/icarus/persistent/users/mueller/production/simulation/var03p/*.flat.root"
 ismc = true
-disable = true
+disable = false
 
 [[sample]]
 name = "var04"
 path = "/pnfs/icarus/persistent/users/mueller/production/simulation/var04/*.flat.root"
 ismc = true
-disable = true
+disable = false
 
 [[sample]]
 name = "var05"
 path = "/pnfs/icarus/persistent/users/mueller/production/simulation/var05/*.flat.root"
 ismc = true
-disable = true
+disable = false
 
 [[sample]]
 name = "var06"
 path = "/pnfs/icarus/persistent/users/mueller/production/simulation/var06/*.flat.root"
 ismc = true
-disable = true
+disable = false
 
 [[sample]]
 name = "var07"
 path = "/pnfs/icarus/persistent/users/mueller/production/simulation/var07/*.flat.root"
 ismc = true
-disable = true
+disable = false
 
 [[sample]]
 name = "var08"
@@ -216,55 +216,55 @@ disable = true
 name = "var09m"
 path = "/pnfs/icarus/persistent/users/mueller/production/simulation/var09m/*.flat.root"
 ismc = true
-disable = true
+disable = false
 
 [[sample]]
 name = "var09p"
 path = "/pnfs/icarus/persistent/users/mueller/production/simulation/var09p/*.flat.root"
 ismc = true
-disable = true
+disable = false
 
 [[sample]]
 name = "var10m"
 path = "/pnfs/icarus/persistent/users/mueller/production/simulation/var10m/*.flat.root"
 ismc = true
-disable = true
+disable = false
 
 [[sample]]
 name = "var10p"
 path = "/pnfs/icarus/persistent/users/mueller/production/simulation/var10p/*.flat.root"
 ismc = true
-disable = true
+disable = false
 
 [[sample]]
 name = "var11"
 path = "/pnfs/icarus/persistent/users/mueller/production/simulation/var11/*.flat.root"
 ismc = true
-disable = true
+disable = false
 
 [[sample]]
 name = "var12m"
 path = "/pnfs/icarus/persistent/users/mueller/production/simulation/var12m/*.flat.root"
 ismc = true
-disable = true
+disable = false
 
 [[sample]]
 name = "var12p"
 path = "/pnfs/icarus/persistent/users/mueller/production/simulation/var12p/*.flat.root"
 ismc = true
-disable = true
+disable = false
 
 [[sample]]
 name = "var13m"
 path = "/pnfs/icarus/persistent/users/mueller/production/simulation/var13m/*.flat.root"
 ismc = true
-disable = true
+disable = false
 
 [[sample]]
 name = "var13p"
 path = "/pnfs/icarus/persistent/users/mueller/production/simulation/var13p/*.flat.root"
 ismc = true
-disable = true
+disable = false
 
 [[sample]]
 name = "offbeam"

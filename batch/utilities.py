@@ -454,7 +454,11 @@ def launch_jobsub(
         f'--memory={memory}MB',
         f'--disk={disk_req}',
         f'--expected-lifetime={lifetime}',
-        '--resource-provides=usage_model=DEDICATED,OPPORTUNISTIC,OFFSITE',
+        # Onsite only (drop OFFSITE): these selection jobs are memory-heavy and
+        # read/write /pnfs (dCache), so FermiGrid onsite lands them in a more
+        # favorable environment than opportunistic OSG sites. Matches the plot
+        # jobs (launch_spineplot.sh), which already run DEDICATED/OPPORTUNISTIC.
+        '--resource-provides=usage_model=DEDICATED,OPPORTUNISTIC',
         "--append_condor_requirements='(TARGET.HAS_Singularity==true)'",
         '--singularity-image=/cvmfs/singularity.opensciencegrid.org/fermilab/fnal-wn-sl7:latest',
         f'file://{Path(__file__).resolve().parent / "submit.sh"}',
