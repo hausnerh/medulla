@@ -1,0 +1,425 @@
+[general]
+output = "gOre_1g1p_sidebands_osc_run4"
+fsthresh = [
+  "@gOre_threshold",
+  "@gOre_threshold",
+  "@muon_threshold",
+  "@pion_threshold",
+  "@proton_threshold",
+]
+pidfn = "gOre_pid"
+
+[parameters]
+gOre_threshold   = 25 # MeV
+muon_threshold   = 25 # MeV
+pion_threshold   = 25 # MeV
+proton_threshold = 50 # MeV
+flash_low_t      =  0.0 # µs
+flash_high_t     =  1.6 # µs
+fiducial_xdist_pos = 50 # cm
+fiducial_xdist_neg = 50 # cm
+fiducial_ydist_pos = 50 # cm
+fiducial_ydist_neg = 50 # cm
+fiducial_zdist_pos = 50 # cm
+fiducial_zdist_neg = 50 # cm
+pion_mass_threshold = 0.4
+photon_vertex_resolution = 150
+flash_pe_neutron_scaling = 0.019
+angle_neutron_scaling    = 1.31
+# pi0 rejection thresholds
+gOre_primary_softmax_min   = 0.999100
+# Sideband-only photon primary-softmax threshold. The nominal 0.9991 cut is so
+# tight it leaves ~0 DATA (onbeam) events in the pi0-rejection sideband stages
+# (10% box), so there is nothing to compare MC against. Loosen it to 0.999 for
+# the SIDEBAND pi0_rejection cuts only (cc_Xg1p + nonfid_NgNp), keeping ~40
+# stage-1 events so the shower photon-ID can be validated with data. The SIGNAL
+# selection (selected_1g1p_stage2/3) still uses gOre_primary_softmax_min above.
+gOre_primary_softmax_sideband = 0.999000
+proton_primary_softmax_min = 0.951300
+delta_mass_center          = 1232.0
+delta_mass_halfwidth       = 59.700000
+# e/γ separation thresholds
+start_dedx_min          = 4.070000
+axial_spread_min        = -0.500000
+directional_spread_max  = 0.037000
+photon_softmax_min      = 0.922500
+# Shower-gate mode: the 5th param to pi0_rejection / egamma_separation.
+#   0 = is_valid (signal: exactly 1 shower, no muon/pion/other)
+#   1 = exactly 1 shower, tolerate leptons (legacy CC sideband)
+#   2 = >=1 shower, tolerate leptons; operate on the leading shower
+# The non-fiducial max-stats sideband uses 2 so it keeps multi-shower events and
+# lets electron showers + muons/pions in (see cuts::gOre::outside_signal_box,
+# at_least_one_gOre). The no-second-shower veto is skipped at gate 2 and lives as
+# the standalone `no_second_shower` cut (nonfid nm1_second_shower diagnostic).
+nonfid_gate  = 2
+# N-1 (cut-minus-one) no-op thresholds: pass one of these to pi0_rejection in
+# place of the real threshold to disable exactly that sub-cut while leaving the
+# rest live, so the freed variable spans both sides of its cut. -1 makes the
+# `primary_softmax > x` test always pass; 1e6 makes the `|Δm-1232| < w` window
+# always pass. Kept as @-params so the parameter arrays stay all-string.
+gOre_primary_softmax_off = -1.0
+delta_mass_halfwidth_off = 1000000.0
+
+# -----------------------------------------------------------------------------
+# Truth categories (unchanged from gOre_1g0p_1g1p_1gNp.toml).
+# -----------------------------------------------------------------------------
+[[category]] # 0: NC Δ→Nγ (1γ1p)
+cuts = [
+  { name = "neutrino"                                                                  },
+  { name = "!iscc",            type = "mctruth"                                         },
+  { name = "is_resonance",     type = "mctruth", parameters = [ 0 ]                     },
+  { name = "single_photon",    type = "mctruth", parameters = [ "@gOre_threshold" ]     },
+  { name = "no_charged_pions", type = "mctruth", parameters = [ "@pion_threshold" ]     },
+  { name = "no_neutral_pions", type = "mctruth"                                         },
+  { name = "no_electrons",     type = "mctruth", parameters = [ "@gOre_threshold" ]     },
+  { name = "no_muons",         type = "mctruth", parameters = [ "@muon_threshold" ]     },
+  { name = "single_proton",    type = "mctruth", parameters = [ "@proton_threshold" ]   },
+]
+[[category]] # 1: NC Δ→Nγ (other proton multiplicity)
+cuts = [
+  { name = "neutrino"                                                                  },
+  { name = "!iscc",            type = "mctruth"                                         },
+  { name = "is_resonance",     type = "mctruth", parameters = [ 0 ]                     },
+  { name = "single_photon",    type = "mctruth", parameters = [ "@gOre_threshold" ]     },
+  { name = "no_charged_pions", type = "mctruth", parameters = [ "@pion_threshold" ]     },
+  { name = "no_neutral_pions", type = "mctruth"                                         },
+  { name = "no_electrons",     type = "mctruth", parameters = [ "@gOre_threshold" ]     },
+  { name = "no_muons",         type = "mctruth", parameters = [ "@muon_threshold" ]     },
+]
+[[category]] # 2: Other NC 1γXp post-FSI
+cuts = [
+  { name = "neutrino"                                                                  },
+  { name = "!iscc",            type = "mctruth"                                         },
+  { name = "!is_resonance",    type = "mctruth", parameters = [ 0 ]                     },
+  { name = "single_photon",    type = "mctruth", parameters = [ "@gOre_threshold" ]     },
+  { name = "no_charged_pions", type = "mctruth", parameters = [ "@pion_threshold" ]     },
+  { name = "no_neutral_pions", type = "mctruth"                                         },
+  { name = "no_electrons",     type = "mctruth", parameters = [ "@gOre_threshold" ]     },
+  { name = "no_muons",         type = "mctruth", parameters = [ "@muon_threshold" ]     },
+]
+[[category]] # 3: NC π0 (Δ res)
+cuts = [
+  { name = "neutrino"                                                                  },
+  { name = "!iscc",             type = "mctruth"                                        },
+  { name = "is_resonance",      type = "mctruth", parameters = [ 0 ]                    },
+  { name = "!no_neutral_pions", type = "mctruth"                                        },
+]
+[[category]] # 4: NC π0 (other)
+cuts = [
+  { name = "neutrino"                                                                  },
+  { name = "!iscc",             type = "mctruth"                                        },
+  { name = "!no_neutral_pions", type = "mctruth"                                        },
+]
+[[category]] # 5: NC π±
+cuts = [
+  { name = "neutrino"                                                                  },
+  { name = "!iscc",             type = "mctruth"                                        },
+  { name = "!no_charged_pions", type = "mctruth", parameters = [ "@pion_threshold" ]    },
+]
+[[category]] # 6: Other NC
+cuts = [
+  { name = "neutrino"                                                                  },
+  { name = "!iscc",             type = "mctruth"                                        },
+]
+[[category]] # 7: CC νₑ
+cuts = [
+  { name = "neutrino"                                                                  },
+  { name = "iscc",              type = "mctruth"                                        },
+  { name = "!no_electrons",     type = "mctruth", parameters = [ "@gOre_threshold" ]    },
+]
+[[category]] # 8: Other CC
+cuts = [
+  { name = "neutrino"                                                                  },
+  { name = "iscc",              type = "mctruth"                                        },
+]
+[[category]] # 9: Cosmic / unmatched
+cuts = [
+  { name = "!neutrino" },
+]
+
+# -----------------------------------------------------------------------------
+# Samples — same as gOre_1g0p_1g1p_1gNp.toml. Tweak `disable` to fit campaign.
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# ICARUS Run 4 osc samples (ReCAF2026), /pnfs/sbn/.../osc/icarus/flatcaf.
+# There is NO cvext (extended CV), so `cv` is the single central value (lower
+# stats than the old cvext). dirt + the 5 detector-variation samples are DEFINED
+# but DISABLED for the first validation run: enable them once the cuts are
+# re-tuned on the new training and the detvar detsys is wired up.
+# -----------------------------------------------------------------------------
+[[sample]]
+name = "cv"
+path = "/pnfs/sbn/persistent/users/mueller/osc/icarus/flatcaf/icarus_run4_cvmc/*/*/*.root"
+ismc = true
+disable = false
+
+[[sample]]
+name = "offbeam"
+path = "/pnfs/sbn/persistent/users/mueller/osc/icarus/flatcaf/ICARUS_Run4BeamOffWF_BNB_data_ReCAF2026_20p/*/*/*.root"
+ismc = false
+disable = false
+
+[[sample]] # 10% unblinded onbeam subsample — confirm box status before flipping disable
+name = "onbeam"
+path = "/pnfs/sbn/persistent/users/mueller/osc/icarus/flatcaf/ICARUS_Run4BeamOnWF_BNB_data_ReCAF2026/*/*/*.root"
+ismc = false
+disable = false
+
+[[sample]]
+name = "dirt"
+path = "/pnfs/sbn/persistent/users/mueller/osc/icarus/flatcaf/ICARUS_Run4_DirtMC_ReCAF2026_BNB/*/*/*.root"
+ismc = true
+disable = true
+
+[[sample]]
+name = "wiremod_xthetaxw"
+path = "/pnfs/sbn/persistent/users/mueller/osc/icarus/flatcaf/ICARUS_Run4_WM_ReCAF2026/*/*/*.root"
+ismc = true
+disable = true
+
+[[sample]]
+name = "wiremod_yz"
+path = "/pnfs/sbn/persistent/users/mueller/osc/icarus/flatcaf/icarus_run4_wiremod_yz/*/*/*.root"
+ismc = true
+disable = true
+
+[[sample]]
+name = "detvar_sce0x"
+path = "/pnfs/sbn/persistent/users/mueller/osc/icarus/flatcaf/icarus_run4_detvar_sce0x/*/*/*.root"
+ismc = true
+disable = true
+
+[[sample]]
+name = "detvar_sce2x"
+path = "/pnfs/sbn/persistent/users/mueller/osc/icarus/flatcaf/icarus_run4_detvar_sce2x/*/*/*.root"
+ismc = true
+disable = true
+
+[[sample]]
+name = "detvar_charge_scale"
+path = "/pnfs/sbn/persistent/users/mueller/osc/icarus/flatcaf/icarus_run4_detvar_charge_scale/*/*/*.root"
+ismc = true
+disable = true
+
+
+[[tree]] # non-fiducial stage1: !fiducial + >=1 photon + >=1 proton (max stats)
+name = "selected_nonfid_NgNp_stage1"
+sim_only = false
+add_systematics = true
+add_exposure = true
+mode = "reco"
+cut = [
+  { name = "outside_signal_box",      type = "reco" },
+  { name = "at_least_one_gOre", type = "reco", parameters = [ "@gOre_threshold" ] },
+  { name = "!no_protons",        type = "reco", parameters = [ "@proton_threshold" ] },
+]
+branch = [
+  { name = "cc",                   type = "mctruth" },
+  { name = "pdg",                  type = "mctruth" },
+  { name = "neutrino_energy",      type = "mctruth" },
+  { name = "neutrino_id",          type = "true" },
+  { name = "cc_sideband_category", type = "mctruth", parameters = [ "@gOre_threshold", "@muon_threshold", "@proton_threshold", "@pion_threshold",
+                                                                    "@fiducial_xdist_pos", "@fiducial_xdist_neg", "@fiducial_ydist_pos", "@fiducial_ydist_neg", "@fiducial_zdist_pos", "@fiducial_zdist_neg" ] },
+  { name = "category",           type = "true" },
+  { name = "gOre_topology",      type = "reco", parameters = [ "@gOre_threshold", "@muon_threshold", "@pion_threshold" ] },
+  { name = "n_primary_showers",  type = "both", parameters = [ "@gOre_threshold" ] },
+  { name = "n_protons",          type = "both", parameters = [ "@proton_threshold" ] },
+  { name = "delta_mass_P",       type = "both" },
+  { name = "primary_softmax",    type = "reco_particle", selector = "leading_primary_gOre" },
+  { name = "photon_softmax",     type = "reco_particle", selector = "leading_primary_gOre" },
+  { name = "axial_spread",       type = "reco_particle", selector = "leading_primary_gOre" },
+  { name = "directional_spread", type = "reco_particle", selector = "leading_primary_gOre" },
+  { name = "start_dedx",         type = "reco_particle", selector = "leading_primary_gOre" },
+  { name = "shower_ke",          type = "both_particle", selector = "leading_primary_gOre" },
+  { name = "primary_softmax",    type = "reco_particle", selector = "leading_primary_proton" },
+  { name = "proton_softmax",     type = "reco_particle", selector = "leading_primary_proton" },
+  { name = "ke",                 type = "both_particle", selector = "leading_primary_proton" },
+]
+
+[[tree]] # non-fiducial stage2: stage1 + pi0_rejection (shared params)
+name = "selected_nonfid_NgNp_stage2"
+sim_only = false
+add_systematics = true
+add_exposure = true
+mode = "reco"
+cut = [
+  { name = "outside_signal_box",      type = "reco" },
+  { name = "at_least_one_gOre", type = "reco", parameters = [ "@gOre_threshold" ] },
+  { name = "!no_protons",        type = "reco", parameters = [ "@proton_threshold" ] },
+  { name = "pi0_rejection",      type = "reco", parameters = [ "@gOre_primary_softmax_sideband", "@proton_primary_softmax_min", "@delta_mass_center", "@delta_mass_halfwidth", "@nonfid_gate" ] },
+]
+branch = [
+  { name = "cc",                   type = "mctruth" },
+  { name = "pdg",                  type = "mctruth" },
+  { name = "neutrino_energy",      type = "mctruth" },
+  { name = "neutrino_id",          type = "true" },
+  { name = "cc_sideband_category", type = "mctruth", parameters = [ "@gOre_threshold", "@muon_threshold", "@proton_threshold", "@pion_threshold",
+                                                                    "@fiducial_xdist_pos", "@fiducial_xdist_neg", "@fiducial_ydist_pos", "@fiducial_ydist_neg", "@fiducial_zdist_pos", "@fiducial_zdist_neg" ] },
+  { name = "category",           type = "true" },
+  { name = "gOre_topology",      type = "reco", parameters = [ "@gOre_threshold", "@muon_threshold", "@pion_threshold" ] },
+  { name = "n_primary_showers",  type = "both", parameters = [ "@gOre_threshold" ] },
+  { name = "n_protons",          type = "both", parameters = [ "@proton_threshold" ] },
+  { name = "delta_mass_P",       type = "both" },
+  { name = "primary_softmax",    type = "reco_particle", selector = "leading_primary_gOre" },
+  { name = "photon_softmax",     type = "reco_particle", selector = "leading_primary_gOre" },
+  { name = "axial_spread",       type = "reco_particle", selector = "leading_primary_gOre" },
+  { name = "directional_spread", type = "reco_particle", selector = "leading_primary_gOre" },
+  { name = "start_dedx",         type = "reco_particle", selector = "leading_primary_gOre" },
+  { name = "shower_ke",          type = "both_particle", selector = "leading_primary_gOre" },
+  { name = "primary_softmax",    type = "reco_particle", selector = "leading_primary_proton" },
+  { name = "proton_softmax",     type = "reco_particle", selector = "leading_primary_proton" },
+  { name = "ke",                 type = "both_particle", selector = "leading_primary_proton" },
+]
+
+[[tree]] # non-fiducial stage3: stage2 + egamma_separation (shared params)
+name = "selected_nonfid_NgNp_stage3"
+sim_only = false
+add_systematics = true
+add_exposure = true
+mode = "reco"
+cut = [
+  { name = "outside_signal_box",      type = "reco" },
+  { name = "at_least_one_gOre", type = "reco", parameters = [ "@gOre_threshold" ] },
+  { name = "!no_protons",        type = "reco", parameters = [ "@proton_threshold" ] },
+  { name = "pi0_rejection",      type = "reco", parameters = [ "@gOre_primary_softmax_sideband", "@proton_primary_softmax_min", "@delta_mass_center", "@delta_mass_halfwidth", "@nonfid_gate" ] },
+  { name = "egamma_separation",  type = "reco", parameters = [ "@start_dedx_min", "@axial_spread_min", "@directional_spread_max", "@photon_softmax_min", "@nonfid_gate" ] },
+]
+branch = [
+  { name = "cc",                   type = "mctruth" },
+  { name = "pdg",                  type = "mctruth" },
+  { name = "neutrino_energy",      type = "mctruth" },
+  { name = "neutrino_id",          type = "true" },
+  { name = "cc_sideband_category", type = "mctruth", parameters = [ "@gOre_threshold", "@muon_threshold", "@proton_threshold", "@pion_threshold",
+                                                                    "@fiducial_xdist_pos", "@fiducial_xdist_neg", "@fiducial_ydist_pos", "@fiducial_ydist_neg", "@fiducial_zdist_pos", "@fiducial_zdist_neg" ] },
+  { name = "category",           type = "true" },
+  { name = "gOre_topology",      type = "reco", parameters = [ "@gOre_threshold", "@muon_threshold", "@pion_threshold" ] },
+  { name = "n_primary_showers",  type = "both", parameters = [ "@gOre_threshold" ] },
+  { name = "n_protons",          type = "both", parameters = [ "@proton_threshold" ] },
+  { name = "delta_mass_P",       type = "both" },
+  { name = "primary_softmax",    type = "reco_particle", selector = "leading_primary_gOre" },
+  { name = "photon_softmax",     type = "reco_particle", selector = "leading_primary_gOre" },
+  { name = "axial_spread",       type = "reco_particle", selector = "leading_primary_gOre" },
+  { name = "directional_spread", type = "reco_particle", selector = "leading_primary_gOre" },
+  { name = "start_dedx",         type = "reco_particle", selector = "leading_primary_gOre" },
+  { name = "shower_ke",          type = "both_particle", selector = "leading_primary_gOre" },
+  { name = "primary_softmax",    type = "reco_particle", selector = "leading_primary_proton" },
+  { name = "proton_softmax",     type = "reco_particle", selector = "leading_primary_proton" },
+  { name = "ke",                 type = "both_particle", selector = "leading_primary_proton" },
+]
+
+# -----------------------------------------------------------------------------
+# Non-fiducial N-1 (cut-minus-one) trees: the high-statistics non-fiducial
+# preselection (!fiducial + >=1 photon + >=1 proton) + pi0_rejection with ONE
+# sub-cut neutralised, so the freed variable spans both sides of its threshold
+# with far more events than the full-chain nonfid stage2/3 (which collapse to
+# <1 expected event in the 10% box). Split by true_cc_sideband_category (+ the
+# off-beam cosmic block in the plot config) to see cosmic vs neutrino on each
+# side of the cut. e/gamma separation not applied (pi0-stage N-1).
+# -----------------------------------------------------------------------------
+[[tree]] # non-fiducial N-1 on gamma primary_softmax (softmax cut -> no-op)
+name = "selected_nonfid_NgNp_nm1_gOre_softmax"
+sim_only = false
+add_systematics = true
+add_exposure = true
+mode = "reco"
+cut = [
+  { name = "outside_signal_box",      type = "reco" },
+  { name = "at_least_one_gOre", type = "reco", parameters = [ "@gOre_threshold" ] },
+  { name = "!no_protons",        type = "reco", parameters = [ "@proton_threshold" ] },
+  { name = "pi0_rejection",      type = "reco", parameters = [ "@gOre_primary_softmax_off", "@proton_primary_softmax_min", "@delta_mass_center", "@delta_mass_halfwidth", "@nonfid_gate" ] },
+]
+branch = [
+  { name = "cc",                   type = "mctruth" },
+  { name = "pdg",                  type = "mctruth" },
+  { name = "neutrino_energy",      type = "mctruth" },
+  { name = "neutrino_id",          type = "true" },
+  { name = "cc_sideband_category", type = "mctruth", parameters = [ "@gOre_threshold", "@muon_threshold", "@proton_threshold", "@pion_threshold",
+                                                                    "@fiducial_xdist_pos", "@fiducial_xdist_neg", "@fiducial_ydist_pos", "@fiducial_ydist_neg", "@fiducial_zdist_pos", "@fiducial_zdist_neg" ] },
+  { name = "category",           type = "true" },
+  { name = "gOre_topology",      type = "reco", parameters = [ "@gOre_threshold", "@muon_threshold", "@pion_threshold" ] },
+  { name = "n_primary_showers",  type = "both", parameters = [ "@gOre_threshold" ] },
+  { name = "n_protons",          type = "both", parameters = [ "@proton_threshold" ] },
+  { name = "delta_mass_P",       type = "both" },
+  { name = "primary_softmax",    type = "reco_particle", selector = "leading_primary_gOre" },
+  { name = "photon_softmax",     type = "reco_particle", selector = "leading_primary_gOre" },
+  { name = "axial_spread",       type = "reco_particle", selector = "leading_primary_gOre" },
+  { name = "directional_spread", type = "reco_particle", selector = "leading_primary_gOre" },
+  { name = "start_dedx",         type = "reco_particle", selector = "leading_primary_gOre" },
+  { name = "shower_ke",          type = "both_particle", selector = "leading_primary_gOre" },
+  { name = "primary_softmax",    type = "reco_particle", selector = "leading_primary_proton" },
+  { name = "proton_softmax",     type = "reco_particle", selector = "leading_primary_proton" },
+  { name = "ke",                 type = "both_particle", selector = "leading_primary_proton" },
+]
+
+[[tree]] # non-fiducial "N+1": stage2 chain + the no-second-shower veto, to
+         # measure what requiring a single shower would cost the stage2 yield.
+         # (Main stage2/3 deliberately keep multi-shower events for stats.)
+name = "selected_nonfid_NgNp_nm1_second_shower"
+sim_only = false
+add_systematics = true
+add_exposure = true
+mode = "reco"
+cut = [
+  { name = "outside_signal_box",      type = "reco" },
+  { name = "at_least_one_gOre", type = "reco", parameters = [ "@gOre_threshold" ] },
+  { name = "!no_protons",        type = "reco", parameters = [ "@proton_threshold" ] },
+  { name = "pi0_rejection",      type = "reco", parameters = [ "@gOre_primary_softmax_sideband", "@proton_primary_softmax_min", "@delta_mass_center", "@delta_mass_halfwidth", "@nonfid_gate" ] },
+  { name = "no_second_shower",   type = "reco" },
+]
+branch = [
+  { name = "cc",                   type = "mctruth" },
+  { name = "pdg",                  type = "mctruth" },
+  { name = "neutrino_energy",      type = "mctruth" },
+  { name = "neutrino_id",          type = "true" },
+  { name = "cc_sideband_category", type = "mctruth", parameters = [ "@gOre_threshold", "@muon_threshold", "@proton_threshold", "@pion_threshold",
+                                                                    "@fiducial_xdist_pos", "@fiducial_xdist_neg", "@fiducial_ydist_pos", "@fiducial_ydist_neg", "@fiducial_zdist_pos", "@fiducial_zdist_neg" ] },
+  { name = "category",           type = "true" },
+  { name = "gOre_topology",      type = "reco", parameters = [ "@gOre_threshold", "@muon_threshold", "@pion_threshold" ] },
+  { name = "n_primary_showers",  type = "both", parameters = [ "@gOre_threshold" ] },
+  { name = "n_protons",          type = "both", parameters = [ "@proton_threshold" ] },
+  { name = "delta_mass_P",       type = "both" },
+  { name = "primary_softmax",    type = "reco_particle", selector = "leading_primary_gOre" },
+  { name = "photon_softmax",     type = "reco_particle", selector = "leading_primary_gOre" },
+  { name = "axial_spread",       type = "reco_particle", selector = "leading_primary_gOre" },
+  { name = "directional_spread", type = "reco_particle", selector = "leading_primary_gOre" },
+  { name = "start_dedx",         type = "reco_particle", selector = "leading_primary_gOre" },
+  { name = "shower_ke",          type = "both_particle", selector = "leading_primary_gOre" },
+  { name = "primary_softmax",    type = "reco_particle", selector = "leading_primary_proton" },
+  { name = "proton_softmax",     type = "reco_particle", selector = "leading_primary_proton" },
+  { name = "ke",                 type = "both_particle", selector = "leading_primary_proton" },
+]
+
+[[tree]] # non-fiducial N-1 on delta-mass window (window -> no-op)
+name = "selected_nonfid_NgNp_nm1_delta_mass"
+sim_only = false
+add_systematics = true
+add_exposure = true
+mode = "reco"
+cut = [
+  { name = "outside_signal_box",      type = "reco" },
+  { name = "at_least_one_gOre", type = "reco", parameters = [ "@gOre_threshold" ] },
+  { name = "!no_protons",        type = "reco", parameters = [ "@proton_threshold" ] },
+  { name = "pi0_rejection",      type = "reco", parameters = [ "@gOre_primary_softmax_sideband", "@proton_primary_softmax_min", "@delta_mass_center", "@delta_mass_halfwidth_off", "@nonfid_gate" ] },
+]
+branch = [
+  { name = "cc",                   type = "mctruth" },
+  { name = "pdg",                  type = "mctruth" },
+  { name = "neutrino_energy",      type = "mctruth" },
+  { name = "neutrino_id",          type = "true" },
+  { name = "cc_sideband_category", type = "mctruth", parameters = [ "@gOre_threshold", "@muon_threshold", "@proton_threshold", "@pion_threshold",
+                                                                    "@fiducial_xdist_pos", "@fiducial_xdist_neg", "@fiducial_ydist_pos", "@fiducial_ydist_neg", "@fiducial_zdist_pos", "@fiducial_zdist_neg" ] },
+  { name = "category",           type = "true" },
+  { name = "gOre_topology",      type = "reco", parameters = [ "@gOre_threshold", "@muon_threshold", "@pion_threshold" ] },
+  { name = "n_primary_showers",  type = "both", parameters = [ "@gOre_threshold" ] },
+  { name = "n_protons",          type = "both", parameters = [ "@proton_threshold" ] },
+  { name = "delta_mass_P",       type = "both" },
+  { name = "primary_softmax",    type = "reco_particle", selector = "leading_primary_gOre" },
+  { name = "photon_softmax",     type = "reco_particle", selector = "leading_primary_gOre" },
+  { name = "axial_spread",       type = "reco_particle", selector = "leading_primary_gOre" },
+  { name = "directional_spread", type = "reco_particle", selector = "leading_primary_gOre" },
+  { name = "start_dedx",         type = "reco_particle", selector = "leading_primary_gOre" },
+  { name = "shower_ke",          type = "both_particle", selector = "leading_primary_gOre" },
+  { name = "primary_softmax",    type = "reco_particle", selector = "leading_primary_proton" },
+  { name = "proton_softmax",     type = "reco_particle", selector = "leading_primary_proton" },
+  { name = "ke",                 type = "both_particle", selector = "leading_primary_proton" },
+]
