@@ -98,7 +98,7 @@ SL7RUN(){
 NAT(){ if [[ -n "$NATIVE_SETUP" ]]; then bash -lc "{ $NATIVE_SETUP ; } >/dev/null 2>&1 ; $1"; else bash -lc "$1"; fi; }
 
 # ---- argument parsing ------------------------------------------------
-RESUME_PROJ=""; PLOTS_ONLY=0; SYS_ROOT_OVERRIDE=""; CHECK_ENV=0
+RESUME_PROJ=""; PLOTS_ONLY=0; SYS_ROOT_OVERRIDE=""; CHECK_ENV=0; SEL_TOML_OVERRIDE=""; SELECT_ONLY=0
 usage(){
   cat <<EOF
 Usage: $0 [--signal|--sideband] [--resume PROJECT_DIR] [--plots-only [SYS_ROOT]] [--check-env] [--help]
@@ -114,6 +114,12 @@ Usage: $0 [--signal|--sideband] [--resume PROJECT_DIR] [--plots-only [SYS_ROOT]]
                          sys ROOT (local build one by default) and plot.
   --check-env            Run only the SL7/native plumbing smoke tests and exit.
                          Run this once before your first real run.
+  --sel-toml PATH        Use an alternate selection toml (e.g. the osc run4
+                         variants) with its own project/OUT/hadd/sys names, so it
+                         runs PARALLEL to the main run. Pass the matching mode
+                         (--signal for *_signal_*, --sideband for *_sidebands_*).
+  --select-only          Stop after selection + hadd (skip systematics + plots).
+                         For validating new samples before systematics exist.
 
 Run this NATIVELY (not inside sl7_container). jobsub is native; ifdh/hadd/
 run_systematics/root run in SL7 via the SL7RUN wrapper (see CONFIG block).
@@ -129,6 +135,9 @@ while [[ $# -gt 0 ]]; do
         --check-env)   CHECK_ENV=1; shift ;;
         --signal)      MODE=signal; shift ;;
         --sideband)    MODE=sideband; shift ;;
+        --sel-toml)    SEL_TOML_OVERRIDE="$2"; shift 2 ;;
+        --sel-toml=*)  SEL_TOML_OVERRIDE="${1#*=}"; shift ;;
+        --select-only) SELECT_ONLY=1; shift ;;
         -h|--help)     usage; exit 0 ;;
         *) echo "Unknown option: $1" >&2; usage; exit 1 ;;
     esac
@@ -160,6 +169,20 @@ case "$MODE" in
              gOre_nonfid_NgNp_nm1_delta_mass_datamc) ;;
   *) echo "Bad MODE '$MODE' (use --signal or --sideband)" >&2; exit 1 ;;
 esac
+
+# --sel-toml: run an alternate selection toml (e.g. the osc run4 variants) with
+# its own project/OUT/hadd/sys names so it runs PARALLEL to the main run without
+# collision. The mode still sets STAGE_PREFIX/CONFIGS, so pass the matching mode
+# (--signal for a *_signal_* toml, --sideband for a *_sidebands_* toml).
+if [[ -n "$SEL_TOML_OVERRIDE" ]]; then
+    [[ -f "$SEL_TOML_OVERRIDE" ]] || { echo "Bad --sel-toml '$SEL_TOML_OVERRIDE' (not found)" >&2; exit 1; }
+    SEL_TOML="$SEL_TOML_OVERRIDE"
+    label=$(basename "$SEL_TOML_OVERRIDE" .toml)          # e.g. gOre_1g1p_sidebands_osc_run4
+    SEL_HADD=$PWD/build/output_${label}.root
+    SYS_ROOT=$PWD/build/output_${label}_sys.root
+    OUT=/pnfs/icarus/scratch/users/$USERNAME/${label}_plots
+    PROJ_PREFIX=$label
+fi
 
 if [[ -n "$RESUME_PROJ" ]]; then
     RESUME_PROJ=${RESUME_PROJ%/}
@@ -484,6 +507,10 @@ main(){
     [[ -n "$RESUME_PROJ" ]] && log "Resume mode: PROJ=$PROJ (skipping Stage 1)"
     [[ -z "$RESUME_PROJ" ]] && submit_selection
     gather_and_merge
+    if [[ "$SELECT_ONLY" -eq 1 ]]; then
+        log "Select-only mode: stopping after hadd. Selection output: $SEL_HADD"
+        log "DONE (selection only)."; return
+    fi
     do_systematics
     submit_plots
     retrieve
