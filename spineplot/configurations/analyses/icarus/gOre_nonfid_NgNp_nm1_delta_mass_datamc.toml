@@ -3,7 +3,7 @@
 # proton) + pi0_rejection with ONE sub-cut neutralised, so the freed variable
 # spans both sides of its threshold with far more events than the full-chain
 # nonfid stage2/3 (which collapse to <1 expected event in the 10% box). Stacked
-# by true_cc_sideband_category + off-beam cosmics (cat 9), so you see cosmic vs
+# by signal true_category + off-beam cosmics (cat 9), so you see cosmic vs
 # neutrino on each side of the cut. e/gamma separation not applied (pi0-stage
 # N-1). yrange float (1.4) => auto-scale to 1.4x the tallest bin.
 
@@ -68,7 +68,7 @@ exposure_type = 'livetime'
 trees = ['selected_nonfid_NgNp_nm1_delta_mass']
 
 [samples.offbeam.precompute]
-true_cc_sideband_category = "0*reco_gOre_topology + 9"
+true_category             = "0*reco_gOre_topology + 9"
 reco_delta_mass_P_dev     = "abs(reco_delta_mass_P - 1232)"
 n_selected_flag           = "0*reco_gOre_topology + 1"
 

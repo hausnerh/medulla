@@ -3,7 +3,7 @@
 # box (!fiducial_cut): >=1 photon, >=1 proton, no muon/lepton/pion requirement,
 # no containment/flash, cosmics (cat 9) included. Shower-ID cuts run on the SAME
 # shared @-params as the signal + CC sideband. Truth breakdown reuses
-# true_cc_sideband_category (NC->8, cosmic->9) for a first look.
+# signal true_category (+ off-beam cosmics forced to cat 9).
 #
 # yrange is a float (1.4) => auto-scale to 1.4x the tallest bin, so the plot
 # fits the (large, a priori unknown) non-fiducial statistics. ordinate_sample =
@@ -71,7 +71,7 @@ exposure_type = 'livetime'
 trees = ['selected_nonfid_NgNp_stage3']
 
 [samples.offbeam.precompute]
-true_cc_sideband_category = "0*reco_gOre_topology + 9"
+true_category             = "0*reco_gOre_topology + 9"
 reco_delta_mass_P_dev     = "abs(reco_delta_mass_P - 1232)"
 n_selected_flag           = "0*reco_gOre_topology + 1"
 

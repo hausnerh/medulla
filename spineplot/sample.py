@@ -123,7 +123,19 @@ class Sample:
                 )
                 self._data.loc[nanmask, self._category_branch] = fillna
             
-            # Otherwise, remove entries with NaN category.
+            # Otherwise, remove entries with NaN category. If EVERY entry is
+            # NaN, masking would silently delete the whole sample — that is
+            # always a config bug (the category precompute writes a different
+            # branch than `category_branch`), e.g. the off-beam cosmic sample
+            # vanishing from a plot. Fail loudly instead.
+            elif nanmask.all():
+                raise ValueError(
+                    f'Every entry of Sample `{self._name}` has a NaN'
+                    f' `{self._category_branch}` — masking would drop the'
+                    f' entire sample. Check that its precompute sets'
+                    f' `{self._category_branch}` (not an old branch name)'
+                    f' or give it a `fillna`.'
+                )
             else:
                 occurrences = len(self._data[nanmask])
                 print(

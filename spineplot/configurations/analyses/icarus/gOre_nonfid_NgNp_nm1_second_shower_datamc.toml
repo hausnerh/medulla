@@ -71,7 +71,7 @@ exposure_type = 'livetime'
 trees = ['selected_nonfid_NgNp_nm1_second_shower']
 
 [samples.offbeam.precompute]
-true_cc_sideband_category = "0*reco_gOre_topology + 9"
+true_category             = "0*reco_gOre_topology + 9"
 reco_delta_mass_P_dev     = "abs(reco_delta_mass_P - 1232)"
 n_selected_flag           = "0*reco_gOre_topology + 1"
 
