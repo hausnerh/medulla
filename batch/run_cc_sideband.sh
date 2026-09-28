@@ -269,47 +269,80 @@ fetch_logs(){ # cluster schedd label
 }
 
 # ---- monitor (native jobsub) -----------------------------------------
-monitor_cluster(){ # cluster schedd label
-    local cluster="$1" schedd="$2" label="$3" q active held jid stable=0
+release_held(){ # schedd jid label
+    local schedd="$1" jid="$2" label="$3"
     # Held-release resources differ by job type. Plot jobs must not be released
     # with the selection values (8 GB / 2 TB) or they re-hold instantly.
     local rel_mem=$HELD_MEMORY_MB rel_disk=$HELD_DISK_GB rel_runtime=""
     if [[ "$label" == plot:* ]]; then
         rel_mem=$PLOT_HELD_MEMORY_MB; rel_disk=$PLOT_HELD_DISK_GB; rel_runtime=$PLOT_HELD_RUNTIME_S
     fi
-    log "$label: monitoring cluster $cluster@$schedd (poll ${POLL}s)"
+    log "$label: releasing held $jid (mem=${rel_mem}MB disk=${rel_disk}GB${rel_runtime:+ runtime=${rel_runtime}s})"
+    NAT "condor_qedit -name '$schedd' '${jid%@*}' RequestMemory $rel_mem" >/dev/null 2>&1 || true
+    NAT "condor_qedit -name '$schedd' '${jid%@*}' RequestDisk $((rel_disk*1024*1024))" >/dev/null 2>&1 || true
+    # Best-effort wall-time bump for a time-hold: jobsub_lite's
+    # --expected-lifetime has no single canonical editable attr, so set
+    # the common ones; harmless if the pool ignores them. The real
+    # safeguard against time-holds is the high launch --expected-lifetime.
+    if [[ -n "$rel_runtime" ]]; then
+        NAT "condor_qedit -name '$schedd' '${jid%@*}' MaxRuntime $rel_runtime" >/dev/null 2>&1 || true
+        NAT "condor_qedit -name '$schedd' '${jid%@*}' JOB_EXPECTED_MAX_LIFETIME $rel_runtime" >/dev/null 2>&1 || true
+    fi
+    NAT "jobsub_release -G $EXPERIMENT --jobid '$jid'" >/dev/null 2>&1 || true
+}
+
+# Called once when a cluster drains. Plot clusters get their figure check here,
+# as soon as THEY finish, rather than after every earlier cluster has drained.
+on_cluster_done(){ # cluster schedd label
+    local label="$3" cfg
+    [[ "$label" == plot:* ]] || return 0
+    cfg=${label#plot:}
+    if SL7RUN "ifdh ls '$OUT/$cfg'" 2>/dev/null | grep -qE '\.(png|pdf)$'; then
+        log "$label produced figures in $OUT/$cfg"
+    else
+        log "WARN: $label produced no figures — fetching logs"; fetch_logs "$1" "$2" "$label"
+    fi
+}
+
+# Watch several clusters in ONE poll loop: one jobsub_q per poll, held jobs
+# released on EVERY cluster, and each cluster finalized as soon as it drains.
+# (The old per-cluster loop blocked on the first cluster, so a slow job there
+# stalled the monitor and holds in later clusters were never released.)
+monitor_clusters(){ # "cluster schedd label" ...
+    local -a recs=("$@") done_=() stable=()
+    local i c s l q n held jid remaining summary
+    for i in "${!recs[@]}"; do done_[i]=0; stable[i]=0; done
+    log "monitoring ${#recs[@]} cluster(s) in parallel (poll ${POLL}s)"
     while true; do
-        if ! check_creds; then wait_for_creds || { log "$label: giving up (no creds)"; return 1; }; fi
+        if ! check_creds; then wait_for_creds || { log "giving up (no creds)"; return 1; }; fi
         if ! q=$(NAT "jobsub_q -G $EXPERIMENT" 2>/dev/null); then
-            log "$label: jobsub_q failed; retry in ${POLL}s"; sleep "$POLL"; continue
+            log "jobsub_q failed; retry in ${POLL}s"; sleep "$POLL"; continue
         fi
-        active=$(printf '%s\n' "$q" | grep -Ec "(^|[[:space:]])${cluster}\.[0-9]+@")
-        if [[ "$active" -eq 0 ]]; then
-            stable=$((stable+1)); [[ "$stable" -ge 2 ]] && { log "$label: queue drained"; return 0; }
-            sleep "$POLL"; continue
-        fi
-        stable=0
-        held=$(printf '%s\n' "$q" | awk -v c="$cluster" '$1 ~ (c "\\.[0-9]+@") && $5=="H"{print $1}')
-        if [[ -n "$held" ]]; then
-            for jid in $held; do
-                log "$label: releasing held $jid (mem=${rel_mem}MB disk=${rel_disk}GB${rel_runtime:+ runtime=${rel_runtime}s})"
-                NAT "condor_qedit -name '$schedd' '${jid%@*}' RequestMemory $rel_mem" >/dev/null 2>&1 || true
-                NAT "condor_qedit -name '$schedd' '${jid%@*}' RequestDisk $((rel_disk*1024*1024))" >/dev/null 2>&1 || true
-                # Best-effort wall-time bump for a time-hold: jobsub_lite's
-                # --expected-lifetime has no single canonical editable attr, so set
-                # the common ones; harmless if the pool ignores them. The real
-                # safeguard against time-holds is the high launch --expected-lifetime.
-                if [[ -n "$rel_runtime" ]]; then
-                    NAT "condor_qedit -name '$schedd' '${jid%@*}' MaxRuntime $rel_runtime" >/dev/null 2>&1 || true
-                    NAT "condor_qedit -name '$schedd' '${jid%@*}' JOB_EXPECTED_MAX_LIFETIME $rel_runtime" >/dev/null 2>&1 || true
+        remaining=0; summary=""
+        for i in "${!recs[@]}"; do
+            [[ "${done_[i]}" -eq 1 ]] && continue
+            read -r c s l <<< "${recs[i]}"
+            n=$(printf '%s\n' "$q" | grep -Ec "(^|[[:space:]])${c}\.[0-9]+@")
+            if [[ "$n" -eq 0 ]]; then
+                stable[i]=$(( stable[i] + 1 ))
+                if [[ "${stable[i]}" -ge 2 ]]; then
+                    done_[i]=1; log "$l: queue drained"; on_cluster_done "$c" "$s" "$l"; continue
                 fi
-                NAT "jobsub_release -G $EXPERIMENT --jobid '$jid'" >/dev/null 2>&1 || true
-            done
-        fi
-        log "$label: $active active$([[ -n "$held" ]] && echo ', released held')"
+            else
+                stable[i]=0
+                held=$(printf '%s\n' "$q" | awk -v c="$c" '$1 ~ (c "\\.[0-9]+@") && $5=="H"{print $1}')
+                for jid in $held; do release_held "$s" "$jid" "$l"; done
+            fi
+            remaining=$(( remaining + 1 )); summary+=" ${l#plot:}=$n"
+        done
+        [[ "$remaining" -eq 0 ]] && { log "all ${#recs[@]} cluster(s) drained"; return 0; }
+        log "$remaining/${#recs[@]} clusters active:$summary"
         sleep "$POLL"
     done
 }
+
+# Single-cluster wrapper (selection stage).
+monitor_cluster(){ monitor_clusters "$1 $2 $3"; }
 
 # ---- pipeline phases -------------------------------------------------
 preflight(){
@@ -448,16 +481,14 @@ submit_plots(){
         plot_jobs+=("$pcluster $pschedd $cfg")
     done
 
-    local rec
+    # All plot jobs are already submitted; watch them together (each gets its
+    # figure check in on_cluster_done the moment its own cluster drains).
+    local rec recs=()
     for rec in "${plot_jobs[@]}"; do
         set -- $rec
-        monitor_cluster "$1" "$2" "plot:$3"
-        if SL7RUN "ifdh ls '$OUT/$3'" 2>/dev/null | grep -qE '\.(png|pdf)$'; then
-            log "plot:$3 produced figures in $OUT/$3"
-        else
-            log "WARN: plot:$3 produced no figures — fetching logs"; fetch_logs "$1" "$2" "plot:$3"
-        fi
+        recs+=("$1 $2 plot:$3")
     done
+    [[ ${#recs[@]} -gt 0 ]] && monitor_clusters "${recs[@]}"
 }
 
 retrieve(){
