@@ -278,7 +278,12 @@ release_held(){ # schedd jid label
         rel_mem=$PLOT_HELD_MEMORY_MB; rel_disk=$PLOT_HELD_DISK_GB; rel_runtime=$PLOT_HELD_RUNTIME_S
     fi
     log "$label: releasing held $jid (mem=${rel_mem}MB disk=${rel_disk}GB${rel_runtime:+ runtime=${rel_runtime}s})"
-    NAT "condor_qedit -name '$schedd' '${jid%@*}' RequestMemory $rel_mem" >/dev/null 2>&1 || true
+    # Bare condor_qedit often can't authenticate to the jobsub schedd ("Failed
+    # to connect to queue manager"); jobsub_lite has no qedit. Don't hide that:
+    # if it fails, the release below re-queues the job with its ORIGINAL request.
+    if ! NAT "condor_qedit -name '$schedd' '${jid%@*}' RequestMemory $rel_mem" >/dev/null 2>&1; then
+        log "WARN: $label: condor_qedit could not reach $schedd — $jid will be released with its ORIGINAL memory and may re-hold. If it does: jobsub_rm it and resubmit with more memory (plots: launch_spineplot.sh --memory=NNNNNMB)."
+    fi
     NAT "condor_qedit -name '$schedd' '${jid%@*}' RequestDisk $((rel_disk*1024*1024))" >/dev/null 2>&1 || true
     # Best-effort wall-time bump for a time-hold: jobsub_lite's
     # --expected-lifetime has no single canonical editable attr, so set

@@ -45,6 +45,7 @@ CONFIG="gOre_cc_Xg1p_stage1_datamc"
 TAG="feature/hausnerh_gOre_1g1p"
 GITUSER="hausnerh"
 MCONLY=0
+MEMORY=64000MB   # override with --memory=NNNNNMB (e.g. to resubmit a memory-held plot)
 
 usage() {
     grep '^#' "$0" | sed 's/^#//'
@@ -64,6 +65,7 @@ while [[ $# -gt 0 ]]; do
     --gituser=*) GITUSER="${1#*=}"; shift ;;
     --gituser)   GITUSER="$2";      shift 2 ;;
     --mc-only)   MCONLY=1;          shift ;;
+    --memory=*)  MEMORY="${1#*=}";  shift ;;
     -h|--help)   usage ;;
     *) echo "Unknown option: $1" >&2; usage ;;
   esac
@@ -80,7 +82,7 @@ cmd=(
     jobsub_submit
     -G "$EXP"
     -N 1
-    --memory=64000MB
+    "--memory=$MEMORY"
     --disk=25GB
     --expected-lifetime=8h
     --resource-provides=usage_model=DEDICATED,OPPORTUNISTIC
