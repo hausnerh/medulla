@@ -130,7 +130,9 @@ namespace selectors::gOre
       }
       return index;
     }
-  REGISTER_SELECTOR(leading_primary_proton, leading_primary_proton);
+  // Not registered: upstream's selectors::leading_primary_proton (identical
+  // logic) already owns the "leading_primary_proton" name. Registering twice
+  // throws at startup. This copy is kept for direct calls in the gOre headers.
 
   /**
    * @brief What is the index of the leading primary gOre?

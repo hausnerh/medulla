@@ -245,9 +245,16 @@ ls -lrth data/
 # Run the analysis
 #######################################################################
 
-# Run medulla (selection)
+# Run medulla (selection). Fail the job (non-zero exit) if it crashes or
+# writes nothing, so the grid flags it instead of the job "succeeding" with a
+# bogus systematics stub copied out.
 ./selection/medulla job_config.toml
+rc=$?
 ls -lrth
+if [[ $rc -ne 0 || ! -s output.root ]]; then
+    echo "Error: selection failed (exit $rc) or produced no output.root." >&2
+    exit 1
+fi
 
 # Copy output file to the output directory
 printf -v RAWNAME "output_jobid%04d.root" "$JOBID"
@@ -255,7 +262,12 @@ copy_output output.root $PROJECT/output/$RAWNAME
 
 # Run medulla (systematics)
 ./systematics/run_systematics systematics.toml
+rc=$?
 ls -lrth
+if [[ $rc -ne 0 || ! -s output_sys.root ]]; then
+    echo "Error: systematics failed (exit $rc) or produced no output_sys.root." >&2
+    exit 1
+fi
 
 # Copy output file to the output directory
 printf -v SYSTNAME "output_systematics_jobid%04d.root" "$JOBID"
