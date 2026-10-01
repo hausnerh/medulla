@@ -33,7 +33,8 @@ using MCTruth = caf::Proxy<caf::SRTrueInteraction>;
 using TParticleType = caf::Proxy<caf::SRParticleTruthDLP>;
 using RParticleType = caf::Proxy<caf::SRParticleDLP>;
 using EventType = caf::Proxy<caf::StandardRecord>;
-using SpillType = caf::Proxy<caf::SRBNBInfo>;
+using BNBSpillType = caf::Proxy<caf::SRBNBInfo>;
+using NuMISpillType = caf::Proxy<caf::SRNuMIInfo>;
 
 using NamedSpillMultiVar = std::pair<std::string, ana::SpillMultiVar>;
 
@@ -268,7 +269,7 @@ inline BiVarFn<ParticleT> bind_bivar(const std::vector<double>& pars)
  */
 enum class RegistrationScope { True, Reco, Both, MCTruth,
                                TrueParticle, RecoParticle, BothParticle,
-                               Event, Spill };
+                               Event, BNBSpill, NuMISpill, BothSpill };
 
 // Register a cut with scope, auto‐detecting its signature
 #define REGISTER_CUT_SCOPE(scope, name, fn)                                                \
@@ -295,9 +296,13 @@ namespace                                                                       
             CutFactoryRegistry<EventType>::instance().register_fn(                         \
                 "event_" #name, bind<+fn<EventType>, EventType, bool>                      \
             );                                                                             \
-        if constexpr((scope)==RegistrationScope::Spill)                                    \
-            CutFactoryRegistry<SpillType>::instance().register_fn(                         \
-                "spill_" #name, bind<+fn<SpillType>, SpillType, bool>                      \
+        if constexpr((scope)==RegistrationScope::BNBSpill)                                 \
+            CutFactoryRegistry<BNBSpillType>::instance().register_fn(                      \
+                "bnb_spill_" #name, bind<+fn<BNBSpillType>, BNBSpillType, bool>            \
+            );                                                                             \
+        if constexpr((scope)==RegistrationScope::NuMISpill)                                \
+            CutFactoryRegistry<NuMISpillType>::instance().register_fn(                     \
+                "numi_spill_" #name, bind<+fn<NuMISpillType>, NuMISpillType, bool>         \
             );                                                                             \
         return true;                                                                       \
     }();                                                                                   \
@@ -336,6 +341,14 @@ namespace                                                                       
         if constexpr((scope)==RegistrationScope::MCTruth)                                  \
             CutFactoryRegistry<MCTruth>::instance().register_fn(                           \
                 "mctruth_" #name, bind<+fn<MCTruth>, MCTruth, bool>                        \
+            );                                                                             \
+        if constexpr((scope)==RegistrationScope::NuMISpill || (scope)==RegistrationScope::BothSpill) \
+            VarFactoryRegistry<NuMISpillType>::instance().register_fn(                     \
+                "numi_spill_" #name, bind<fn<NuMISpillType>, NuMISpillType, double>        \
+            );                                                                             \
+        if constexpr((scope)==RegistrationScope::BNBSpill || (scope)==RegistrationScope::BothSpill) \
+            VarFactoryRegistry<BNBSpillType>::instance().register_fn(                      \
+                "bnb_spill_" #name, bind<fn<BNBSpillType>, BNBSpillType, double>           \
             );                                                                             \
         return true;                                                                       \
     }();                                                                                   \
@@ -502,6 +515,23 @@ NamedSpillMultiVar construct_category(const std::vector<cfg::ConfigurationTable>
                                       bool ismc);
 
 /**
+ * @brief Helper method for constructing a SpillMultiVar that loops over a
+ * spill-level collection (BNB or NuMI).
+ * @details Iterates over @c hdr.bnbinfo (when @p SpillT is @ref BNBSpillType)
+ * or @c hdr.numiinfo (when @p SpillT is @ref NuMISpillType), applying the
+ * event cut once and emitting one value per spill element.
+ * @tparam SpillT Either @ref BNBSpillType or @ref NuMISpillType.
+ * @param event_cut The callable that gates the entire event.
+ * @param var The callable that computes a value from a single spill element.
+ * @return A SpillMultiVar object that collects per-spill values.
+ */
+template<typename SpillT>
+ana::SpillMultiVar spill_collection_multivar_helper(
+    const CutFn<EventType> & event_cut,
+    const VarFn<SpillT> & var
+);
+
+/**
  * @brief Helper method for constructing a set of SpillMultiVar objects that
  * track the exposure information for a given set of cuts.
  * @details Some cuts also need to decrement exposure information, e.g., the
@@ -513,5 +543,30 @@ NamedSpillMultiVar construct_category(const std::vector<cfg::ConfigurationTable>
  * information for the given cuts.
  */
 std::vector<NamedSpillMultiVar> construct_exposure_vars(const std::vector<cfg::ConfigurationTable> & cuts);
+
+/**
+ * @namespace context
+ * @brief Ambient interaction context for bivariable functions.
+ * @details Bivariables registered with REGISTER_BIVAR_SCOPE receive only two
+ * particle arguments per the BiVarFn contract. When a bivariable needs the
+ * parent interaction (e.g. for vertex coordinates), it reads the pointer set
+ * here. The framework sets these pointers in the bivar dispatch lambdas inside
+ * construct() before invoking bivar_fn, so they are valid for the duration of
+ * each bivar call.
+ */
+namespace context
+{
+    extern const TType * current_true;
+    extern const RType * current_reco;
+
+    template<class ParticleT>
+    auto * current()
+    {
+        if constexpr (std::is_same_v<ParticleT, TParticleType>)
+            return current_true;
+        else
+            return current_reco;
+    }
+}
 
 #endif // FRAMEWORK_H

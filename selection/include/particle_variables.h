@@ -110,6 +110,55 @@ namespace pvars
     REGISTER_VAR_SCOPE(RegistrationScope::BothParticle, iou, iou);
 
     /**
+     * @brief Variable for the SPINE particle index within its parent interaction.
+     * @details The ID is assigned upstream in the SPINE reconstruction and is
+     * unique within a given interaction.
+     * @tparam T the type of particle (true or reco).
+     * @param p the particle to apply the variable on.
+     * @return the particle index.
+     */
+    template<class T>
+    double id(const T & p)
+    {
+        return p.id;
+    }
+    REGISTER_VAR_SCOPE(RegistrationScope::BothParticle, id, id);
+
+    /**
+     * @brief Variable for the SPINE interaction index of the parent interaction.
+     * @details The interaction index is assigned upstream in the SPINE reconstruction and is
+     * unique within a given event.
+     * @tparam T the type of particle (true or reco).
+     * @param p the particle to apply the variable on.
+     * @return the interaction index of the parent interaction.
+     */
+    template<class T>
+    double interaction_id(const T & p)
+    {
+        return p.interaction_id;
+    }
+    REGISTER_VAR_SCOPE(RegistrationScope::BothParticle, interaction_id, interaction_id);
+
+    /**
+     * @brief Variable for the best-match particle index in the counterpart collection.
+     * @details Returns the index of the highest-overlap matched particle
+     * (reco→true or true→reco) as assigned by the SPINE post-processor.
+     * Returns PLACEHOLDERVALUE when no match exists.
+     * @tparam T the type of particle (true or reco).
+     * @param p the particle to apply the variable on.
+     * @return the matched particle index, or PLACEHOLDERVALUE.
+     */
+    template<class T>
+    double match_id(const T & p)
+    {
+        if(p.match_ids.size() > 0)
+            return p.match_ids[0];
+        else
+            return PLACEHOLDERVALUE;
+    }
+    REGISTER_VAR_SCOPE(RegistrationScope::BothParticle, match_id, match_id);
+
+    /**
      * @brief Variable for the containment status of the particle.
      * @details The containment status is determined upstream in the SPINE
      * reconstruction and is based on the set of all points in the particle,
@@ -207,10 +256,31 @@ namespace pvars
     REGISTER_VAR_SCOPE(RegistrationScope::BothParticle, mcs_ke, mcs_ke);
 
     /**
+     * @brief Default calorimetric KE: raw p.calo_ke field, default for calofn<RParticleType>.
+     */
+    template<class T>
+    double default_calo_ke(const T & p)
+    {
+        if constexpr (std::is_same_v<T, caf::SRParticleTruthDLPProxy>)
+            return p.ke;
+        else
+            return p.calo_ke;
+    }
+    REGISTER_VAR_SCOPE(RegistrationScope::BothParticle, default_calo_ke, default_calo_ke);
+
+    /**
+     * @brief Runtime-switchable KE estimator, templated on particle type.
+     * @details calofn<RParticleType> defaults to default_calo_ke; calofn<TParticleType>
+     * defaults to default_true_ke. Both can be overridden via general.calofn_reco /
+     * general.calofn_true in the configuration. Set alongside primfn/pidfn in main.cc.
+     */
+    template<class T>
+    extern std::shared_ptr<VarFn<T>> calofn;
+
+    /**
      * @brief Variable for the calorimetric kinetic energy of the particle.
-     * @details The calorimetric kinetic energy is calculated upstream in the
-     * SPINE reconstruction as the sum of the energy of each spacepoint in the
-     * particle.
+     * @details Dispatches through calofn<T>, allowing runtime selection of the KE
+     * estimator for both true and reconstructed particles.
      * @tparam T the type of particle (true or reco).
      * @param p the particle to apply the variable on.
      * @return the calorimetric kinetic energy of the particle.
@@ -218,7 +288,7 @@ namespace pvars
     template<class T>
     double calo_ke(const T & p)
     {
-        return p.calo_ke;
+        return (*calofn<T>)(p);
     }
     REGISTER_VAR_SCOPE(RegistrationScope::BothParticle, calo_ke, calo_ke);
 
@@ -844,6 +914,25 @@ namespace pvars
         return std::atan2(p.start_dir[1], p.start_dir[0]);
     }
     REGISTER_VAR_SCOPE(RegistrationScope::BothParticle, azimuthal_angle, azimuthal_angle);
+
+    /**
+     * @brief Variable for the azimuthal angle of the particle (Dent
+     * convention).
+     * @details The azimuthal angle is defined as the arctangent of the x-
+     * and y-components of the momentum vector, measured from the y-axis
+     * towards the x-axis. That is, phi = 0 points along +Y, phi = +90
+     * degrees points along +X, phi = -90 degrees points along -X, and
+     * phi = +-180 degrees points along -Y.
+     * @tparam T the type of particle (true or reco).
+     * @param p the particle to apply the variable on.
+     * @return the azimuthal angle of the particle in the Dent convention.
+     */
+    template<class T>
+    double azimuthal_angle_dent(const T & p)
+    {
+        return std::atan2(p.start_dir[0], p.start_dir[1]);
+    }
+    REGISTER_VAR_SCOPE(RegistrationScope::BothParticle, azimuthal_angle_dent, azimuthal_angle_dent);
 
     /**
      * @brief Variable for the start dE/dx of the particle.

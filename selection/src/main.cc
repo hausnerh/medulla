@@ -29,6 +29,7 @@
 #include "event_cuts.h"
 #include "event_variables.h"
 #include "spill_cuts.h"
+#include "spill_vars.h"
 #include "selectors.h"
 #include "biselectors.h"
 #include "analysis.h"
@@ -38,7 +39,11 @@
 #include "include/gOre/event_vars_gOre.h"
 
 std::shared_ptr<VarFn<RParticleType>> pvars::primfn = std::make_shared<VarFn<RParticleType>>(pvars::default_primary_classification<RParticleType>);
-std::shared_ptr<VarFn<RParticleType>> pvars::pidfn = std::make_shared<VarFn<RParticleType>>(pvars::default_pid<RParticleType>);
+std::shared_ptr<VarFn<RParticleType>> pvars::pidfn  = std::make_shared<VarFn<RParticleType>>(pvars::default_pid<RParticleType>);
+template<> std::shared_ptr<VarFn<TParticleType>> pvars::calofn<TParticleType> =
+    std::make_shared<VarFn<TParticleType>>(pvars::default_calo_ke<TParticleType>);
+template<> std::shared_ptr<VarFn<RParticleType>> pvars::calofn<RParticleType> =
+    std::make_shared<VarFn<RParticleType>>(pvars::default_calo_ke<RParticleType>);
 
 /**
  * @brief Set a function pointer for a variable function.
@@ -55,6 +60,8 @@ void set_fcn(std::shared_ptr<VarFn<T>> & fcn, const std::string & name)
     std::string var_name;
     if constexpr(std::is_same_v<T, RParticleType>)
         var_name = "reco_particle_" + name;
+    else if constexpr(std::is_same_v<T, TParticleType>)
+        var_name = "true_particle_" + name;
     auto factory = VarFactoryRegistry<T>::instance().get(var_name);
     auto var_fn = factory({});
     fcn = std::make_shared<VarFn<T>>(var_fn);
@@ -198,7 +205,9 @@ int main(int argc, char * argv[])
 
         // Set the PID functions.
         set_fcn(pvars::primfn, config.get_string_field("general.primfn", "default_primary_classification"));
-        set_fcn(pvars::pidfn, config.get_string_field("general.pidfn", "default_pid"));
+        set_fcn(pvars::pidfn,  config.get_string_field("general.pidfn",  "default_pid"));
+        set_fcn(pvars::calofn<TParticleType>, config.get_string_field("general.calofn", "default_calo_ke"));
+        set_fcn(pvars::calofn<RParticleType>, config.get_string_field("general.calofn", "default_calo_ke"));
 
         // Configure the samples in the analysis
         std::vector<cfg::ConfigurationTable> samples = config.get_subtables("sample");
@@ -269,7 +278,9 @@ int main(int argc, char * argv[])
                             || var_type == "reco_particle"
                             || var_type == "true_bivar"
                             || var_type == "reco_bivar"
-                            || var_type == "event")
+                            || var_type == "event"
+                            || var.get_string_field("type") == "bnb_spill"
+                            || var.get_string_field("type") == "numi_spill")
                     {
                         if(var.get_string_field("name") == "category" && var_type == "true")
                         {

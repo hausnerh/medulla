@@ -1,7 +1,7 @@
 [general]
 output = "sbn_numu_disappearance_2026"
 primfn = "lax_primary_classification"
-pidfn = "default_pid"
+pidfn = "boosted_muon_pid"
 fsthresh = [
     "@photon_threshold",
     "@electron_threshold",
@@ -16,15 +16,31 @@ electron_threshold = 25.0
 muon_threshold = 143.425
 pion_threshold = 25.0
 proton_threshold = 50.0
+containment_threshold = 10.0
+cathode_fiducialization = 5.0
+intime_lb = -5.0
+intime_ub = 5.0
 
 [[include_samples]]
-file = "common/samples.toml"
+file = "common/osc.toml"
 keys = [
-    "sbnd_mc5e18", "sbnd_mc1e20", "sbnd_offbeam",
-    "icarus_nominal", "icarus_cvext", "icarus_offbeam",
+    "sbnd_ar23p_mc5e18", "sbnd_ar23p_mc1e20",
+    "sbnd_ar23p_dirt",
+    "sbnd_offbeam",
+    "sbnd_intime_mc5e18", "sbnd_intime_mc1e20",
+    "sbnd_detvar_cv", "sbnd_detvar_dent",
+    "sbnd_detvar_sce0x", "sbnd_detvar_sce2x", "sbnd_detvar_charge_scale",
+    "sbnd_detvar_p5_gain", "sbnd_detvar_m5_gain", "sbnd_detvar_smear15",
+    "sbnd_detvar_wiremod_xthetaxw", "sbnd_detvar_wiremod_yz",
+    "icarus_ar23p_run2", "icarus_ar23p_run4",
+    "icarus_ar23p_dirt_run2", "icarus_ar23p_dirt_run4",
+    "icarus_offbeam_run2", "icarus_offbeam_run4",
+    "icarus_detvar_sce0x_run4", "icarus_detvar_sce2x_run4", "icarus_detvar_charge_scale_run4",
+    "icarus_wiremod_xthetaxw_run2", "icarus_wiremod_xthetaxw_run4",
+    "icarus_wiremod_yz_run2", "icarus_wiremod_yz_run4",
 ]
 # For interactive debugging, uncomment:
-# enable = ["sbnd_mc5e18"]
+enable = ["sbnd_ar23p_mc5e18"]
 
 [[tree]]
 name = "selected"
@@ -32,14 +48,21 @@ sim_only = false
 add_systematics = true
 mode = "reco"
 cut = [
-    { name = "fiducial_cut",          type = "reco" },
-    { name = "no_photons",            type = "reco",  parameters = [ "@photon_threshold"   ] },
-    { name = "no_electrons",          type = "reco",  parameters = [ "@electron_threshold" ] },
-    { name = "single_muon",           type = "reco",  parameters = [ "@muon_threshold"     ] },
-    { name = "no_charged_pions",      type = "reco",  parameters = [ "@pion_threshold"     ] },
-    { name = "!no_protons",           type = "reco",  parameters = [ "@proton_threshold"   ] },
+    { name = "fiducial_cut_osc",      type = "reco" },
+    { name = "user_containment_cut",  type = "reco",  parameters = [ "@containment_threshold" ] },
+    { name = "no_photons",            type = "reco",  parameters = [ "@photon_threshold"      ] },
+    { name = "no_electrons",          type = "reco",  parameters = [ "@electron_threshold"    ] },
+    { name = "single_muon",           type = "reco",  parameters = [ "@muon_threshold"        ] },
+    { name = "no_charged_pions",      type = "reco",  parameters = [ "@pion_threshold"        ] },
+    { name = "!no_protons",           type = "reco",  parameters = [ "@proton_threshold"      ] },
 ]
 branch = [
+    # Event-level branches
+    { name = "largest_flash_pe",      type = "event", parameters = [ "@intime_lb", "@intime_ub" ] },
+    { name = "largest_flash_time",    type = "event", parameters = [ "@intime_lb", "@intime_ub" ] },
+    { name = "first_neutrino_energy", type = "event" },
+    { name = "max_neutrino_energy",   type = "event" },
+
     # Interaction-level branches
     { name = "neutrino_id",           type = "true"    },
     { name = "neutrino_energy",       type = "mctruth" },
@@ -49,11 +72,14 @@ branch = [
     { name = "interaction_mode",      type = "mctruth" },
     { name = "interaction_type",      type = "mctruth" },
     { name = "off_axis_angle",        type = "mctruth" },
+    { name = "W",                     type = "mctruth" },
+    { name = "q0",                    type = "mctruth" },
+    { name = "q3",                    type = "mctruth" },
     { name = "off_axis_angle_sbnd",   type = "both"    },
     { name = "off_axis_angle_icarus", type = "both"    },
     { name = "category",              type = "true"    },
-    { name = "containment_cut",       type = "both"    },
     { name = "visible_energy",        type = "both"    },
+    { name = "energy_qel",            type = "both"    },
     { name = "dpT",                   type = "both"    },
     { name = "dalphaT",               type = "both"    },
     { name = "dphiT",                 type = "both"    },
@@ -68,12 +94,15 @@ branch = [
     { name = "muon_multiplicity",     type = "both",  parameters = [ "@muon_threshold"     ] },
     { name = "proton_multiplicity",   type = "both",  parameters = [ "@proton_threshold"   ] },
 
-    # Information for Neutrino 2026
-    { name = "cathode_crosser",       type = "both"    },
-    { name = "fiducialize_cathode",   type = "both"    },
+    # DENT Recommendations
+    { name = "fiducialize_cathode",   type = "both",  parameters = [ "@cathode_fiducialization" ] },
     { name = "veto_sbnd_highy_highz", type = "both"    },
     { name = "neutrino2026_veto",     type = "both"    },
+    { name = "cathode_crosser",       type = "both"    },
     { name = "detector",              type = "true"    },
+
+    # Filter EE TPC (ICARUS Run 2 only)
+    { name = "user_containment_cut_filterEE",  type = "both",  parameters = [ "@containment_threshold" ] },
 
     # Leading MUON interaction-level
     { name = "start_x",               type = "both_particle", selector = "leading_muon" },
@@ -92,113 +121,27 @@ branch = [
     { name = "length",                type = "reco_particle", selector = "leading_muon" },
     { name = "polar_angle",           type = "both_particle", selector = "leading_muon" },
     { name = "azimuthal_angle",       type = "both_particle", selector = "leading_muon" },
+    { name = "azimuthal_angle_dent",  type = "both_particle", selector = "leading_muon" },
     { name = "primary_softmax",       type = "reco_particle", selector = "leading_muon" },
     { name = "muon_softmax",          type = "reco_particle", selector = "leading_muon" },
     { name = "pion_softmax",          type = "reco_particle", selector = "leading_muon" },
     { name = "proton_softmax",        type = "reco_particle", selector = "leading_muon" },
 
     # Leading PROTON interaction-level
+    { name = "start_x",           type = "both_particle", selector = "leading_proton" },
+    { name = "start_y",           type = "both_particle", selector = "leading_proton" },
+    { name = "start_z",           type = "both_particle", selector = "leading_proton" },
     { name = "end_x",             type = "both_particle", selector = "leading_proton" },
     { name = "end_y",             type = "both_particle", selector = "leading_proton" },
     { name = "end_z",             type = "both_particle", selector = "leading_proton" },
     { name = "ke",                type = "both_particle", selector = "leading_proton" },
-    { name = "mcs_csda_diff",     type = "reco_particle", selector = "leading_proton" },
+    { name = "p",                 type = "both_particle", selector = "leading_proton" },
     { name = "calo_csda_diff",    type = "reco_particle", selector = "leading_proton" },
     { name = "length",            type = "both_particle", selector = "leading_proton" },
     { name = "dpT",               type = "both_particle", selector = "leading_proton" },
     { name = "polar_angle",       type = "both_particle", selector = "leading_proton" },
     { name = "azimuthal_angle",   type = "both_particle", selector = "leading_proton" },
-    { name = "primary_softmax",   type = "reco_particle", selector = "leading_proton" },
-    { name = "secondary_softmax", type = "reco_particle", selector = "leading_proton" },
-    { name = "muon_softmax",      type = "reco_particle", selector = "leading_proton" },
-    { name = "pion_softmax",      type = "reco_particle", selector = "leading_proton" },
-    { name = "proton_softmax",    type = "reco_particle", selector = "leading_proton" },
-    { name = "mip_softmax",       type = "reco_particle", selector = "leading_proton" },
-    { name = "hadron_softmax",    type = "reco_particle", selector = "leading_proton" }
-]
-
-[[tree]]
-name = "signal"
-sim_only = true
-mode = "true"
-cut = [
-    { name = "fiducial_cut",          type = "true" },
-    { name = "no_photons",            type = "true",  parameters = [ "@photon_threshold"   ] },
-    { name = "no_electrons",          type = "true",  parameters = [ "@electron_threshold" ] },
-    { name = "single_muon",           type = "true",  parameters = [ "@muon_threshold"     ] },
-    { name = "no_charged_pions",      type = "true",  parameters = [ "@pion_threshold"     ] },
-    { name = "!no_protons",           type = "true",  parameters = [ "@proton_threshold"   ] },
-]
-branch = [
-    # Interaction-level branches
-    { name = "neutrino_id",           type = "true"    },
-    { name = "neutrino_energy",       type = "mctruth" },
-    { name = "baseline",              type = "mctruth" },
-    { name = "cc",                    type = "mctruth" },
-    { name = "pdg",                   type = "mctruth" },
-    { name = "interaction_mode",      type = "mctruth" },
-    { name = "interaction_type",      type = "mctruth" },
-    { name = "off_axis_angle",        type = "mctruth" },
-    { name = "off_axis_angle_sbnd",   type = "both"    },
-    { name = "off_axis_angle_icarus", type = "both"    },
-    { name = "category",              type = "true"    },
-    { name = "containment_cut",       type = "both"    },
-    { name = "visible_energy",        type = "both"    },
-    { name = "dpT",                   type = "both"    },
-    { name = "dalphaT",               type = "both"    },
-    { name = "dphiT",                 type = "both"    },
-    { name = "dpL",                   type = "both"    },
-    { name = "pn",                    type = "both"    },
-    { name = "vertex_x",              type = "both"    },
-    { name = "vertex_y",              type = "both"    },
-    { name = "vertex_z",              type = "both"    },
-    { name = "photon_multiplicity",   type = "both",  parameters = [ "@photon_threshold"   ] },
-    { name = "electron_multiplicity", type = "both",  parameters = [ "@electron_threshold" ] },
-    { name = "pion_multiplicity",     type = "both",  parameters = [ "@pion_threshold"     ] },
-    { name = "muon_multiplicity",     type = "both",  parameters = [ "@muon_threshold"     ] },
-    { name = "proton_multiplicity",   type = "both",  parameters = [ "@proton_threshold"   ] },
-
-    # Information for Neutrino 2026
-    { name = "cathode_crosser",       type = "both"    },
-    { name = "fiducialize_cathode",   type = "both"    },
-    { name = "veto_sbnd_highy_highz", type = "both"    },
-    { name = "neutrino2026_veto",     type = "both"    },
-    { name = "detector",              type = "true"    },
-
-    # Leading MUON interaction-level
-    { name = "start_x",               type = "both_particle", selector = "leading_muon" },
-    { name = "start_y",               type = "both_particle", selector = "leading_muon" },
-    { name = "start_z",               type = "both_particle", selector = "leading_muon" },
-    { name = "end_x",                 type = "both_particle", selector = "leading_muon" },
-    { name = "end_y",                 type = "both_particle", selector = "leading_muon" },
-    { name = "end_z",                 type = "both_particle", selector = "leading_muon" },
-    { name = "start_dir_x",           type = "both_particle", selector = "leading_muon" },
-    { name = "start_dir_y",           type = "both_particle", selector = "leading_muon" },
-    { name = "start_dir_z",           type = "both_particle", selector = "leading_muon" },
-    { name = "ke",                    type = "both_particle", selector = "leading_muon" },
-    { name = "p",                     type = "both_particle", selector = "leading_muon" },
-    { name = "mcs_csda_diff",         type = "reco_particle", selector = "leading_muon" },
-    { name = "calo_csda_diff",        type = "reco_particle", selector = "leading_muon" },
-    { name = "length",                type = "reco_particle", selector = "leading_muon" },
-    { name = "polar_angle",           type = "both_particle", selector = "leading_muon" },
-    { name = "azimuthal_angle",       type = "both_particle", selector = "leading_muon" },
-    { name = "primary_softmax",       type = "reco_particle", selector = "leading_muon" },
-    { name = "muon_softmax",          type = "reco_particle", selector = "leading_muon" },
-    { name = "pion_softmax",          type = "reco_particle", selector = "leading_muon" },
-    { name = "proton_softmax",        type = "reco_particle", selector = "leading_muon" },
-    { name = "mip_softmax",           type = "reco_particle", selector = "leading_muon" },
-
-    # Leading PROTON particle-level
-    { name = "end_x",             type = "both_particle", selector = "leading_proton" },
-    { name = "end_y",             type = "both_particle", selector = "leading_proton" },
-    { name = "end_z",             type = "both_particle", selector = "leading_proton" },
-    { name = "ke",                type = "both_particle", selector = "leading_proton" },
-    { name = "mcs_csda_diff",     type = "reco_particle", selector = "leading_proton" },
-    { name = "calo_csda_diff",    type = "reco_particle", selector = "leading_proton" },
-    { name = "length",            type = "both_particle", selector = "leading_proton" },
-    { name = "dpT",               type = "both_particle", selector = "leading_proton" },
-    { name = "polar_angle",       type = "both_particle", selector = "leading_proton" },
-    { name = "azimuthal_angle",   type = "both_particle", selector = "leading_proton" },
+    { name = "azimuthal_angle_dent", type = "both_particle", selector = "leading_proton" },
     { name = "primary_softmax",   type = "reco_particle", selector = "leading_proton" },
     { name = "secondary_softmax", type = "reco_particle", selector = "leading_proton" },
     { name = "muon_softmax",      type = "reco_particle", selector = "leading_proton" },
@@ -207,97 +150,283 @@ branch = [
     { name = "mip_softmax",       type = "reco_particle", selector = "leading_proton" },
     { name = "hadron_softmax",    type = "reco_particle", selector = "leading_proton" },
 
+    # Muon-Proton
+    { name = "opening_angle",     type = "reco_bivar",    biselector = "muon_proton"  },
+]
+
+[[tree]]
+name = "signal"
+sim_only = true
+mode = "true"
+cut = [
+    { name = "fiducial_cut_osc",      type = "true" },
+    { name = "user_containment_cut",  type = "true",  parameters = [ "@containment_threshold" ] },
+    { name = "no_photons",            type = "true",  parameters = [ "@photon_threshold"      ] },
+    { name = "no_electrons",          type = "true",  parameters = [ "@electron_threshold"    ] },
+    { name = "single_muon",           type = "true",  parameters = [ "@muon_threshold"        ] },
+    { name = "no_charged_pions",      type = "true",  parameters = [ "@pion_threshold"        ] },
+    { name = "!no_protons",           type = "true",  parameters = [ "@proton_threshold"      ] },
+]
+branch = [
+    # Event-level branches
+    { name = "largest_flash_pe",      type = "event", parameters = [ "@intime_lb", "@intime_ub" ] },
+    { name = "largest_flash_time",    type = "event", parameters = [ "@intime_lb", "@intime_ub" ] },
+    { name = "first_neutrino_energy", type = "event" },
+    { name = "max_neutrino_energy",   type = "event" },
+    
+    # Interaction-level branches
+    { name = "neutrino_id",           type = "true"    },
+    { name = "neutrino_energy",       type = "mctruth" },
+    { name = "baseline",              type = "mctruth" },
+    { name = "cc",                    type = "mctruth" },
+    { name = "pdg",                   type = "mctruth" },
+    { name = "interaction_mode",      type = "mctruth" },
+    { name = "interaction_type",      type = "mctruth" },
+    { name = "off_axis_angle",        type = "mctruth" },
+    { name = "W",                     type = "mctruth" },
+    { name = "q0",                    type = "mctruth" },
+    { name = "q3",                    type = "mctruth" },
+    { name = "off_axis_angle_sbnd",   type = "both"    },
+    { name = "off_axis_angle_icarus", type = "both"    },
+    { name = "category",              type = "true"    },
+    { name = "visible_energy",        type = "both"    },
+    { name = "energy_qel",            type = "both"    },
+    { name = "dpT",                   type = "both"    },
+    { name = "dalphaT",               type = "both"    },
+    { name = "dphiT",                 type = "both"    },
+    { name = "dpL",                   type = "both"    },
+    { name = "pn",                    type = "both"    },
+    { name = "vertex_x",              type = "both"    },
+    { name = "vertex_y",              type = "both"    },
+    { name = "vertex_z",              type = "both"    },
+    { name = "photon_multiplicity",   type = "both",  parameters = [ "@photon_threshold"   ] },
+    { name = "electron_multiplicity", type = "both",  parameters = [ "@electron_threshold" ] },
+    { name = "pion_multiplicity",     type = "both",  parameters = [ "@pion_threshold"     ] },
+    { name = "muon_multiplicity",     type = "both",  parameters = [ "@muon_threshold"     ] },
+    { name = "proton_multiplicity",   type = "both",  parameters = [ "@proton_threshold"   ] },
+
+    # DENT Recommendations
+    { name = "cathode_crosser",       type = "both"    },
+    { name = "fiducialize_cathode",   type = "both"    },
+    { name = "veto_sbnd_highy_highz", type = "both"    },
+    { name = "neutrino2026_veto",     type = "both"    },
+    { name = "detector",              type = "true"    },
+
+    # Filter EE TPC (ICARUS Run 2 only)
+    { name = "user_containment_cut_filterEE",  type = "both",  parameters = [ "@containment_threshold" ] },
+
+    # Leading MUON interaction-level
+    { name = "start_x",               type = "both_particle", selector = "leading_muon" },
+    { name = "start_y",               type = "both_particle", selector = "leading_muon" },
+    { name = "start_z",               type = "both_particle", selector = "leading_muon" },
+    { name = "end_x",                 type = "both_particle", selector = "leading_muon" },
+    { name = "end_y",                 type = "both_particle", selector = "leading_muon" },
+    { name = "end_z",                 type = "both_particle", selector = "leading_muon" },
+    { name = "start_dir_x",           type = "both_particle", selector = "leading_muon" },
+    { name = "start_dir_y",           type = "both_particle", selector = "leading_muon" },
+    { name = "start_dir_z",           type = "both_particle", selector = "leading_muon" },
+    { name = "ke",                    type = "both_particle", selector = "leading_muon" },
+    { name = "p",                     type = "both_particle", selector = "leading_muon" },
+    { name = "mcs_csda_diff",         type = "reco_particle", selector = "leading_muon" },
+    { name = "calo_csda_diff",        type = "reco_particle", selector = "leading_muon" },
+    { name = "length",                type = "reco_particle", selector = "leading_muon" },
+    { name = "polar_angle",           type = "both_particle", selector = "leading_muon" },
+    { name = "azimuthal_angle",       type = "both_particle", selector = "leading_muon" },
+    { name = "azimuthal_angle_dent",  type = "both_particle", selector = "leading_muon" },
+    { name = "primary_softmax",       type = "reco_particle", selector = "leading_muon" },
+    { name = "muon_softmax",          type = "reco_particle", selector = "leading_muon" },
+    { name = "pion_softmax",          type = "reco_particle", selector = "leading_muon" },
+    { name = "proton_softmax",        type = "reco_particle", selector = "leading_muon" },
+    { name = "mip_softmax",           type = "reco_particle", selector = "leading_muon" },
+
+    # Leading PROTON particle-level
+    { name = "start_x",           type = "both_particle", selector = "leading_proton" },
+    { name = "start_y",           type = "both_particle", selector = "leading_proton" },
+    { name = "start_z",           type = "both_particle", selector = "leading_proton" },
+    { name = "end_x",             type = "both_particle", selector = "leading_proton" },
+    { name = "end_y",             type = "both_particle", selector = "leading_proton" },
+    { name = "end_z",             type = "both_particle", selector = "leading_proton" },
+    { name = "ke",                type = "both_particle", selector = "leading_proton" },
+    { name = "p",                 type = "both_particle", selector = "leading_proton" },
+    { name = "calo_csda_diff",    type = "reco_particle", selector = "leading_proton" },
+    { name = "length",            type = "both_particle", selector = "leading_proton" },
+    { name = "dpT",               type = "both_particle", selector = "leading_proton" },
+    { name = "polar_angle",       type = "both_particle", selector = "leading_proton" },
+    { name = "azimuthal_angle",   type = "both_particle", selector = "leading_proton" },
+    { name = "azimuthal_angle_dent", type = "both_particle", selector = "leading_proton" },
+    { name = "primary_softmax",   type = "reco_particle", selector = "leading_proton" },
+    { name = "secondary_softmax", type = "reco_particle", selector = "leading_proton" },
+    { name = "muon_softmax",      type = "reco_particle", selector = "leading_proton" },
+    { name = "pion_softmax",      type = "reco_particle", selector = "leading_proton" },
+    { name = "proton_softmax",    type = "reco_particle", selector = "leading_proton" },
+    { name = "mip_softmax",       type = "reco_particle", selector = "leading_proton" },
+    { name = "hadron_softmax",    type = "reco_particle", selector = "leading_proton" },
+
+    # Muon-Proton
+    { name = "opening_angle",     type = "both_bivar",    biselector = "muon_proton"  },
+
     # Cuts (for efficiency studies)
-    { name = "fiducial_cut",          type = "reco"    },
-    { name = "no_photons",            type = "reco",  parameters = [ "@photon_threshold"   ] },
-    { name = "no_electrons",          type = "reco",  parameters = [ "@electron_threshold" ] },
-    { name = "single_muon",           type = "reco",  parameters = [ "@muon_threshold"     ] },
-    { name = "no_charged_pions",      type = "reco",  parameters = [ "@pion_threshold"     ] },
-    { name = "single_proton",         type = "reco",  parameters = [ "@proton_threshold"   ] },
+    { name = "fiducial_cut_osc",      type = "reco"    },
+    { name = "user_containment_cut",  type = "reco",  parameters = [ "@containment_threshold" ] },
+    { name = "no_photons",            type = "reco",  parameters = [ "@photon_threshold"      ] },
+    { name = "no_electrons",          type = "reco",  parameters = [ "@electron_threshold"    ] },
+    { name = "single_muon",           type = "reco",  parameters = [ "@muon_threshold"        ] },
+    { name = "no_charged_pions",      type = "reco",  parameters = [ "@pion_threshold"        ] },
+    { name = "single_proton",         type = "reco",  parameters = [ "@proton_threshold"      ] },
+]
+
+[[tree]]
+name = "purity"
+sim_only = false
+mode = "reco"
+cut = [
+    { name = "no_cut",                type = "reco" },
+]
+branch = [
+    # Generic interaction-level information
+    { name = "category",              type = "true" },
+    { name = "neutrino_id",           type = "true" },
+    { name = "neutrino_energy",       type = "mctruth" },
+    { name = "cc",                    type = "mctruth" },
+    { name = "pdg",                   type = "mctruth" },
+    { name = "interaction_mode",      type = "mctruth" },
+    { name = "interaction_type",      type = "mctruth" },
+    { name = "W",                     type = "mctruth" },
+    { name = "q0",                    type = "mctruth" },
+    { name = "q3",                    type = "mctruth" },
+
+    # Quantities for building differential plots
+    { name = "vertex_x",              type = "both" },
+    { name = "vertex_y",              type = "both" },
+    { name = "vertex_z",              type = "both" },
+    { name = "pn",                    type = "both" },
+    { name = "dpT",                   type = "both" },
+    { name = "dalphaT",               type = "both" },
+    { name = "dphiT",                 type = "both" },
+    { name = "dpL",                   type = "both" },
+    { name = "visible_energy",        type = "both" },
+    { name = "energy_qel",            type = "both" },
+
+    # Selection cuts (for calculating purity)
+    { name = "fiducial_cut_osc",      type = "reco" },
+    { name = "user_containment_cut",  type = "reco",  parameters = [ "@containment_threshold" ] },
+    { name = "no_photons",            type = "reco",  parameters = [ "@photon_threshold"      ] },
+    { name = "no_electrons",          type = "reco",  parameters = [ "@electron_threshold"    ] },
+    { name = "single_muon",           type = "reco",  parameters = [ "@muon_threshold"        ] },
+    { name = "no_charged_pions",      type = "reco",  parameters = [ "@pion_threshold"        ] },
+    { name = "single_proton",         type = "reco",  parameters = [ "@proton_threshold"      ] },
+
+    # Special cut for ICARUS Run 2 EE TPC (for calculating purity)
+    { name = "user_containment_cut_filterEE",  type = "reco",  parameters = [ "@containment_threshold" ] },
+]
+
+[[tree]]
+name = "events"
+sim_only = false
+mode = "event"
+cut = [
+    { name = "no_cut",                type = "event" },
+]
+branch = [
+    { name = "is_first_in_subrun",    type = "event" },
+    { name = "pot",                   type = "event" },
+    { name = "pot_from_spillinfo",    type = "event" },
+    { name = "largest_flash_pe",      type = "event", parameters = [ "@intime_lb", "@intime_ub" ] },
+    { name = "largest_flash_time",    type = "event", parameters = [ "@intime_lb", "@intime_ub" ] },
+    { name = "unfolded_pot_bnb",      type = "event" },
+    { name = "unfolded_nbnb",         type = "event" },
+    { name = "gate_delta",            type = "event" },
+    { name = "nbnb",                  type = "event" },
+    { name = "noffbeambnb",           type = "event" },
+    { name = "ngenevt",               type = "event" },
+    { name = "nreco",                 type = "event" },
+    { name = "ntrue",                 type = "event" },
+    { name = "first_neutrino_energy", type = "event" },
+    { name = "max_neutrino_energy",   type = "event" },
 ]
 
 [[category]] # 0 : Fiducial, contained, single muon, single proton
 cuts = [
-    { name = "neutrino"        },
-    { name = "fiducial_cut"    },
-    { name = "containment_cut" },
-    { name = "no_photons",       parameters = [ "@photon_threshold"   ] },
-    { name = "no_electrons",     parameters = [ "@electron_threshold" ] },
-    { name = "no_charged_pions", parameters = [ "@pion_threshold"     ] },
-    { name = "single_muon",      parameters = [ "@muon_threshold"     ] },
-    { name = "single_proton",    parameters = [ "@proton_threshold"   ] }
+    { name = "neutrino"         },
+    { name = "fiducial_cut_osc" },
+    { name = "user_containment_cut", parameters = [ "@containment_threshold" ] },
+    { name = "no_photons",           parameters = [ "@photon_threshold"      ] },
+    { name = "no_electrons",         parameters = [ "@electron_threshold"    ] },
+    { name = "no_charged_pions",     parameters = [ "@pion_threshold"        ] },
+    { name = "single_muon",          parameters = [ "@muon_threshold"        ] },
+    { name = "single_proton",        parameters = [ "@proton_threshold"      ] }
 ]
 
 [[category]] # 1 : Fiducial, non-contained, single muon, single proton
 cuts = [
     { name = "neutrino"         },
-    { name = "fiducial_cut"     },
-    { name = "!containment_cut" },
-    { name = "no_photons",        parameters = [ "@photon_threshold"   ] },
-    { name = "no_electrons",      parameters = [ "@electron_threshold" ] },
-    { name = "no_charged_pions",  parameters = [ "@pion_threshold"     ] },
-    { name = "single_muon",       parameters = [ "@muon_threshold"     ] },
-    { name = "single_proton",     parameters = [ "@proton_threshold"   ] }
+    { name = "fiducial_cut_osc" },
+    { name = "!user_containment_cut", parameters = [ "@containment_threshold" ] },
+    { name = "no_photons",            parameters = [ "@photon_threshold"      ] },
+    { name = "no_electrons",          parameters = [ "@electron_threshold"    ] },
+    { name = "no_charged_pions",      parameters = [ "@pion_threshold"        ] },
+    { name = "single_muon",           parameters = [ "@muon_threshold"        ] },
+    { name = "single_proton",         parameters = [ "@proton_threshold"      ] }
 ]
 
 [[category]] # 2 : Fiducial, contained, single muon, N > 1 protons
 cuts = [
     { name = "neutrino"         },
-    { name = "fiducial_cut"     },
-    { name = "containment_cut"  },
-    { name = "no_photons",        parameters = [ "@photon_threshold"   ] },
-    { name = "no_electrons",      parameters = [ "@electron_threshold" ] },
-    { name = "no_charged_pions",  parameters = [ "@pion_threshold"     ] },
-    { name = "single_muon",       parameters = [ "@muon_threshold"     ] },
-    { name = "multiproton",       parameters = [ "@proton_threshold"   ] }
+    { name = "fiducial_cut_osc" },
+    { name = "user_containment_cut",  parameters = [ "@containment_threshold" ] },
+    { name = "no_photons",            parameters = [ "@photon_threshold"      ] },
+    { name = "no_electrons",          parameters = [ "@electron_threshold"    ] },
+    { name = "no_charged_pions",      parameters = [ "@pion_threshold"        ] },
+    { name = "single_muon",           parameters = [ "@muon_threshold"        ] },
+    { name = "multiproton",           parameters = [ "@proton_threshold"      ] }
 ]
 
 [[category]] # 3 : Fiducial, non-contained, single muon, N > 1 protons
 cuts = [
     { name = "neutrino"         },
-    { name = "fiducial_cut"     },
-    { name = "!containment_cut" },
-    { name = "no_photons",        parameters = [ "@photon_threshold"   ] },
-    { name = "no_electrons",      parameters = [ "@electron_threshold" ] },
-    { name = "no_charged_pions",  parameters = [ "@pion_threshold"     ] },
-    { name = "single_muon",       parameters = [ "@muon_threshold"     ] },
-    { name = "multiproton",       parameters = [ "@proton_threshold"   ] }
+    { name = "fiducial_cut_osc" },
+    { name = "!user_containment_cut", parameters = [ "@containment_threshold" ] },
+    { name = "no_photons",            parameters = [ "@photon_threshold"      ] },
+    { name = "no_electrons",          parameters = [ "@electron_threshold"    ] },
+    { name = "no_charged_pions",      parameters = [ "@pion_threshold"        ] },
+    { name = "single_muon",           parameters = [ "@muon_threshold"        ] },
+    { name = "multiproton",           parameters = [ "@proton_threshold"      ] }
 ]
 
 [[category]] # 4 : Fiducial, contained, single muon, any protons, X > 0 pions
 cuts = [
     { name = "neutrino"         },
-    { name = "fiducial_cut"     },
-    { name = "containment_cut"  },
-    { name = "no_photons",        parameters = [ "@photon_threshold"   ] },
-    { name = "no_electrons",      parameters = [ "@electron_threshold" ] },
-    { name = "!no_charged_pions", parameters = [ "@pion_threshold"     ] },
-    { name = "single_muon",       parameters = [ "@muon_threshold"     ] }
+    { name = "fiducial_cut_osc" },
+    { name = "user_containment_cut",  parameters = [ "@containment_threshold" ] },
+    { name = "no_photons",            parameters = [ "@photon_threshold"      ] },
+    { name = "no_electrons",          parameters = [ "@electron_threshold"    ] },
+    { name = "!no_charged_pions",     parameters = [ "@pion_threshold"        ] },
+    { name = "single_muon",           parameters = [ "@muon_threshold"        ] }
 ]
 
 [[category]] # 5 : Fiducial, non-contained, single muon, any protons, X > 0 pions
 cuts = [
     { name = "neutrino"         },
-    { name = "fiducial_cut"     },
-    { name = "!containment_cut" },
-    { name = "no_photons",        parameters = [ "@photon_threshold"   ] },
-    { name = "no_electrons",      parameters = [ "@electron_threshold" ] },
-    { name = "!no_charged_pions", parameters = [ "@pion_threshold"     ] },
-    { name = "single_muon",       parameters = [ "@muon_threshold"     ] }
+    { name = "fiducial_cut_osc" },
+    { name = "!user_containment_cut", parameters = [ "@containment_threshold" ] },
+    { name = "no_photons",            parameters = [ "@photon_threshold"      ] },
+    { name = "no_electrons",          parameters = [ "@electron_threshold"    ] },
+    { name = "!no_charged_pions",     parameters = [ "@pion_threshold"        ] },
+    { name = "single_muon",           parameters = [ "@muon_threshold"        ] }
 ]
 
 [[category]] # 6 : Fiducial, CC, non-signal
 cuts = [
-    { name = "neutrino"     },
-    { name = "fiducial_cut" },
-    { name = "iscc"         }
+    { name = "neutrino"         },
+    { name = "fiducial_cut_osc" },
+    { name = "iscc"             }
 ]
 
 [[category]] # 7 : Non-fiducial, CC, non-signal
 cuts = [
-    { name = "neutrino"      },
-    { name = "!fiducial_cut" },
-    { name = "iscc"          }
+    { name = "neutrino"          },
+    { name = "!fiducial_cut_osc" },
+    { name = "iscc"              }
 ]
 
 [[category]] # 8 : NC
