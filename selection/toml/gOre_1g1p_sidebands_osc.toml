@@ -49,8 +49,9 @@ photon_softmax_min      = 0.922500
 #   2 = >=1 shower, tolerate leptons; operate on the leading shower
 # The non-fiducial max-stats sideband uses 2 so it keeps multi-shower events and
 # lets electron showers + muons/pions in (see cuts::gOre::outside_signal_box,
-# at_least_one_gOre). The no-second-shower veto is skipped at gate 2 and lives as
-# the standalone `no_second_shower` cut (nonfid nm1_second_shower diagnostic).
+# at_least_one_gOre). pi0_rejection skips its internal 2nd-shower veto at gate 2;
+# the veto is applied explicitly as the `no_second_shower` cut in stage2/3 and every
+# N-1 except nm1_second_shower (which frees it).
 nonfid_gate  = 2
 # N-1 (cut-minus-one) no-op thresholds: pass one of these to pi0_rejection in
 # place of the real threshold to disable exactly that sub-cut while leaving the
@@ -138,42 +139,56 @@ cuts = [
 ]
 
 # -----------------------------------------------------------------------------
-# Samples — same as gOre_1g0p_1g1p_1gNp.toml. Tweak `disable` to fit campaign.
+# ICARUS run2 + run4 osc production (ReCAF2026), /pnfs/sbn/.../osc/icarus/flatcaf.
+# Sample NAMES mirror the old production (cvext / offbeam / onbeam) so the
+# systematics + plot configs work unchanged. Each named sample spans BOTH runs
+# (path = list of globs), so the exposure trees sum run2+run4 POT/livetime and
+# the plots are POT-combined automatically. There is no separate extended CV:
+# `cvext` here IS the osc central value (lower stats than the old cvext).
+# onbeam is run2's 10% subsample only: run4's BeamOn dir has no '10p' tag and may
+# be the full box -> held out (onbeam_run4, disabled) until blinding is confirmed.
+# dirt + the unisim detvars are defined but disabled (detvar detsys not wired yet).
 # -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
-# ICARUS run2 + run4 osc samples (ReCAF2026), /pnfs/sbn/.../osc/icarus/flatcaf.
-# BOTH runs, kept as distinct samples (cv_run4 / cv_run2, ...) so they can be
-# POT-combined at plot time. No cvext -> cv_run{2,4} are the single central
-# values (lower stats than the old cvext). Enabled for the first validation:
-# cv + offbeam for both runs + the run2 10% onbeam. dirt, the run4 full-box
-# onbeam, and the 10 unisim detvars are DEFINED but DISABLED until cuts are
-# re-tuned on the new training and the detvar detsys is wired up.
-# -----------------------------------------------------------------------------
-# --- ICARUS Run 4 ---
 [[sample]]
-name = "cv_run4"
-path = "/pnfs/sbn/persistent/users/mueller/osc/icarus/flatcaf/icarus_run4_cvmc/*/*/*.root"
+name = "cvext"
+path = [
+  "/pnfs/sbn/persistent/users/mueller/osc/icarus/flatcaf/icarus_run4_cvmc/*/*/*.root",
+  "/pnfs/sbn/persistent/users/mueller/osc/icarus/flatcaf/icarus_run2_cvmc/*/*/*.root",
+]
 ismc = true
 disable = false
 
 [[sample]]
-name = "offbeam_run4"
-path = "/pnfs/sbn/persistent/users/mueller/osc/icarus/flatcaf/ICARUS_Run4BeamOffWF_BNB_data_ReCAF2026_20p/*/*/*.root"
+name = "offbeam"
+path = [
+  "/pnfs/sbn/persistent/users/mueller/osc/icarus/flatcaf/ICARUS_Run4BeamOffWF_BNB_data_ReCAF2026_20p/*/*/*.root",
+  "/pnfs/sbn/persistent/users/mueller/osc/icarus/flatcaf/ICARUS_Run2BeamOffWF_BNB_data_ReCAF2026/*/*/*.root",
+]
 ismc = false
 disable = false
 
-[[sample]] # DISABLED: name lacks a '10p' tag -> may be the FULL BeamOn box. Confirm blinding/box status before enabling.
+[[sample]] # run2 10% unblinded subsample
+name = "onbeam"
+path = "/pnfs/sbn/persistent/users/mueller/osc/icarus/flatcaf/icarus_run2_onbeam_10p/*/*/*.root"
+ismc = false
+disable = false
+
+[[sample]] # DISABLED: no '10p' tag -> may be the FULL box. Confirm blinding first.
 name = "onbeam_run4"
 path = "/pnfs/sbn/persistent/users/mueller/osc/icarus/flatcaf/ICARUS_Run4BeamOnWF_BNB_data_ReCAF2026/*/*/*.root"
 ismc = false
 disable = true
 
 [[sample]]
-name = "dirt_run4"
-path = "/pnfs/sbn/persistent/users/mueller/osc/icarus/flatcaf/ICARUS_Run4_DirtMC_ReCAF2026_BNB/*/*/*.root"
+name = "dirt"
+path = [
+  "/pnfs/sbn/persistent/users/mueller/osc/icarus/flatcaf/ICARUS_Run4_DirtMC_ReCAF2026_BNB/*/*/*.root",
+  "/pnfs/sbn/persistent/users/mueller/osc/icarus/flatcaf/icarus_run2_dirt/*/*/*.root",
+]
 ismc = true
 disable = true
 
+# --- unisim detector variations (per run; for the detvar detsys, not wired yet) ---
 [[sample]]
 name = "wiremod_xthetaxw_run4"
 path = "/pnfs/sbn/persistent/users/mueller/osc/icarus/flatcaf/ICARUS_Run4_WM_ReCAF2026/*/*/*.root"
@@ -201,31 +216,6 @@ disable = true
 [[sample]]
 name = "detvar_charge_scale_run4"
 path = "/pnfs/sbn/persistent/users/mueller/osc/icarus/flatcaf/icarus_run4_detvar_charge_scale/*/*/*.root"
-ismc = true
-disable = true
-
-# --- ICARUS Run 2 ---
-[[sample]]
-name = "cv_run2"
-path = "/pnfs/sbn/persistent/users/mueller/osc/icarus/flatcaf/icarus_run2_cvmc/*/*/*.root"
-ismc = true
-disable = false
-
-[[sample]]
-name = "offbeam_run2"
-path = "/pnfs/sbn/persistent/users/mueller/osc/icarus/flatcaf/ICARUS_Run2BeamOffWF_BNB_data_ReCAF2026/*/*/*.root"
-ismc = false
-disable = false
-
-[[sample]] # 10% unblinded subsample
-name = "onbeam_run2"
-path = "/pnfs/sbn/persistent/users/mueller/osc/icarus/flatcaf/icarus_run2_onbeam_10p/*/*/*.root"
-ismc = false
-disable = false
-
-[[sample]]
-name = "dirt_run2"
-path = "/pnfs/sbn/persistent/users/mueller/osc/icarus/flatcaf/icarus_run2_dirt/*/*/*.root"
 ismc = true
 disable = true
 
@@ -259,6 +249,26 @@ path = "/pnfs/sbn/persistent/users/mueller/osc/icarus/flatcaf/icarus_run2_detvar
 ismc = true
 disable = true
 
+
+
+# -----------------------------------------------------------------------------
+# Non-fiducial Xγ + Np "outside-the-box" sideband (max-statistics photon-ID
+# cross-check). Vertex is NON-fiducial (!fiducial_cut) so the region is disjoint
+# from the fiducial signal box by construction — it cannot eat into signal.
+# Topology is deliberately minimal: >=1 photon and >=1 proton, with NO muon /
+# lepton / charged-pion requirement and NO containment or flash cut, so cosmics
+# (category 9) and all interaction types flow in to maximise photon-shower
+# statistics. pi0_rejection / egamma_separation stay on the SAME shared @-params
+# (with @nonfid_gate) as the signal + CC sideband, so the shower-ID
+# behaviour validated here transfers to the signal selection. Caveat: the photon
+# kinematics here differ from signal (non-fiducial / cosmic), so this validates
+# the network's response to the shower-ID variables, not the signal spectrum.
+#
+# MEMORY: stage1 is the largest region in this file by far. Stage-3
+# run_systematics builds nuniv=1000 multisim matrices over the full sample and
+# may OOM on a standard gpvm here. If it does: run Stage 3 on a high-memory node,
+# or drop selected_nonfid_NgNp_stage1 to a copy-only (stat-only) sys block.
+# -----------------------------------------------------------------------------
 [[tree]] # non-fiducial stage1: !fiducial + >=1 photon + >=1 proton (max stats)
 name = "selected_nonfid_NgNp_stage1"
 sim_only = false
@@ -304,6 +314,7 @@ cut = [
   { name = "at_least_one_gOre", type = "reco", parameters = [ "@gOre_threshold" ] },
   { name = "!no_protons",        type = "reco", parameters = [ "@proton_threshold" ] },
   { name = "pi0_rejection",      type = "reco", parameters = [ "@gOre_primary_softmax_sideband", "@proton_primary_softmax_min", "@delta_mass_center", "@delta_mass_halfwidth", "@nonfid_gate" ] },
+  { name = "no_second_shower",   type = "reco" },
 ]
 branch = [
   { name = "cc",                   type = "mctruth" },
@@ -339,6 +350,7 @@ cut = [
   { name = "at_least_one_gOre", type = "reco", parameters = [ "@gOre_threshold" ] },
   { name = "!no_protons",        type = "reco", parameters = [ "@proton_threshold" ] },
   { name = "pi0_rejection",      type = "reco", parameters = [ "@gOre_primary_softmax_sideband", "@proton_primary_softmax_min", "@delta_mass_center", "@delta_mass_halfwidth", "@nonfid_gate" ] },
+  { name = "no_second_shower",   type = "reco" },
   { name = "egamma_separation",  type = "reco", parameters = [ "@start_dedx_min", "@axial_spread_min", "@directional_spread_max", "@photon_softmax_min", "@nonfid_gate" ] },
 ]
 branch = [
@@ -384,6 +396,7 @@ cut = [
   { name = "at_least_one_gOre", type = "reco", parameters = [ "@gOre_threshold" ] },
   { name = "!no_protons",        type = "reco", parameters = [ "@proton_threshold" ] },
   { name = "pi0_rejection",      type = "reco", parameters = [ "@gOre_primary_softmax_off", "@proton_primary_softmax_min", "@delta_mass_center", "@delta_mass_halfwidth", "@nonfid_gate" ] },
+  { name = "no_second_shower",   type = "reco" },
 ]
 branch = [
   { name = "cc",                   type = "mctruth" },
@@ -408,9 +421,9 @@ branch = [
   { name = "ke",                 type = "both_particle", selector = "leading_primary_proton" },
 ]
 
-[[tree]] # non-fiducial "N+1": stage2 chain + the no-second-shower veto, to
-         # measure what requiring a single shower would cost the stage2 yield.
-         # (Main stage2/3 deliberately keep multi-shower events for stats.)
+[[tree]] # non-fiducial N-1 on the no-second-shower veto: stage2 chain with ONLY
+         # no_second_shower removed (every other stage2 cut live), so the
+         # shower multiplicity spans 1 vs >=2 around the veto.
 name = "selected_nonfid_NgNp_nm1_second_shower"
 sim_only = false
 add_systematics = true
@@ -421,7 +434,6 @@ cut = [
   { name = "at_least_one_gOre", type = "reco", parameters = [ "@gOre_threshold" ] },
   { name = "!no_protons",        type = "reco", parameters = [ "@proton_threshold" ] },
   { name = "pi0_rejection",      type = "reco", parameters = [ "@gOre_primary_softmax_sideband", "@proton_primary_softmax_min", "@delta_mass_center", "@delta_mass_halfwidth", "@nonfid_gate" ] },
-  { name = "no_second_shower",   type = "reco" },
 ]
 branch = [
   { name = "cc",                   type = "mctruth" },
@@ -457,6 +469,7 @@ cut = [
   { name = "at_least_one_gOre", type = "reco", parameters = [ "@gOre_threshold" ] },
   { name = "!no_protons",        type = "reco", parameters = [ "@proton_threshold" ] },
   { name = "pi0_rejection",      type = "reco", parameters = [ "@gOre_primary_softmax_sideband", "@proton_primary_softmax_min", "@delta_mass_center", "@delta_mass_halfwidth_off", "@nonfid_gate" ] },
+  { name = "no_second_shower",   type = "reco" },
 ]
 branch = [
   { name = "cc",                   type = "mctruth" },

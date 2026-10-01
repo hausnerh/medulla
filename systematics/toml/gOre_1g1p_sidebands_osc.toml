@@ -1,0 +1,405 @@
+# =============================================================================
+# OSC (ICARUS run2+run4 ReCAF2026) variant — generated from systematics/toml/gOre_1g1p_sidebands.toml.
+# Differences from the source, nothing else:
+#   * [input]/[output] paths match the --sel-toml label (gOre_1g1p_sidebands_osc).
+#   * [input].weights is a FILE LIST (weights_gOre_1g1p_sidebands_osc.txt, written into build/ by
+#     the orchestrator from the selection toml's `cvext` globs). The osc CAFs sit
+#     in nested */*/*.root dirs across two productions, which a single TChain
+#     wildcard can't express.
+#   * The old var00-13p detsys ([variations] + type='variation' [[sys]]) is
+#     DROPPED: those samples don't exist in the osc production and the new unisim
+#     detvars aren't wired yet. 'variation' stays in table_types -> empty
+#     pass-through, so the plot configs' _variationTree still exists.
+#   * events/cv/* copies dropped: osc has no separate nominal `cv` sample.
+# =============================================================================
+# Systematics config for the gOre 1γ1p sidebands selection.
+#
+# Local run target:
+#   ./build/systematics/run_systematics systematics/toml/gOre_1g1p_sidebands.toml
+#
+# Inputs:
+#   - hadd-ed grid selection output `output_gOre_1g1p.root`. All four reco
+#     trees + signal tree present under events/<sample>/<tree>, with
+#     `*_exposure` siblings (add_exposure=true on every tree in the
+#     selection toml).
+#   - cvext flat-CAF glob for weight lookup.
+#
+# Strategy:
+#   * cvext copy of each reco tree gets per-event multisim/multisigma/variation
+#     weight columns appended (`action = 'add_weights'`).
+#   * cv copy carried as-is (nominal MC reference).
+#   * offbeam / onbeam carried as-is.
+#   * signal_1g1p (sim_only, true-mode) gets multisim/multisigma weights so
+#     selection efficiency uncertainty can be tracked.
+#   * [variations] block runs detsys on stage3 (= final 1γ1p selection)
+#     against reco_leading_primary_gOre_shower_ke. Change `tree`/`variable`
+#     to retarget; only one [variations] block per run.
+#
+# NB: the selection toml uses sample name `cv` (not `nominal`); every
+# variations key + ordinate + nominal-copy [[tree]] block below uses `cv`.
+
+[input]
+path = 'output_gOre_1g1p_sidebands_osc.root'
+weights = 'weights_gOre_1g1p_sidebands_osc.txt'
+use_additional_hash = true
+
+[output]
+path = 'output_gOre_1g1p_sidebands_osc_sys.root'
+histogram_destination = 'variations/'
+
+# Variables that get sys histograms / covariance summaries. Add more as needed
+# — each gets its own histogram set under `histogram_destination`.
+[[sysvar]]
+name = 'reco_leading_primary_gOre_shower_ke'
+bins = [30, 0, 600]
+
+[[sysvar]]
+name = 'reco_delta_mass_P'
+bins = [40, 800, 1800]
+
+[[sysvar]]
+name = 'reco_leading_primary_gOre_start_dedx'
+bins = [40, 0, 10]
+
+[[sysvar]]
+name = 'reco_n_protons'
+bins = [5, 0, 5]
+
+[[sysvar]]
+name = 'reco_leading_primary_proton_ke'
+bins = [25, 0, 500]
+
+
+# --- non-fiducial Xγ + Np "outside-the-box" sideband, stages 1/2/3 ---
+# stage1 is the largest region in the file; run_systematics may OOM here on a
+# standard gpvm. If so, run Stage 3 on a high-memory node or switch the stage1
+# events/full block below from add_weights to action='copy' (stat-only).
+[[tree]]
+origin = 'events/cvext/selected_nonfid_NgNp_stage1'
+destination = 'events/full/'
+name = 'selected_nonfid_NgNp_stage1'
+action = 'add_weights'
+table_types = ['multisim', 'multisigma', 'variation']
+
+[[tree]]
+origin = 'events/offbeam/selected_nonfid_NgNp_stage1'
+destination = 'events/offbeam/'
+name = 'selected_nonfid_NgNp_stage1'
+action = 'copy'
+
+[[tree]]
+origin = 'events/onbeam/selected_nonfid_NgNp_stage1'
+destination = 'events/onbeam/'
+name = 'selected_nonfid_NgNp_stage1'
+action = 'copy'
+
+[[tree]]
+origin = 'events/cvext/selected_nonfid_NgNp_stage2'
+destination = 'events/full/'
+name = 'selected_nonfid_NgNp_stage2'
+action = 'add_weights'
+table_types = ['multisim', 'multisigma', 'variation']
+
+[[tree]]
+origin = 'events/offbeam/selected_nonfid_NgNp_stage2'
+destination = 'events/offbeam/'
+name = 'selected_nonfid_NgNp_stage2'
+action = 'copy'
+
+[[tree]]
+origin = 'events/onbeam/selected_nonfid_NgNp_stage2'
+destination = 'events/onbeam/'
+name = 'selected_nonfid_NgNp_stage2'
+action = 'copy'
+
+[[tree]]
+origin = 'events/cvext/selected_nonfid_NgNp_stage3'
+destination = 'events/full/'
+name = 'selected_nonfid_NgNp_stage3'
+action = 'add_weights'
+table_types = ['multisim', 'multisigma', 'variation']
+
+[[tree]]
+origin = 'events/offbeam/selected_nonfid_NgNp_stage3'
+destination = 'events/offbeam/'
+name = 'selected_nonfid_NgNp_stage3'
+action = 'copy'
+
+[[tree]]
+origin = 'events/onbeam/selected_nonfid_NgNp_stage3'
+destination = 'events/onbeam/'
+name = 'selected_nonfid_NgNp_stage3'
+action = 'copy'
+
+# --- non-fiducial N-1 diagnostic trees (recover statistics vs full chain) ---
+[[tree]]
+origin = 'events/cvext/selected_nonfid_NgNp_nm1_gOre_softmax'
+destination = 'events/full/'
+name = 'selected_nonfid_NgNp_nm1_gOre_softmax'
+action = 'add_weights'
+table_types = ['multisim', 'multisigma', 'variation']
+
+[[tree]]
+origin = 'events/offbeam/selected_nonfid_NgNp_nm1_gOre_softmax'
+destination = 'events/offbeam/'
+name = 'selected_nonfid_NgNp_nm1_gOre_softmax'
+action = 'copy'
+
+[[tree]]
+origin = 'events/onbeam/selected_nonfid_NgNp_nm1_gOre_softmax'
+destination = 'events/onbeam/'
+name = 'selected_nonfid_NgNp_nm1_gOre_softmax'
+action = 'copy'
+
+[[tree]]
+origin = 'events/cvext/selected_nonfid_NgNp_nm1_second_shower'
+destination = 'events/full/'
+name = 'selected_nonfid_NgNp_nm1_second_shower'
+action = 'add_weights'
+table_types = ['multisim', 'multisigma', 'variation']
+
+[[tree]]
+origin = 'events/offbeam/selected_nonfid_NgNp_nm1_second_shower'
+destination = 'events/offbeam/'
+name = 'selected_nonfid_NgNp_nm1_second_shower'
+action = 'copy'
+
+[[tree]]
+origin = 'events/onbeam/selected_nonfid_NgNp_nm1_second_shower'
+destination = 'events/onbeam/'
+name = 'selected_nonfid_NgNp_nm1_second_shower'
+action = 'copy'
+
+[[tree]]
+origin = 'events/cvext/selected_nonfid_NgNp_nm1_delta_mass'
+destination = 'events/full/'
+name = 'selected_nonfid_NgNp_nm1_delta_mass'
+action = 'add_weights'
+table_types = ['multisim', 'multisigma', 'variation']
+
+[[tree]]
+origin = 'events/offbeam/selected_nonfid_NgNp_nm1_delta_mass'
+destination = 'events/offbeam/'
+name = 'selected_nonfid_NgNp_nm1_delta_mass'
+action = 'copy'
+
+[[tree]]
+origin = 'events/onbeam/selected_nonfid_NgNp_nm1_delta_mass'
+destination = 'events/onbeam/'
+name = 'selected_nonfid_NgNp_nm1_delta_mass'
+action = 'copy'
+
+# ----------------------------------------------------------------------------
+# GENIE + flux systs (multisim/multisigma). Identical set to
+# icarus_disappearance.toml — no analysis-specific tuning needed at the
+# weight-attach stage; what matters is what variables you plot at the end.
+# ----------------------------------------------------------------------------
+[[sys]]
+name = "ZExpPCAWeighter_SBNNuSyst_ZExpPCA_multisigma_b1"
+type = "multisigma"
+index = 147
+nsigma = [-1, 1, -2, 2, -3, 3]
+
+[[sys]]
+name = "ZExpPCAWeighter_SBNNuSyst_ZExpPCA_multisigma_b2"
+type = "multisigma"
+index = 148
+nsigma = [-1, 1, -2, 2, -3, 3]
+
+[[sys]]
+name = "ZExpPCAWeighter_SBNNuSyst_ZExpPCA_multisigma_b3"
+type = "multisigma"
+index = 149
+nsigma = [-1, 1, -2, 2, -3, 3]
+
+[[sys]]
+name = "ZExpPCAWeighter_SBNNuSyst_ZExpPCA_multisigma_b4"
+type = "multisigma"
+index = 150
+nsigma = [-1, 1, -2, 2, -3, 3]
+
+[[sys]]
+name = "GENIEReWeight_SBN_v1_multisim_ZExpAVariationResponse"
+type = "multisim"
+index = 52
+
+[[sys]]
+name = "GENIEReWeight_SBN_v1_multisigma_ZExpA1CCQE"
+type = "multisigma"
+index = 0
+nsigma = [-1, 1, -2, 2, -3, 3]
+
+[[sys]]
+name = "GENIEReWeight_SBN_v1_multisigma_ZExpA2CCQE"
+type = "multisigma"
+index = 1
+nsigma = [-1, 1, -2, 2, -3, 3]
+
+[[sys]]
+name = "GENIEReWeight_SBN_v1_multisigma_ZExpA3CCQE"
+type = "multisigma"
+index = 2
+nsigma = [-1, 1, -2, 2, -3, 3]
+
+[[sys]]
+name = "GENIEReWeight_SBN_v1_multisigma_ZExpA4CCQE"
+type = "multisigma"
+index = 3
+nsigma = [-1, 1, -2, 2, -3, 3]
+
+[[sys]]
+name = "GENIEReWeight_SBN_v1_multisim_NCELVariationResponse"
+type = "multisim"
+index = 57
+
+[[sys]]
+name = "GENIEReWeight_SBN_v1_multisigma_MaNCEL"
+type = "multisigma"
+index = 10
+nsigma = [-1, 1, -2, 2, -3, 3]
+
+[[sys]]
+name = "GENIEReWeight_SBN_v1_multisigma_EtaNCEL"
+type = "multisigma"
+index = 11
+nsigma = [-1, 1, -2, 2, -3, 3]
+
+[[sys]]
+name = "GENIEReWeight_SBN_v1_multisim_CCRESVariationResponse"
+type = "multisim"
+index = 58
+
+[[sys]]
+name = "GENIEReWeight_SBN_v1_multisigma_MaCCRES"
+type = "multisigma"
+index = 12
+nsigma = [-1, 1, -2, 2, -3, 3]
+
+[[sys]]
+name = "GENIEReWeight_SBN_v1_multisigma_MvCCRES"
+type = "multisigma"
+index = 13
+nsigma = [-1, 1, -2, 2, -3, 3]
+
+[[sys]]
+name = "GENIEReWeight_SBN_v1_multisim_NCRESVariationResponse"
+type = "multisim"
+index = 59
+
+[[sys]]
+name = "GENIEReWeight_SBN_v1_multisigma_MaNCRES"
+type = "multisigma"
+index = 14
+nsigma = [-1, 1, -2, 2, -3, 3]
+
+[[sys]]
+name = "GENIEReWeight_SBN_v1_multisigma_MvNCRES"
+type = "multisigma"
+index = 15
+nsigma = [-1, 1, -2, 2, -3, 3]
+
+[[sys]]
+name = "GENIEReWeight_SBN_v1_multisim_COHVariationResponse"
+type = "multisim"
+index = 78
+
+[[sys]]
+name = "GENIEReWeight_SBN_v1_multisim_DISBYVariationResponse"
+type = "multisim"
+index = 79
+
+[[sys]]
+name = "GENIEReWeight_SBN_v1_multisim_FSI_pi_VariationResponse"
+type = "multisim"
+index = 80
+
+[[sys]]
+name = "GENIEReWeight_SBN_v1_multisim_FSI_N_VariationResponse"
+type = "multisim"
+index = 81
+
+[[sys]]
+name = "GENIEReWeight_SBN_v1_multisim_RPA_CCQE"
+type = "multisim"
+index = 53
+
+[[sys]]
+name = "GENIEReWeight_SBN_v1_multisim_CoulombCCQE"
+type = "multisim"
+index = 54
+
+[[sys]]
+name = "GENIEReWeight_SBN_v1_multisim_NormCCMEC"
+type = "multisim"
+index = 55
+
+[[sys]]
+name = "GENIEReWeight_SBN_v1_multisim_NormNCMEC"
+type = "multisim"
+index = 56
+
+# Flux multisim
+[[sys]]
+name = "expskin_Flux"
+type = "multisim"
+index = 115
+
+[[sys]]
+name = "horncurrent_Flux"
+type = "multisim"
+index = 116
+
+[[sys]]
+name = "kminus_Flux"
+type = "multisim"
+index = 117
+
+[[sys]]
+name = "kplus_Flux"
+type = "multisim"
+index = 118
+
+[[sys]]
+name = "kzero_Flux"
+type = "multisim"
+index = 119
+
+[[sys]]
+name = "nucleoninexsec_Flux"
+type = "multisim"
+index = 120
+
+[[sys]]
+name = "nucleonqexsec_Flux"
+type = "multisim"
+index = 121
+
+[[sys]]
+name = "nucleontotxsec_Flux"
+type = "multisim"
+index = 122
+
+[[sys]]
+name = "piminus_Flux"
+type = "multisim"
+index = 123
+
+[[sys]]
+name = "pioninexsec_Flux"
+type = "multisim"
+index = 124
+
+[[sys]]
+name = "pionqexsec_Flux"
+type = "multisim"
+index = 125
+
+[[sys]]
+name = "piontotxsec_Flux"
+type = "multisim"
+index = 126
+
+[[sys]]
+name = "piplus_Flux"
+type = "multisim"
+index = 127

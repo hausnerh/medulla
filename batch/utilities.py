@@ -105,10 +105,16 @@ def get_samples(
     # Process the samples and batch them if requested.
     batches = []
     for sample in enabled_samples:
-        paths = glob(sample['path'])
+        # `path` may be one glob or a LIST of globs (e.g. one `cvext` sample
+        # spanning the run2 + run4 productions, whose directories differ in
+        # name, so a single glob without braces can't safely cover both).
+        globs = sample['path'] if isinstance(sample['path'], list) else [sample['path']]
+        paths = sorted({f for g in globs for f in glob(g)})
         if len(paths) == 0:
             raise FileNotFoundError(f"No files found for sample {sample.get('name', '<unknown>')} with path {sample['path']}")
         if batch_size is None or batch_size <= 0:
+            if isinstance(sample['path'], list):
+                sample = dict(sample, path=paths)   # hand C++ files, not raw globs
             batches.append(sample)
         else:
             for i in range(0, len(paths), batch_size):

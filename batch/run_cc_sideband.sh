@@ -98,7 +98,7 @@ SL7RUN(){
 NAT(){ if [[ -n "$NATIVE_SETUP" ]]; then bash -lc "{ $NATIVE_SETUP ; } >/dev/null 2>&1 ; $1"; else bash -lc "$1"; fi; }
 
 # ---- argument parsing ------------------------------------------------
-RESUME_PROJ=""; PLOTS_ONLY=0; SYS_ROOT_OVERRIDE=""; CHECK_ENV=0; SEL_TOML_OVERRIDE=""; SELECT_ONLY=0
+RESUME_PROJ=""; PLOTS_ONLY=0; SYS_ROOT_OVERRIDE=""; CHECK_ENV=0; SEL_TOML_OVERRIDE=""; SYS_TOML_OVERRIDE=""; SELECT_ONLY=0
 usage(){
   cat <<EOF
 Usage: $0 [--signal|--sideband] [--resume PROJECT_DIR] [--plots-only [SYS_ROOT]] [--check-env] [--help]
@@ -118,6 +118,8 @@ Usage: $0 [--signal|--sideband] [--resume PROJECT_DIR] [--plots-only [SYS_ROOT]]
                          variants) with its own project/OUT/hadd/sys names, so it
                          runs PARALLEL to the main run. Pass the matching mode
                          (--signal for *_signal_*, --sideband for *_sidebands_*).
+  --sys-toml PATH        Systematics toml to use (default: from the mode; with
+                         --sel-toml, systematics/toml/<same basename>.toml if it exists).
   --select-only          Stop after selection + hadd (skip systematics + plots).
                          For validating new samples before systematics exist.
 
@@ -137,6 +139,8 @@ while [[ $# -gt 0 ]]; do
         --sideband)    MODE=sideband; shift ;;
         --sel-toml)    SEL_TOML_OVERRIDE="$2"; shift 2 ;;
         --sel-toml=*)  SEL_TOML_OVERRIDE="${1#*=}"; shift ;;
+        --sys-toml)    SYS_TOML_OVERRIDE="$2"; shift 2 ;;
+        --sys-toml=*)  SYS_TOML_OVERRIDE="${1#*=}"; shift ;;
         --select-only) SELECT_ONLY=1; shift ;;
         -h|--help)     usage; exit 0 ;;
         *) echo "Unknown option: $1" >&2; usage; exit 1 ;;
@@ -182,6 +186,13 @@ if [[ -n "$SEL_TOML_OVERRIDE" ]]; then
     SYS_ROOT=$PWD/build/output_${label}_sys.root
     OUT=/pnfs/icarus/scratch/users/$USERNAME/${label}_plots
     PROJ_PREFIX=$label
+    # Pair with the matching systematics toml (same basename) if one exists, so
+    # an alternate production gets its own [input]/[output] names + weights.
+    [[ -z "$SYS_TOML_OVERRIDE" && -f "systematics/toml/${label}.toml" ]] && SYS_TOML_OVERRIDE="systematics/toml/${label}.toml"
+fi
+if [[ -n "$SYS_TOML_OVERRIDE" ]]; then
+    [[ -f "$SYS_TOML_OVERRIDE" ]] || { echo "Bad --sys-toml '$SYS_TOML_OVERRIDE' (not found)" >&2; exit 1; }
+    SYS_TOML="$SYS_TOML_OVERRIDE"
 fi
 
 if [[ -n "$RESUME_PROJ" ]]; then
@@ -415,7 +426,17 @@ gather_and_merge(){
 do_systematics(){
     log "=== Stage 3: systematics [SL7] ==="
     mkdir -p "$DEBUG_DIR"
-    local syslog="$DEBUG_DIR/run_systematics_$STAMP.log" rc
+    local syslog="$DEBUG_DIR/run_systematics_$STAMP.log" rc wlist
+    # If the systematics toml reads its weights from a .txt file list (osc
+    # production: nested dirs across two runs, beyond a TChain wildcard), build
+    # that list in build/ from the selection toml's own `cvext` globs. Tomls that
+    # use a direct glob (old production) skip this entirely.
+    wlist=$(grep -m1 -E "^weights[[:space:]]*=" "$SYS_TOML" | sed -E "s/^[^']*'([^']*)'.*/\1/")
+    if [[ "$wlist" == *.txt ]]; then
+        log "Building weight file list build/$wlist from $SEL_TOML (cvext) [SL7]"
+        SL7RUN "python3 batch/make_weights_list.py '$SEL_TOML' 'build/$wlist'" 2>&1 | tee -a "$LOGFILE"
+        [[ -s "build/$wlist" ]] || die "could not build weight file list build/$wlist"
+    fi
     # Capture the REAL run_systematics exit via PIPESTATUS[0]. The old
     # `... | tail -15 | tee || die` only saw tee's status, so an OOM/crash
     # slipped through and later surfaced as a confusing "stage3 tree missing".
