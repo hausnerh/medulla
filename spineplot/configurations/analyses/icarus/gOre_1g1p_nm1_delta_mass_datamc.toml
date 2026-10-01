@@ -59,10 +59,13 @@ true_category         = "0*reco_gOre_topology + 10"
 reco_delta_mass_P_dev = "abs(reco_delta_mass_P - 1232)"
 n_selected_flag       = "0*reco_gOre_topology + 1"
 
-# Off-beam (beam-off data) = the cosmic prediction (upstream scheme: plot the
-# matched MC tree only; cosmics come from off-beam, so no double count).
-# Scaled by LIVETIME to the onbeam gate and forced into the Cosmic/Non-nu slot
-# (9), stacked with MC's own selected-cosmic cat 9.
+# Off-beam (beam-off data) = the cosmic prediction, scaled by LIVETIME to the
+# onbeam gate and forced into the Cosmic/Non-nu slot (9). Upstream scheme, no
+# double count: events/full holds only truth-matched NEUTRINO candidates
+# (run_systematics routes nu_id < 0 / NaN -- overlay cosmics and no-match reco
+# -- to <tree>_nonmatched, which is not plotted), so MC's own cat 9 is empty
+# by construction and off-beam is the sole cosmic source. fillna = 9 is only a
+# safety net for a matched neutrino that fails every category.
 [samples.offbeam]
 key = 'offbeam'
 exposure_type = 'livetime'
