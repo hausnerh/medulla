@@ -1,8 +1,8 @@
 # =============================================================================
 # OSC (ICARUS run2+run4 ReCAF2026) variant — generated from systematics/toml/gOre_1g1p_signal_datamc.toml.
 # Differences from the source, nothing else:
-#   * [input]/[output] paths match the --sel-toml label (gOre_1g1p_signal_osc).
-#   * [input].weights is a FILE LIST (weights_gOre_1g1p_signal_osc.txt, written into build/ by
+#   * [input]/[output] paths match the --sel-toml label (gOre_1g1p_signal_osc_run2).
+#   * [input].weights is a FILE LIST (weights_gOre_1g1p_signal_osc_run2.txt, written into build/ by
 #     the orchestrator from the selection toml's `cvext` globs). The osc CAFs sit
 #     in nested */*/*.root dirs across two productions, which a single TChain
 #     wildcard can't express.
@@ -46,12 +46,12 @@
 # variations key + ordinate + nominal-copy [[tree]] block below uses `cv`.
 
 [input]
-path = 'output_gOre_1g1p_signal_osc.root'
-weights = 'weights_gOre_1g1p_signal_osc.txt'
+path = 'output_gOre_1g1p_signal_osc_run2.root'
+weights = 'weights_gOre_1g1p_signal_osc_run2.txt'
 use_additional_hash = true
 
 [output]
-path = 'output_gOre_1g1p_signal_osc_sys.root'
+path = 'output_gOre_1g1p_signal_osc_run2_sys.root'
 histogram_destination = 'variations/'
 
 # Variables that get sys histograms / covariance summaries. Add more as needed

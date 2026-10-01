@@ -1,8 +1,8 @@
 # =============================================================================
-# OSC (ICARUS run2+run4 ReCAF2026) variant — generated from systematics/toml/gOre_1g1p_signal_datamc.toml.
+# OSC (ICARUS run2+run4 ReCAF2026) variant — generated from systematics/toml/gOre_1g1p_sidebands.toml.
 # Differences from the source, nothing else:
-#   * [input]/[output] paths match the --sel-toml label (gOre_1g1p_signal_osc).
-#   * [input].weights is a FILE LIST (weights_gOre_1g1p_signal_osc.txt, written into build/ by
+#   * [input]/[output] paths match the --sel-toml label (gOre_1g1p_sidebands_osc_run2).
+#   * [input].weights is a FILE LIST (weights_gOre_1g1p_sidebands_osc_run2.txt, written into build/ by
 #     the orchestrator from the selection toml's `cvext` globs). The osc CAFs sit
 #     in nested */*/*.root dirs across two productions, which a single TChain
 #     wildcard can't express.
@@ -46,12 +46,12 @@
 # variations key + ordinate + nominal-copy [[tree]] block below uses `cv`.
 
 [input]
-path = 'output_gOre_1g1p_signal_osc.root'
-weights = 'weights_gOre_1g1p_signal_osc.txt'
+path = 'output_gOre_1g1p_sidebands_osc_run2.root'
+weights = 'weights_gOre_1g1p_sidebands_osc_run2.txt'
 use_additional_hash = true
 
 [output]
-path = 'output_gOre_1g1p_signal_osc_sys.root'
+path = 'output_gOre_1g1p_sidebands_osc_run2_sys.root'
 histogram_destination = 'variations/'
 
 # Variables that get sys histograms / covariance summaries. Add more as needed
@@ -76,172 +76,124 @@ bins = [5, 0, 5]
 name = 'reco_leading_primary_proton_ke'
 bins = [25, 0, 500]
 
-# ----------------------------------------------------------------------------
-# Tree copies / weight-attach for each stage of the 1γ1p chain.
-# Pattern per tree: cvext -> events/full (add_weights); nominal/offbeam/onbeam -> copy.
-# ----------------------------------------------------------------------------
 
-# --- stage1: preselection ---
+# --- non-fiducial Xγ + Np "outside-the-box" sideband, stages 1/2/3 ---
+# stage1 is the largest region in the file; run_systematics may OOM here on a
+# standard gpvm. If so, run Stage 3 on a high-memory node or switch the stage1
+# events/full block below from add_weights to action='copy' (stat-only).
 [[tree]]
-origin = 'events/cvext/selected_1g1p_stage1'
+origin = 'events/cvext/selected_nonfid_NgNp_stage1'
 destination = 'events/full/'
-name = 'selected_1g1p_stage1'
+name = 'selected_nonfid_NgNp_stage1'
 action = 'add_weights'
 table_types = ['multisim', 'multisigma', 'variation']
 
 [[tree]]
-origin = 'events/offbeam/selected_1g1p_stage1'
+origin = 'events/offbeam/selected_nonfid_NgNp_stage1'
 destination = 'events/offbeam/'
-name = 'selected_1g1p_stage1'
+name = 'selected_nonfid_NgNp_stage1'
 action = 'copy'
 
 [[tree]]
-origin = 'events/onbeam/selected_1g1p_stage1'
+origin = 'events/onbeam/selected_nonfid_NgNp_stage1'
 destination = 'events/onbeam/'
-name = 'selected_1g1p_stage1'
+name = 'selected_nonfid_NgNp_stage1'
 action = 'copy'
 
-# --- stage2: + π0 rejection ---
 [[tree]]
-origin = 'events/cvext/selected_1g1p_stage2'
+origin = 'events/cvext/selected_nonfid_NgNp_stage2'
 destination = 'events/full/'
-name = 'selected_1g1p_stage2'
+name = 'selected_nonfid_NgNp_stage2'
 action = 'add_weights'
 table_types = ['multisim', 'multisigma', 'variation']
 
 [[tree]]
-origin = 'events/offbeam/selected_1g1p_stage2'
+origin = 'events/offbeam/selected_nonfid_NgNp_stage2'
 destination = 'events/offbeam/'
-name = 'selected_1g1p_stage2'
+name = 'selected_nonfid_NgNp_stage2'
 action = 'copy'
 
 [[tree]]
-origin = 'events/onbeam/selected_1g1p_stage2'
+origin = 'events/onbeam/selected_nonfid_NgNp_stage2'
 destination = 'events/onbeam/'
-name = 'selected_1g1p_stage2'
+name = 'selected_nonfid_NgNp_stage2'
 action = 'copy'
 
-# --- stage3: + e/γ separation (final) ---
 [[tree]]
-origin = 'events/cvext/selected_1g1p_stage3'
+origin = 'events/cvext/selected_nonfid_NgNp_stage3'
 destination = 'events/full/'
-name = 'selected_1g1p_stage3'
+name = 'selected_nonfid_NgNp_stage3'
 action = 'add_weights'
 table_types = ['multisim', 'multisigma', 'variation']
 
 [[tree]]
-origin = 'events/offbeam/selected_1g1p_stage3'
+origin = 'events/offbeam/selected_nonfid_NgNp_stage3'
 destination = 'events/offbeam/'
-name = 'selected_1g1p_stage3'
+name = 'selected_nonfid_NgNp_stage3'
 action = 'copy'
 
 [[tree]]
-origin = 'events/onbeam/selected_1g1p_stage3'
+origin = 'events/onbeam/selected_nonfid_NgNp_stage3'
 destination = 'events/onbeam/'
-name = 'selected_1g1p_stage3'
+name = 'selected_nonfid_NgNp_stage3'
 action = 'copy'
 
-# --- Signal 1γ1p N-1 diagnostics (stat + multisim/multisigma band; the
-#     _variation tree is an empty pass-through, same as the stage trees, since
-#     only selected_1g1p_stage3 is in the detsys [variations] block above) ---
+# --- non-fiducial N-1 diagnostic trees (recover statistics vs full chain) ---
 [[tree]]
-origin = 'events/cvext/selected_1g1p_nm1_gOre_softmax'
+origin = 'events/cvext/selected_nonfid_NgNp_nm1_gOre_softmax'
 destination = 'events/full/'
-name = 'selected_1g1p_nm1_gOre_softmax'
+name = 'selected_nonfid_NgNp_nm1_gOre_softmax'
 action = 'add_weights'
 table_types = ['multisim', 'multisigma', 'variation']
 
 [[tree]]
-origin = 'events/offbeam/selected_1g1p_nm1_gOre_softmax'
+origin = 'events/offbeam/selected_nonfid_NgNp_nm1_gOre_softmax'
 destination = 'events/offbeam/'
-name = 'selected_1g1p_nm1_gOre_softmax'
+name = 'selected_nonfid_NgNp_nm1_gOre_softmax'
 action = 'copy'
 
 [[tree]]
-origin = 'events/onbeam/selected_1g1p_nm1_gOre_softmax'
+origin = 'events/onbeam/selected_nonfid_NgNp_nm1_gOre_softmax'
 destination = 'events/onbeam/'
-name = 'selected_1g1p_nm1_gOre_softmax'
+name = 'selected_nonfid_NgNp_nm1_gOre_softmax'
 action = 'copy'
 
 [[tree]]
-origin = 'events/cvext/selected_1g1p_nm1_delta_mass'
+origin = 'events/cvext/selected_nonfid_NgNp_nm1_second_shower'
 destination = 'events/full/'
-name = 'selected_1g1p_nm1_delta_mass'
+name = 'selected_nonfid_NgNp_nm1_second_shower'
 action = 'add_weights'
 table_types = ['multisim', 'multisigma', 'variation']
 
 [[tree]]
-origin = 'events/offbeam/selected_1g1p_nm1_delta_mass'
+origin = 'events/offbeam/selected_nonfid_NgNp_nm1_second_shower'
 destination = 'events/offbeam/'
-name = 'selected_1g1p_nm1_delta_mass'
+name = 'selected_nonfid_NgNp_nm1_second_shower'
 action = 'copy'
 
 [[tree]]
-origin = 'events/onbeam/selected_1g1p_nm1_delta_mass'
+origin = 'events/onbeam/selected_nonfid_NgNp_nm1_second_shower'
 destination = 'events/onbeam/'
-name = 'selected_1g1p_nm1_delta_mass'
+name = 'selected_nonfid_NgNp_nm1_second_shower'
 action = 'copy'
 
-# ----------------------------------------------------------------------------
-# Exposure-tree copies. Requires `add_exposure = true` on each `[[tree]]`
-# in the selection toml + rerunning medulla. Each exposure tree carries
-# `pot` and `livetime` SpillMultiVars used for POT normalization.
-# ----------------------------------------------------------------------------
-# --- stage1 exposure ---
 [[tree]]
-origin = 'events/cvext/selected_1g1p_stage1_exposure'
+origin = 'events/cvext/selected_nonfid_NgNp_nm1_delta_mass'
 destination = 'events/full/'
-name = 'selected_1g1p_stage1_exposure'
-action = 'copy'
+name = 'selected_nonfid_NgNp_nm1_delta_mass'
+action = 'add_weights'
+table_types = ['multisim', 'multisigma', 'variation']
 
 [[tree]]
-origin = 'events/offbeam/selected_1g1p_stage1_exposure'
+origin = 'events/offbeam/selected_nonfid_NgNp_nm1_delta_mass'
 destination = 'events/offbeam/'
-name = 'selected_1g1p_stage1_exposure'
+name = 'selected_nonfid_NgNp_nm1_delta_mass'
 action = 'copy'
 
 [[tree]]
-origin = 'events/onbeam/selected_1g1p_stage1_exposure'
+origin = 'events/onbeam/selected_nonfid_NgNp_nm1_delta_mass'
 destination = 'events/onbeam/'
-name = 'selected_1g1p_stage1_exposure'
-action = 'copy'
-
-# --- stage2 exposure ---
-[[tree]]
-origin = 'events/cvext/selected_1g1p_stage2_exposure'
-destination = 'events/full/'
-name = 'selected_1g1p_stage2_exposure'
-action = 'copy'
-
-[[tree]]
-origin = 'events/offbeam/selected_1g1p_stage2_exposure'
-destination = 'events/offbeam/'
-name = 'selected_1g1p_stage2_exposure'
-action = 'copy'
-
-[[tree]]
-origin = 'events/onbeam/selected_1g1p_stage2_exposure'
-destination = 'events/onbeam/'
-name = 'selected_1g1p_stage2_exposure'
-action = 'copy'
-
-# --- stage3 exposure ---
-[[tree]]
-origin = 'events/cvext/selected_1g1p_stage3_exposure'
-destination = 'events/full/'
-name = 'selected_1g1p_stage3_exposure'
-action = 'copy'
-
-[[tree]]
-origin = 'events/offbeam/selected_1g1p_stage3_exposure'
-destination = 'events/offbeam/'
-name = 'selected_1g1p_stage3_exposure'
-action = 'copy'
-
-[[tree]]
-origin = 'events/onbeam/selected_1g1p_stage3_exposure'
-destination = 'events/onbeam/'
-name = 'selected_1g1p_stage3_exposure'
+name = 'selected_nonfid_NgNp_nm1_delta_mass'
 action = 'copy'
 
 

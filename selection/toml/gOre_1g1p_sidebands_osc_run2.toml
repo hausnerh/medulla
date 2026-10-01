@@ -1,5 +1,5 @@
 [general]
-output = "gOre_1g1p_sidebands_osc"
+output = "gOre_1g1p_sidebands_osc_run2"
 fsthresh = [
   "@gOre_threshold",
   "@gOre_threshold",
@@ -139,11 +139,10 @@ cuts = [
 ]
 
 # -----------------------------------------------------------------------------
-# ICARUS osc production (ReCAF2026), MC/offbeam = run2 + run4.
+# ICARUS osc production (ReCAF2026), MC/offbeam = run2 ONLY (isolates run4-vs-run2 MC differences vs the run2 10% data).
 # Sample NAMES mirror the old production (cvext / offbeam / onbeam) so the
 # systematics + plot configs work unchanged.
-# cvext/offbeam span BOTH runs (path = list of globs): exposure sums run2+run4,
-# so the plots are POT-combined automatically.
+# cvext/offbeam are run2 ONLY, matched to the run2 10% data.
 # There is no separate extended CV:
 # `cvext` here IS the osc central value (lower stats than the old cvext).
 # onbeam is run2's 10% subsample only: run4's BeamOn dir has no '10p' tag and may
@@ -152,19 +151,13 @@ cuts = [
 # -----------------------------------------------------------------------------
 [[sample]]
 name = "cvext"
-path = [
-  "/pnfs/sbn/persistent/users/mueller/osc/icarus/flatcaf/icarus_run4_cvmc/*/*/*.root",
-  "/pnfs/sbn/persistent/users/mueller/osc/icarus/flatcaf/icarus_run2_cvmc/*/*/*.root",
-]
+path = "/pnfs/sbn/persistent/users/mueller/osc/icarus/flatcaf/icarus_run2_cvmc/*/*/*.root"
 ismc = true
 disable = false
 
 [[sample]]
 name = "offbeam"
-path = [
-  "/pnfs/sbn/persistent/users/mueller/osc/icarus/flatcaf/ICARUS_Run4BeamOffWF_BNB_data_ReCAF2026_20p/*/*/*.root",
-  "/pnfs/sbn/persistent/users/mueller/osc/icarus/flatcaf/ICARUS_Run2BeamOffWF_BNB_data_ReCAF2026/*/*/*.root",
-]
+path = "/pnfs/sbn/persistent/users/mueller/osc/icarus/flatcaf/ICARUS_Run2BeamOffWF_BNB_data_ReCAF2026/*/*/*.root"
 ismc = false
 disable = false
 
