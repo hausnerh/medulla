@@ -78,7 +78,11 @@ SL7_BINDS=(--pid --ipc
 # hadd, run_systematics). If `setup_spine` isn't defined in a non-interactive
 # login shell, change this to e.g.
 #   'source /exp/'"$(id -ng)"'/data/users/vito/podman/profile_jsl && setup_spine'
-SL7_SETUP='setup_spine'
+# After setup_spine, set up the SAME sbnana the grid pins in batch/submit.sh, so
+# the local Stage-3 run_systematics (and your local build/) match the grid. The
+# merged weight reader needs >= v10_01_04; setup_spine alone gave v10_01_02_01.
+SBNANA_PIN=$(awk '/^setup sbnana /{print $3" "$4" "$5; exit}' batch/submit.sh 2>/dev/null)
+SL7_SETUP="setup_spine${SBNANA_PIN:+ && setup sbnana $SBNANA_PIN}"
 # Setup to run in the NATIVE shell before jobsub (empty = jobsub already on PATH).
 NATIVE_SETUP=''
 
