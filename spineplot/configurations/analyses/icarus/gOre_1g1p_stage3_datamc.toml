@@ -29,8 +29,9 @@ path = '/exp/icarus/app/users/hhausner/plots/gOre_1g1p/stage3_egam_sep_datamc'
 [analysis]
 ordinate_sample = 'onbeam'
 category_branch = 'true_category'
-# 9 MC truth categories from selection toml + onbeam at slot 10.
-category_assignment = [[0], [1], [2], [3], [4], [5], [6], [7], [8], [10]]
+# 10 MC truth categories (9 = cosmic / !neutrino) from selection toml;
+# off-beam cosmics also land in 9; onbeam at slot 10.
+category_assignment = [[0], [1], [2], [3], [4], [5], [6], [7], [8], [9], [10]]
 category_labels = [
   'NC $\Delta{\to}N\gamma$ (1$\gamma$1p)',
   'NC $\Delta{\to}N\gamma$ (Other Topo.)',
@@ -41,11 +42,12 @@ category_labels = [
   'Other NC',
   'CC e',
   'Other CC',
+  'Cosmic / Non-$\nu$',
   'Data (BNB)',
 ]
 # Wong palette + black for data overlay.
-category_colors = ['#E69900', '#59B3E6', '#009980', '#F2E640', '#0073B3', '#CC6600', '#CC99B3', '#9980CC', '#E6338C', '#000000']
-category_types  = ['histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'scatter']
+category_colors = ['#E69900', '#59B3E6', '#009980', '#F2E640', '#0073B3', '#CC6600', '#CC99B3', '#9980CC', '#E6338C', '#808080', '#000000']
+category_types  = ['histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'scatter']
 
 [samples.mc]
 key = 'full'
@@ -53,7 +55,7 @@ exposure_type = 'pot'
 trees = ['selected_1g1p_stage3']
 systematics = ['selected_1g1p_stage3_multisimTree', 'selected_1g1p_stage3_multisigmaTree', 'selected_1g1p_stage3_variationTree']
 print_sys = true
-fillna = 8
+fillna = 9
 
 [samples.mc.precompute]
 reco_delta_mass_P_dev = "abs(reco_delta_mass_P - 1232)"
@@ -68,6 +70,20 @@ trees = ['selected_1g1p_stage3']
 # Onbeam events truth-default to cat 9 (cosmic / !neutrino); remap to 10
 # to consume the "Data (BNB)" slot in category_assignment.
 true_category         = "0*reco_gOre_topology + 10"
+reco_delta_mass_P_dev = "abs(reco_delta_mass_P - 1232)"
+n_selected_flag       = "0*reco_gOre_topology + 1"
+
+# Off-beam (beam-off data) = the cosmic prediction (upstream scheme: plot the
+# matched MC tree only; cosmics come from off-beam, so no double count).
+# Scaled by LIVETIME to the onbeam gate and forced into the Cosmic/Non-nu slot
+# (9), stacked with MC's own selected-cosmic cat 9.
+[samples.offbeam]
+key = 'offbeam'
+exposure_type = 'livetime'
+trees = ['selected_1g1p_stage3']
+
+[samples.offbeam.precompute]
+true_category         = "0*reco_gOre_topology + 9"
 reco_delta_mass_P_dev = "abs(reco_delta_mass_P - 1232)"
 n_selected_flag       = "0*reco_gOre_topology + 1"
 
