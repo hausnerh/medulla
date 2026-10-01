@@ -49,8 +49,9 @@ photon_softmax_min      = 0.922500
 #   2 = >=1 shower, tolerate leptons; operate on the leading shower
 # The non-fiducial max-stats sideband uses 2 so it keeps multi-shower events and
 # lets electron showers + muons/pions in (see cuts::gOre::outside_signal_box,
-# at_least_one_gOre). The no-second-shower veto is skipped at gate 2 and lives as
-# the standalone `no_second_shower` cut (nonfid nm1_second_shower diagnostic).
+# at_least_one_gOre). pi0_rejection skips its internal 2nd-shower veto at gate 2;
+# the veto is applied explicitly as the `no_second_shower` cut in stage2/3 and every
+# N-1 except nm1_second_shower (which frees it).
 nonfid_gate  = 2
 # N-1 (cut-minus-one) no-op thresholds: pass one of these to pi0_rejection in
 # place of the real threshold to disable exactly that sub-cut while leaving the
@@ -341,6 +342,7 @@ cut = [
   { name = "at_least_one_gOre", type = "reco", parameters = [ "@gOre_threshold" ] },
   { name = "!no_protons",        type = "reco", parameters = [ "@proton_threshold" ] },
   { name = "pi0_rejection",      type = "reco", parameters = [ "@gOre_primary_softmax_sideband", "@proton_primary_softmax_min", "@delta_mass_center", "@delta_mass_halfwidth", "@nonfid_gate" ] },
+  { name = "no_second_shower",   type = "reco" },
 ]
 branch = [
   { name = "cc",                   type = "mctruth" },
@@ -376,6 +378,7 @@ cut = [
   { name = "at_least_one_gOre", type = "reco", parameters = [ "@gOre_threshold" ] },
   { name = "!no_protons",        type = "reco", parameters = [ "@proton_threshold" ] },
   { name = "pi0_rejection",      type = "reco", parameters = [ "@gOre_primary_softmax_sideband", "@proton_primary_softmax_min", "@delta_mass_center", "@delta_mass_halfwidth", "@nonfid_gate" ] },
+  { name = "no_second_shower",   type = "reco" },
   { name = "egamma_separation",  type = "reco", parameters = [ "@start_dedx_min", "@axial_spread_min", "@directional_spread_max", "@photon_softmax_min", "@nonfid_gate" ] },
 ]
 branch = [
@@ -421,6 +424,7 @@ cut = [
   { name = "at_least_one_gOre", type = "reco", parameters = [ "@gOre_threshold" ] },
   { name = "!no_protons",        type = "reco", parameters = [ "@proton_threshold" ] },
   { name = "pi0_rejection",      type = "reco", parameters = [ "@gOre_primary_softmax_off", "@proton_primary_softmax_min", "@delta_mass_center", "@delta_mass_halfwidth", "@nonfid_gate" ] },
+  { name = "no_second_shower",   type = "reco" },
 ]
 branch = [
   { name = "cc",                   type = "mctruth" },
@@ -445,9 +449,9 @@ branch = [
   { name = "ke",                 type = "both_particle", selector = "leading_primary_proton" },
 ]
 
-[[tree]] # non-fiducial "N+1": stage2 chain + the no-second-shower veto, to
-         # measure what requiring a single shower would cost the stage2 yield.
-         # (Main stage2/3 deliberately keep multi-shower events for stats.)
+[[tree]] # non-fiducial N-1 on the no-second-shower veto: stage2 chain with ONLY
+         # no_second_shower removed (every other stage2 cut live), so the
+         # shower multiplicity spans 1 vs >=2 around the veto.
 name = "selected_nonfid_NgNp_nm1_second_shower"
 sim_only = false
 add_systematics = true
@@ -458,7 +462,6 @@ cut = [
   { name = "at_least_one_gOre", type = "reco", parameters = [ "@gOre_threshold" ] },
   { name = "!no_protons",        type = "reco", parameters = [ "@proton_threshold" ] },
   { name = "pi0_rejection",      type = "reco", parameters = [ "@gOre_primary_softmax_sideband", "@proton_primary_softmax_min", "@delta_mass_center", "@delta_mass_halfwidth", "@nonfid_gate" ] },
-  { name = "no_second_shower",   type = "reco" },
 ]
 branch = [
   { name = "cc",                   type = "mctruth" },
@@ -494,6 +497,7 @@ cut = [
   { name = "at_least_one_gOre", type = "reco", parameters = [ "@gOre_threshold" ] },
   { name = "!no_protons",        type = "reco", parameters = [ "@proton_threshold" ] },
   { name = "pi0_rejection",      type = "reco", parameters = [ "@gOre_primary_softmax_sideband", "@proton_primary_softmax_min", "@delta_mass_center", "@delta_mass_halfwidth_off", "@nonfid_gate" ] },
+  { name = "no_second_shower",   type = "reco" },
 ]
 branch = [
   { name = "cc",                   type = "mctruth" },

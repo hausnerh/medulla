@@ -1,14 +1,9 @@
-# Non-fiducial Nγ + Np sideband, SECOND-SHOWER diagnostic: the stage2 chain
-# (outside_signal_box + >=1 EM shower + >=1 proton + pi0_rejection) PLUS the
-# no_second_shower veto. Its yield vs stage2 (which keeps multi-shower events)
-# measures exactly what requiring a single shower would cost — the reason the
-# 2nd-shower cut is kept out of the main chain for now. reco_n_primary_showers
-# is plotted first so the multiplicity that the veto acts on is visible.
-# Truth breakdown = signal true_category (+ cosmic bin 9).
-#
-# yrange is a float (1.4) => auto-scale to 1.4x the tallest bin. ordinate_sample
-# = 'onbeam'; the orchestrator auto-switches to MC-only if the onbeam tree has 0
-# events.
+# Non-fiducial Ngamma + Np sideband, N-1 on the no-second-shower veto: the
+# stage2 chain (outside_signal_box + >=1 EM shower + >=1 proton + pi0_rejection)
+# with ONLY no_second_shower removed. reco_n_primary_showers is plotted first,
+# so the 1-shower bin is what stage2 keeps and >=2 is what the veto removes.
+# Truth breakdown = signal true_category (+ off-beam cosmics forced to cat 9).
+# yrange float (1.4) => auto-scale; MC-only auto-switch if onbeam has 0 events.
 
 [[this_includes]]
 file = 'configurations/common/styles.toml'
