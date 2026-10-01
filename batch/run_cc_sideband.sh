@@ -151,6 +151,16 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# Must run on the native EL9 host: SL7RUN launches apptainer itself, and the
+# EL9 apptainer cannot start on SL7's glibc ("GLIBC_2.28 not found"), while
+# jobsub is native-only. Catch an sl7_container shell up front.
+if [[ -n "${APPTAINER_CONTAINER:-}${SINGULARITY_CONTAINER:-}" ]] \
+   || grep -qs '^VERSION_ID="\?7' /etc/os-release; then
+    echo "ERROR: run_cc_sideband.sh is running inside a container (SL7)." >&2
+    echo "       'exit' the sl7_container shell and rerun it from the native EL9 shell." >&2
+    exit 1
+fi
+
 # ---- resolve mode -> tomls / configs / filenames ---------------------
 case "$MODE" in
   signal)
