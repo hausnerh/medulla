@@ -549,6 +549,53 @@ check_env(){
     log "[SL7] ifdh ls scratch ..."
     SL7RUN "ifdh ls /pnfs/icarus/scratch/users/$USERNAME/ >/dev/null 2>&1" \
         && log "  SL7 ifdh ls OK" || log "  SL7 ifdh ls FAILED (creds? bind?)"
+
+    # --- product versions -------------------------------------------------
+    # The grid pins sbnana in batch/submit.sh; the LOCAL Stage-3 run_systematics
+    # is built in whatever setup_spine provides. Require local >= grid pin, so
+    # the weight reader (caf::GetCAFType, needs >= v10_01_04) matches the grid.
+    local want have ups root_v srp
+    want=$(awk '/^setup sbnana /{print $3; exit}' batch/submit.sh)
+    ups=$(SL7RUN "ups active" 2>/dev/null)
+    have=$(printf '%s\n' "$ups" | awk '$1=="sbnana"{print $2; exit}')
+    root_v=$(SL7RUN "root-config --version" 2>/dev/null | tail -1)
+    log "[SL7] product versions: sbnana=${have:-?} (grid pin ${want:-?}), root=${root_v:-?}"
+    if [[ -z "$have" ]]; then
+        log "  sbnana not in 'ups active' after setup_spine — cannot verify it; check SL7_SETUP"; ok=0
+    elif [[ -n "$want" ]] && ! printf '%s\n%s\n' "${want#v}" "${have#v}" | tr '_' '.' | sort -V -C; then
+        log "  sbnana $have is OLDER than the grid pin $want — rebuild/setup with a newer sbnana"; ok=0
+    else
+        log "  sbnana OK (>= grid pin)"
+    fi
+    srp=$(SL7RUN "echo \$SRPROXY_INC" 2>/dev/null | tail -1)
+    if [[ -n "$srp" ]] && SL7RUN "test -d '$srp'" >/dev/null 2>&1; then
+        log "  SRPROXY_INC OK ($srp)"
+    else
+        log "  SRPROXY_INC unset or missing ('${srp}') — the systematics build needs it"; ok=0
+    fi
+
+    # --- local build freshness -------------------------------------------
+    # Stage 3 runs build/systematics/run_systematics. A build older than any
+    # systematics/shared source (e.g. after a git pull/merge) silently runs OLD
+    # code, so treat that as a failure. The local selection binary is only for
+    # local tests (the grid builds its own), so a stale one is a warning.
+    local bin stale
+    bin=build/systematics/run_systematics
+    if [[ ! -x "$bin" ]]; then
+        log "  $bin missing — build medulla in build/ (inside SL7) before Stage 3"; ok=0
+    else
+        stale=$(find systematics shared cmake CMakeLists.txt \( -name '*.cc' -o -name '*.h' -o -name 'CMakeLists.txt' -o -name '*.cmake' \) -newer "$bin" 2>/dev/null | head -5)
+        if [[ -n "$stale" ]]; then
+            log "  $bin is STALE — older than: $(echo $stale | tr '\n' ' ')… rebuild build/ (SL7)"; ok=0
+        else
+            log "  $bin up to date"
+        fi
+    fi
+    bin=build/selection/medulla
+    if [[ -x "$bin" ]]; then
+        stale=$(find selection shared \( -name '*.cc' -o -name '*.h' -o -name 'CMakeLists.txt' \) -newer "$bin" 2>/dev/null | head -1)
+        [[ -n "$stale" ]] && log "  WARN: $bin older than $stale — local selection tests would use old code (grid builds its own)"
+    fi
     [[ "$ok" -eq 1 ]] && log "check-env: PASS" || log "check-env: FAIL — fix the items above before a real run"
     return $((1-ok))
 }
