@@ -376,10 +376,18 @@ submit_selection(){
     grep -q "${STAGE_PREFIX}_stage3" "$SEL_TOML" \
         || die "local $SEL_TOML lacks ${STAGE_PREFIX}_stage3 — git pull the $TAG branch first"
 
-    log "Creating project $PROJ (batch-size $BATCH_SIZE) [SL7]"
+    # Per-job systematics knob list. Without --systematic, create_new_project
+    # falls back to batch/sys_template.toml (100 knobs, indices up to 191, old
+    # production), which aborts every job on the AR23+ osc CAFs (189 weight
+    # groups): "WeightReader: Index out of range in 'get_nuniv()'". So an
+    # alternate production (--sel-toml/--sys-toml) must ship its own [[sys]]
+    # list to the grid. The default modes keep the template (old production).
+    local sysflag=""
+    [[ -n "$SYS_TOML_OVERRIDE" ]] && sysflag="--systematic '$SYS_TOML'"
+    log "Creating project $PROJ (batch-size $BATCH_SIZE) [SL7]${sysflag:+ per-job sys knobs from $SYS_TOML}"
     SL7RUN "python3 batch/medulla.py --experiment $EXPERIMENT --project-dir '$PROJ' \
         --create-project --toml '$SEL_TOML' --batch-size $BATCH_SIZE \
-        --tag '$TAG' --gituser '$GITUSER'" 2>&1 | tee -a "$LOGFILE" \
+        --tag '$TAG' --gituser '$GITUSER' $sysflag" 2>&1 | tee -a "$LOGFILE" \
         || die "create-project failed"
 
     if read_project_njobs; then log "Project has $NJOBS jobs."
