@@ -253,8 +253,11 @@ ensure_creds(){ check_creds || wait_for_creds; }
 # ---- helpers ---------------------------------------------------------
 parse_jobid(){ grep -oE '[0-9]+\.[0-9]+@[A-Za-z0-9._-]+' | head -1; }
 
-# hadd (SL7)
-do_hadd(){ SL7RUN "hadd -f '$SEL_HADD' $*" 2>&1 | tail -5 | tee -a "$LOGFILE"; return "${PIPESTATUS[0]}"; }
+# hadd (SL7) every output_jobid*.root in a repo-relative dir. The glob expands
+# INSIDE the container, so hadd gets one short argv entry per file; passing the
+# list through SL7RUN made it a single >128 KB argument ("Argument list too
+# long" at ~6.7k files).
+do_hadd(){ SL7RUN "hadd -f '$SEL_HADD' '$1'/output_jobid*.root" 2>&1 | tail -5 | tee -a "$LOGFILE"; return "${PIPESTATUS[0]}"; }
 
 # report which stage event trees exist under events/full/ for the active mode
 # (SL7 root via a temp macro to avoid nested-quote hell). Echoes "s1=1 s2=1 s3=1".
@@ -432,17 +435,40 @@ gather_and_merge(){
     fi
     [[ "$done" -gt 0 ]] || die "no selection outputs — see $DEBUG_DIR"
 
-    # ifdh-cp each output local, then hadd (all in SL7). Avoids NFS/xrootd perms.
-    local tmp="build/_haddtmp_$STAMP" loc=() f
-    SL7RUN "mkdir -p '$tmp'"
+    # ifdh-cp the outputs local, then hadd (all in SL7). Avoids NFS/xrootd perms.
+    # All copies run in ONE container session (one SL7RUN per file cost ~2 s of
+    # apptainer + setup_spine each: ~4 h for 6.7k files). The staging dir is
+    # named after the project and kept if hadd fails, and files already there
+    # are skipped, so --resume PROJ continues instead of re-copying.
+    local tmp="build/_haddtmp_$(basename "$PROJ")" f n_missing n_have
+    mkdir -p "$tmp"
+    : > "$tmp/copy_list.txt"
     for f in "${outs[@]}"; do
-        SL7RUN "ifdh cp '$PROJ/output/$f' '$tmp/$f'" >/dev/null 2>&1 || die "ifdh cp $f failed (creds?)"
-        loc+=("$tmp/$f")
+        [[ -s "$tmp/$f" ]] || echo "$PROJ/output/$f $REPO/$tmp/$f" >> "$tmp/copy_list.txt"
     done
+    n_missing=$(wc -l < "$tmp/copy_list.txt")
+    if [[ "$n_missing" -gt 0 ]]; then
+        log "Copying $n_missing of $done outputs to $tmp (one ifdh session) [SL7]"
+        cat > "$tmp/fetch.sh" <<'FETCH'
+#!/bin/bash
+# $1 = list of "src dst" pairs. Bulk copy first; then retry anything missing.
+list="$1"
+ifdh cp -f "$list" >/dev/null 2>&1
+fail=0
+while read -r src dst; do
+    [[ -s "$dst" ]] && continue
+    ifdh cp "$src" "$dst" >/dev/null 2>&1 || { echo "FAILED $src"; fail=$((fail+1)); }
+done < "$list"
+echo "fetch: $fail failed"
+FETCH
+        SL7RUN "bash '$tmp/fetch.sh' '$tmp/copy_list.txt'" 2>&1 | tail -5 | tee -a "$LOGFILE"
+    fi
+    n_have=$(find "$tmp" -maxdepth 1 -name 'output_jobid*.root' -size +0 | wc -l)
+    [[ "$n_have" -eq "$done" ]] || die "only $n_have / $done outputs staged in $tmp (creds?) — rerun with --resume '$PROJ' to continue"
     log "hadd -> $SEL_HADD ($done files) [SL7]"
-    do_hadd "${loc[@]/#/$REPO/}" || { SL7RUN "rm -rf '$tmp'"; die "hadd failed"; }
-    SL7RUN "rm -rf '$tmp'"
+    do_hadd "$tmp" || die "hadd failed — staged files kept in $tmp; rerun with --resume '$PROJ'"
     [[ -s "$SEL_HADD" ]] || die "hadd produced no $SEL_HADD"
+    rm -rf "$tmp"
 }
 
 do_systematics(){
