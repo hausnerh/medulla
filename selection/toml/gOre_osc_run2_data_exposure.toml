@@ -1,0 +1,48 @@
+#------------------------------------------------------------------------------
+# Data exposure bookkeeping for the new production (ReCAF2026) run2 data.
+#
+# The ReCAF2026 off-beam flatcafs carry no hdr.noffbeambnb (and no spill info),
+# so medulla's header livetime for the off-beam sample sums to 0 and the cosmics
+# cannot be livetime-scaled. This runs a cut-free, one-row-per-event tree over
+# the SAME data files as gOre_1g1p_{signal,sidebands}_osc_run2.toml (same
+# globs), modelled on upstream's exposure_validation/icarus_bnb.toml and the osc
+# selection's `events` tree. batch/offbeam_gates.py then sums gate_delta
+# (gates since the previous trigger of the same type) per sample:
+#   offbeam: sum(gate_delta) = off-beam BNB gates  -> off-beam "Livetime"
+#   onbeam : sum(gate_delta) cross-checks the on-beam Livetime (BNB gate count
+#            from the spill info) already in the selection output.
+# Run it with: ./batch/run_cc_sideband.sh --signal --select-only \
+#                --sel-toml selection/toml/gOre_osc_run2_data_exposure.toml
+#------------------------------------------------------------------------------
+[general]
+output = "gOre_osc_run2_data_exposure"
+
+[[sample]]
+name = "offbeam"
+path = "/pnfs/sbn/persistent/users/mueller/osc/icarus/flatcaf/ICARUS_Run2BeamOffWF_BNB_data_ReCAF2026/*/*/*.root"
+ismc = false
+disable = false
+
+[[sample]] # run2 10% unblinded subsample
+name = "onbeam"
+path = "/pnfs/sbn/persistent/users/mueller/osc/icarus/flatcaf/icarus_run2_onbeam_10p/*/*/*.root"
+ismc = false
+disable = false
+
+[[tree]]
+name = "events"
+sim_only = false
+mode = "event"
+cut = [
+    { name = "no_cut", type = "event" },
+]
+branch = [
+    { name = "is_first_in_subrun", type = "event" },
+    { name = "gate_delta",         type = "event" },
+    { name = "nbnb",               type = "event" },
+    { name = "noffbeambnb",        type = "event" },
+    { name = "unfolded_nbnb",      type = "event" },
+    { name = "unfolded_pot_bnb",   type = "event" },
+    { name = "pot_from_spillinfo", type = "event" },
+    { name = "trigger_within_gate", type = "event" },
+]

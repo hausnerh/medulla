@@ -102,7 +102,7 @@ SL7RUN(){
 NAT(){ if [[ -n "$NATIVE_SETUP" ]]; then bash -lc "{ $NATIVE_SETUP ; } >/dev/null 2>&1 ; $1"; else bash -lc "$1"; fi; }
 
 # ---- argument parsing ------------------------------------------------
-RESUME_PROJ=""; PLOTS_ONLY=0; SYS_ROOT_OVERRIDE=""; CHECK_ENV=0; SEL_TOML_OVERRIDE=""; SYS_TOML_OVERRIDE=""; SELECT_ONLY=0
+RESUME_PROJ=""; PLOTS_ONLY=0; SYS_ROOT_OVERRIDE=""; CHECK_ENV=0; SEL_TOML_OVERRIDE=""; SYS_TOML_OVERRIDE=""; SELECT_ONLY=0; OFFBEAM_EXPOSURE=""
 usage(){
   cat <<EOF
 Usage: $0 [--signal|--sideband] [--resume PROJECT_DIR] [--plots-only [SYS_ROOT]] [--check-env] [--help]
@@ -126,6 +126,11 @@ Usage: $0 [--signal|--sideband] [--resume PROJECT_DIR] [--plots-only [SYS_ROOT]]
                          --sel-toml, systematics/toml/<same basename>.toml if it exists).
   --select-only          Stop after selection + hadd (skip systematics + plots).
                          For validating new samples before systematics exist.
+  --offbeam-exposure ROOT
+                         Merged output of gOre_osc_run2_data_exposure.toml. After
+                         the hadd, fill the off-beam Livetime (empty in ReCAF2026
+                         off-beam headers) with its sum(gate_delta), after
+                         batch/offbeam_gates.py cross-checks it (see that script).
 
 Run this NATIVELY (not inside sl7_container). jobsub is native; ifdh/hadd/
 run_systematics/root run in SL7 via the SL7RUN wrapper (see CONFIG block).
@@ -146,6 +151,8 @@ while [[ $# -gt 0 ]]; do
         --sys-toml)    SYS_TOML_OVERRIDE="$2"; shift 2 ;;
         --sys-toml=*)  SYS_TOML_OVERRIDE="${1#*=}"; shift ;;
         --select-only) SELECT_ONLY=1; shift ;;
+        --offbeam-exposure)   OFFBEAM_EXPOSURE="$2"; shift 2 ;;
+        --offbeam-exposure=*) OFFBEAM_EXPOSURE="${1#*=}"; shift ;;
         -h|--help)     usage; exit 0 ;;
         *) echo "Unknown option: $1" >&2; usage; exit 1 ;;
     esac
@@ -305,8 +312,29 @@ check_merged_exposure(){
     # new-production (ReCAF2026) off-beam files carry no noffbeambnb/spill info,
     # so their livetime sums to 0 — needs an external normalization first.
     if echo "$out" | grep -E '^\S+\s+offbeam\S*\s' | grep -q "Livetime=0.0 "; then
-        log "off-beam Livetime is 0 in $SEL_HADD — cosmics cannot be livetime-scaled; supply the off-beam normalization before plotting"; return 1
+        if [[ "$SELECT_ONLY" -eq 1 ]]; then
+            log "WARN: off-beam Livetime is 0 in $SEL_HADD (fine for --select-only; plotting needs --offbeam-exposure)"; return 0
+        fi
+        log "off-beam Livetime is 0 in $SEL_HADD — cosmics cannot be livetime-scaled; rerun with --offbeam-exposure <merged gOre_osc_run2_data_exposure output>"; return 1
     fi
+}
+
+# ReCAF2026 off-beam headers carry no gate count, so the merged off-beam
+# Livetime is 0. Recover it as sum(gate_delta) from the exposure-only run
+# (offbeam_gates.py refuses unless event counts match this selection and the
+# on-beam gate_delta reproduces the on-beam spill-info Livetime), then write it
+# into events/offbeam/Livetime; run_systematics copies it into the sys ROOT.
+apply_offbeam_exposure(){
+    local out v
+    [[ -s "$OFFBEAM_EXPOSURE" ]] || { log "--offbeam-exposure file not found: $OFFBEAM_EXPOSURE"; return 1; }
+    out=$(SL7RUN "python3 batch/offbeam_gates.py '$OFFBEAM_EXPOSURE' '$SEL_HADD'" 2>&1)
+    echo "$out" | sed 's/^/  /' | tee -a "$LOGFILE"
+    v=$(echo "$out" | awk '/^OFFBEAM_LIVETIME /{print $2}')
+    [[ -n "$v" ]] || { log "offbeam_gates.py did not validate the off-beam gate count (see above)"; return 1; }
+    out=$(SL7RUN "root -l -b -q 'batch/set_livetime.C(\"$SEL_HADD\",\"offbeam\",$v)'" 2>&1)
+    echo "$out" | grep SET_LIVETIME | sed 's/^/  /' | tee -a "$LOGFILE"
+    echo "$out" | grep -q SET_LIVETIME_OK || return 1
+    log "off-beam Livetime set to $v gates (sum gate_delta) in $SEL_HADD"
 }
 
 # report which stage event trees exist under events/full/ for the active mode
@@ -519,6 +547,7 @@ FETCH
     log "hadd -> $SEL_HADD ($done files, per sample) [SL7]"
     do_hadd "$tmp" "$DEBUG_DIR/project.db" || die "hadd failed — staged files kept in $tmp; rerun with --resume '$PROJ'"
     [[ -s "$SEL_HADD" ]] || die "hadd produced no $SEL_HADD"
+    [[ -n "$OFFBEAM_EXPOSURE" ]] && { apply_offbeam_exposure || die "could not set the off-beam Livetime from $OFFBEAM_EXPOSURE — staged files kept in $tmp"; }
     check_merged_exposure || die "merged selection lacks exposure histograms — staged files kept in $tmp"
     rm -rf "$tmp"
 }
