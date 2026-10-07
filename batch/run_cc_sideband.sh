@@ -464,7 +464,9 @@ preflight(){
 
 submit_selection(){
     log "=== Stage 1: grid selection ==="
-    grep -q "${STAGE_PREFIX}_stage3" "$SEL_TOML" \
+    # Stale-checkout guard for the plotted stage trees; --select-only runs (e.g.
+    # the exposure-only data toml) have no stage trees, so skip it there.
+    [[ "$SELECT_ONLY" -eq 1 ]] || grep -q "${STAGE_PREFIX}_stage3" "$SEL_TOML" \
         || die "local $SEL_TOML lacks ${STAGE_PREFIX}_stage3 — git pull the $TAG branch first"
 
     # Per-job systematics knob list. Without --systematic, create_new_project
