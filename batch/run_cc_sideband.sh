@@ -253,11 +253,61 @@ ensure_creds(){ check_creds || wait_for_creds; }
 # ---- helpers ---------------------------------------------------------
 parse_jobid(){ grep -oE '[0-9]+\.[0-9]+@[A-Za-z0-9._-]+' | head -1; }
 
-# hadd (SL7) every output_jobid*.root in a repo-relative dir. The glob expands
-# INSIDE the container, so hadd gets one short argv entry per file; passing the
-# list through SL7RUN made it a single >128 KB argument ("Argument list too
-# long" at ~6.7k files).
-do_hadd(){ SL7RUN "hadd -f '$SEL_HADD' '$1'/output_jobid*.root" 2>&1 | tail -5 | tee -a "$LOGFILE"; return "${PIPESTATUS[0]}"; }
+# hadd (SL7) the staged output_jobid*.root in repo-relative dir $1, PER SAMPLE
+# (jobid -> sample from project.db in $2), then combine the per-sample parts.
+# A single mixed-sample hadd over ~6.7k files exceeds the open-file limit, so
+# hadd merges incrementally, and it DROPPED the POT/Livetime histograms of
+# sample dirs absent from the first batch (the data samples, whose jobs come
+# last) while still merging their trees; spineplot then dies on 'POT'. Each
+# per-sample merge has its dir in its first file, and the final combine is a
+# few files (one pass). Upstream's campaign `finalize` likewise never merges
+# samples together. File lists are expanded INSIDE the container, so hadd gets
+# one short argv entry per file (no 128 KB single-argument limit).
+do_hadd(){
+    local dir="$1" db="$2" sample jid f
+    [[ -s "$db" ]] || { log "no project.db at $db — cannot group by sample"; return 1; }
+    rm -f "$dir"/list_*.txt "$dir"/part_*.root
+    while IFS='|' read -r jid sample; do
+        printf -v f "output_jobid%04d.root" "$jid"
+        [[ -s "$dir/$f" ]] && echo "$dir/$f" >> "$dir/list_${sample}.txt"
+    done < <(SL7RUN "sqlite3 '$db' 'SELECT jobid, sample FROM jobs ORDER BY jobid;'" 2>/dev/null)
+    ls "$dir"/list_*.txt >/dev/null 2>&1 || { log "no staged outputs matched project.db jobs"; return 1; }
+    cat > "$dir/merge.sh" <<'MERGE'
+#!/bin/bash
+# $1 = staging dir, $2 = final target. hadd each sample, then combine the parts.
+dir="$1"; target="$2"; parts=()
+for list in "$dir"/list_*.txt; do
+    s=$(basename "$list" .txt); s=${s#list_}
+    echo "hadd sample $s: $(wc -l < "$list") files"
+    hadd -f "$dir/part_$s.root" $(cat "$list") > "$dir/hadd_$s.log" 2>&1 \
+        || { echo "hadd FAILED for sample $s (see $dir/hadd_$s.log)"; exit 1; }
+    parts+=("$dir/part_$s.root")
+done
+echo "combining ${#parts[@]} sample parts -> $target"
+hadd -f "$target" "${parts[@]}" > "$dir/hadd_final.log" 2>&1 \
+    || { echo "final hadd FAILED (see $dir/hadd_final.log)"; exit 1; }
+MERGE
+    SL7RUN "bash '$dir/merge.sh' '$dir' '$SEL_HADD'" 2>&1 | tee -a "$LOGFILE"
+    return "${PIPESTATUS[0]}"
+}
+
+# Every events/<sample> of the merged selection file must carry POT/Livetime
+# histograms (spineplot reads them for the exposure scaling). Log them and fail
+# if any is missing, instead of discovering it when every plot job dies.
+check_merged_exposure(){
+    local out
+    out=$(SL7RUN "python3 batch/diag_exposure.py '$SEL_HADD'" 2>&1)
+    echo "$out" | sed 's/^/  /' | tee -a "$LOGFILE"
+    if echo "$out" | grep -q "POT=MISSING\|Livetime=MISSING"; then
+        log "a sample in $SEL_HADD lacks POT/Livetime histograms (see above)"; return 1
+    fi
+    # Off-beam is scaled by livetime; 0 makes spineplot's weight infinite. The
+    # new-production (ReCAF2026) off-beam files carry no noffbeambnb/spill info,
+    # so their livetime sums to 0 — needs an external normalization first.
+    if echo "$out" | grep -E '^\S+\s+offbeam\S*\s' | grep -q "Livetime=0.0 "; then
+        log "off-beam Livetime is 0 in $SEL_HADD — cosmics cannot be livetime-scaled; supply the off-beam normalization before plotting"; return 1
+    fi
+}
 
 # report which stage event trees exist under events/full/ for the active mode
 # (SL7 root via a temp macro to avoid nested-quote hell). Echoes "s1=1 s2=1 s3=1".
@@ -465,9 +515,11 @@ FETCH
     fi
     n_have=$(find "$tmp" -maxdepth 1 -name 'output_jobid*.root' -size +0 | wc -l)
     [[ "$n_have" -eq "$done" ]] || die "only $n_have / $done outputs staged in $tmp (creds?) — rerun with --resume '$PROJ' to continue"
-    log "hadd -> $SEL_HADD ($done files) [SL7]"
-    do_hadd "$tmp" || die "hadd failed — staged files kept in $tmp; rerun with --resume '$PROJ'"
+    [[ -s "$DEBUG_DIR/project.db" ]] || read_project_njobs || true
+    log "hadd -> $SEL_HADD ($done files, per sample) [SL7]"
+    do_hadd "$tmp" "$DEBUG_DIR/project.db" || die "hadd failed — staged files kept in $tmp; rerun with --resume '$PROJ'"
     [[ -s "$SEL_HADD" ]] || die "hadd produced no $SEL_HADD"
+    check_merged_exposure || die "merged selection lacks exposure histograms — staged files kept in $tmp"
     rm -rf "$tmp"
 }
 
