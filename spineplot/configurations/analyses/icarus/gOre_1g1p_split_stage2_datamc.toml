@@ -1,0 +1,186 @@
+# Split-pi0 diagnostics at stage 2 (baseline + pi0 rejection), data/MC.
+#
+# Variables from selection/include/gOre/split_veto_gOre.h: showers in OTHER
+# reco interactions near the candidate (a pi0 whose second photon was split
+# into its own interaction). Needs a selection run with the gOre_split_*
+# branches; NOT in run_cc_sideband.sh's CONFIGS (older outputs lack them) —
+# launch by hand with launch_spineplot.sh --config=gOre_1g1p_split_stage2_datamc.
+# Variables are NaN when no other shower exists; the *_has_* flags (NaN -> 0)
+# show how often there is one at all.
+
+[[this_includes]]
+file = 'configurations/common/styles.toml'
+
+[output]
+path = '/exp/icarus/app/users/hhausner/plots/gOre_1g1p/stage2_split_datamc'
+
+# Anchor on onbeam: develop-line `Sample.set_weight` scales every
+# sample to the ordinate sample's POT. With onbeam as ordinate and
+# onbeam carrying its real 10%-subsample POT (~1.94e19), MC scales
+# `cvext_POT -> onbeam_POT`, giving an expected-events stack for the
+# 10% box. Multiply by ~24x to read off the 4.64e20 BNB equivalent.
+[analysis]
+ordinate_sample = 'onbeam'
+category_branch = 'true_category'
+category_assignment = [[0], [1], [2], [3], [4], [5], [6], [7], [8], [9], [10]]
+category_labels = [
+  'NC $\Delta{\to}N\gamma$ (1$\gamma$1p)',
+  'NC $\Delta{\to}N\gamma$ (Other Topo.)',
+  'Other NC 1$\gamma$Xp Post-FSI',
+  'NC $\pi^0$ ($\Delta$ Res)',
+  'NC $\pi^0$ (Other)',
+  'NC $\pi^{\pm}$',
+  'Other NC',
+  'CC e',
+  'Other CC',
+  'Cosmic / Non-$\nu$',
+  'Data (BNB)',
+]
+category_colors = ['#E69900', '#59B3E6', '#009980', '#F2E640', '#0073B3', '#CC6600', '#CC99B3', '#9980CC', '#E6338C', '#808080', '#000000']
+category_types  = ['histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'scatter']
+
+[samples.mc]
+key = 'full'
+exposure_type = 'pot'
+trees = ['selected_1g1p_stage2']
+systematics = ['selected_1g1p_stage2_multisimTree', 'selected_1g1p_stage2_multisigmaTree', 'selected_1g1p_stage2_variationTree']
+print_sys = true
+fillna = 9
+
+[samples.mc.precompute]
+reco_delta_mass_P_dev = "abs(reco_delta_mass_P - 1232)"
+n_selected_flag       = "0*reco_gOre_topology + 1"
+split_has_shower      = "(reco_gOre_split_shower_dist >= 0) + 0"
+split_has_pointing    = "(reco_gOre_split_shower_impact >= 0) + 0"
+
+[samples.onbeam]
+key = 'onbeam'
+exposure_type = 'pot'
+trees = ['selected_1g1p_stage2']
+
+[samples.onbeam.precompute]
+true_category         = "0*reco_gOre_topology + 10"
+reco_delta_mass_P_dev = "abs(reco_delta_mass_P - 1232)"
+n_selected_flag       = "0*reco_gOre_topology + 1"
+split_has_shower      = "(reco_gOre_split_shower_dist >= 0) + 0"
+split_has_pointing    = "(reco_gOre_split_shower_impact >= 0) + 0"
+
+# Off-beam (beam-off data) = the cosmic prediction, scaled by LIVETIME to the
+# onbeam gate and forced into the Cosmic/Non-nu slot (9). Upstream scheme, no
+# double count: events/full holds only truth-matched NEUTRINO candidates
+# (run_systematics routes nu_id < 0 / NaN -- overlay cosmics and no-match reco
+# -- to <tree>_nonmatched, which is not plotted), so MC's own cat 9 is empty
+# by construction and off-beam is the sole cosmic source. fillna = 9 is only a
+# safety net for a matched neutrino that fails every category.
+[samples.offbeam]
+key = 'offbeam'
+exposure_type = 'livetime'
+trees = ['selected_1g1p_stage2']
+
+[samples.offbeam.precompute]
+true_category         = "0*reco_gOre_topology + 9"
+reco_delta_mass_P_dev = "abs(reco_delta_mass_P - 1232)"
+n_selected_flag       = "0*reco_gOre_topology + 1"
+split_has_shower      = "(reco_gOre_split_shower_dist >= 0) + 0"
+split_has_pointing    = "(reco_gOre_split_shower_impact >= 0) + 0"
+
+[[systematic_recipe]]
+name = 'total'
+label = 'Total syst.'
+pattern = '.*'
+
+[variables.split_has_shower]
+key = 'split_has_shower'
+range = [-0.5, 1.5]
+nbins = 2
+xlabel = 'Other-Interaction Shower Present ($\geq$ threshold)'
+
+[variables.split_has_pointing]
+key = 'split_has_pointing'
+range = [-0.5, 1.5]
+nbins = 2
+xlabel = 'Other Shower Within 200 cm Pointing Away'
+
+[variables.reco_gOre_split_shower_dist]
+key = 'reco_gOre_split_shower_dist'
+range = [0.0, 400.0]
+nbins = 40
+xlabel = 'Closest Other-Interaction Shower Start to Vertex [cm]'
+
+[variables.reco_gOre_split_shower_p]
+key = 'reco_gOre_split_shower_p'
+range = [0.0, 500.0]
+nbins = 50
+xlabel = 'Closest Other-Interaction Shower Momentum [MeV/$c$]'
+
+[variables.reco_gOre_split_shower_impact]
+key = 'reco_gOre_split_shower_impact'
+range = [0.0, 100.0]
+nbins = 50
+xlabel = 'Min. Other-Shower Impact Parameter to Vertex [cm]'
+
+[variables.reco_gOre_split_pi0_mass_diff]
+key = 'reco_gOre_split_pi0_mass_diff'
+range = [0.0, 2.0]
+nbins = 40
+xlabel = 'Best $|1 - m_{\gamma\gamma}/m_{\pi^0}|$ with Other Shower'
+
+[variables.reco_gOre_split_same_nu_fragments]
+key = 'reco_gOre_split_same_nu_fragments'
+range = [-0.5, 4.5]
+nbins = 5
+xlabel = 'Other Reco Interactions from Same $\nu$ (MC truth)'
+
+[variables.event_nreco]
+key = 'event_nreco'
+range = [0.5, 10.5]
+nbins = 10
+xlabel = 'Reco Interactions in Event'
+
+[[figure]]
+name = 'split_has_shower'
+type = 'SimpleFigure'
+style = 'selected_icarus_1g1p'
+artists = [{type = 'SpineSpectra1D', yrange = [0, 3], variable = 'split_has_shower', draw_kwargs = {draw_error = 'total'}}]
+
+[[figure]]
+name = 'split_has_pointing'
+type = 'SimpleFigure'
+style = 'selected_icarus_1g1p'
+artists = [{type = 'SpineSpectra1D', yrange = [0, 3], variable = 'split_has_pointing', draw_kwargs = {draw_error = 'total'}}]
+
+[[figure]]
+name = 'reco_gOre_split_shower_dist'
+type = 'SimpleFigure'
+style = 'selected_icarus_1g1p'
+artists = [{type = 'SpineSpectra1D', yrange = [0, 3], variable = 'reco_gOre_split_shower_dist', draw_kwargs = {draw_error = 'total'}}]
+
+[[figure]]
+name = 'reco_gOre_split_shower_p'
+type = 'SimpleFigure'
+style = 'selected_icarus_1g1p'
+artists = [{type = 'SpineSpectra1D', yrange = [0, 3], variable = 'reco_gOre_split_shower_p', draw_kwargs = {draw_error = 'total'}}]
+
+[[figure]]
+name = 'reco_gOre_split_shower_impact'
+type = 'SimpleFigure'
+style = 'selected_icarus_1g1p'
+artists = [{type = 'SpineSpectra1D', yrange = [0, 3], variable = 'reco_gOre_split_shower_impact', draw_kwargs = {draw_error = 'total'}}]
+
+[[figure]]
+name = 'reco_gOre_split_pi0_mass_diff'
+type = 'SimpleFigure'
+style = 'selected_icarus_1g1p'
+artists = [{type = 'SpineSpectra1D', yrange = [0, 3], variable = 'reco_gOre_split_pi0_mass_diff', draw_kwargs = {draw_error = 'total'}}]
+
+[[figure]]
+name = 'reco_gOre_split_same_nu_fragments'
+type = 'SimpleFigure'
+style = 'selected_icarus_1g1p'
+artists = [{type = 'SpineSpectra1D', yrange = [0, 3], variable = 'reco_gOre_split_same_nu_fragments', draw_kwargs = {draw_error = 'total'}}]
+
+[[figure]]
+name = 'event_nreco'
+type = 'SimpleFigure'
+style = 'selected_icarus_1g1p'
+artists = [{type = 'SpineSpectra1D', yrange = [0, 3], variable = 'event_nreco', draw_kwargs = {draw_error = 'total'}}]

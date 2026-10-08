@@ -55,6 +55,9 @@ namespace context
     const TType * current_true = nullptr;
     const RType * current_reco = nullptr;
     caf::Det_t current_detector = caf::Det_t::kUNKNOWN;
+    // The record being processed, so interaction-level cuts/variables can
+    // look at the event's OTHER interactions (e.g. a split-off pi0 photon).
+    const EventType * current_event = nullptr;
 }
 
 //-----------------------------------------------------------------------------

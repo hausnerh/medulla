@@ -37,6 +37,7 @@
 #include "include/gOre/particle_vars_gOre.h"
 #include "include/gOre/vars_gOre.h"
 #include "include/gOre/event_vars_gOre.h"
+#include "include/gOre/split_veto_gOre.h"
 
 std::shared_ptr<VarFn<RParticleType>> pvars::primfn = std::make_shared<VarFn<RParticleType>>(pvars::default_primary_classification<RParticleType>);
 std::shared_ptr<VarFn<RParticleType>> pvars::pidfn  = std::make_shared<VarFn<RParticleType>>(pvars::default_pid<RParticleType>);

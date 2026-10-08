@@ -24,6 +24,7 @@ fiducial_zdist_pos = 50 # cm
 fiducial_zdist_neg = 50 # cm
 pion_mass_threshold = 0.4
 photon_vertex_resolution = 150
+split_dist_max = 200 # cm, search radius for split-pi0 showers (split_veto_gOre.h)
 flash_pe_neutron_scaling = 0.019
 angle_neutron_scaling    = 1.31
 # pi0 rejection thresholds
@@ -326,6 +327,13 @@ branch = [
   { name = "length",             type = "both_particle", selector = "leading_primary_proton" },
   { name = "polar_angle",        type = "both_particle", selector = "leading_primary_proton" },
   { name = "azimuthal_angle",    type = "both_particle", selector = "leading_primary_proton" },
+  # Split-pi0 diagnostics: showers in OTHER reco interactions near the candidate
+  { name = "gOre_split_shower_dist",       type = "reco", parameters = [ "@gOre_threshold" ] },
+  { name = "gOre_split_shower_p",          type = "reco", parameters = [ "@gOre_threshold" ] },
+  { name = "gOre_split_shower_impact",     type = "reco", parameters = [ "@gOre_threshold", "@split_dist_max" ] },
+  { name = "gOre_split_pi0_mass_diff",     type = "reco", parameters = [ "@gOre_threshold", "@split_dist_max" ] },
+  { name = "gOre_split_same_nu_fragments", type = "reco" },
+  { name = "nreco",                        type = "event" },
 ]
 
 [[tree]] # stage2: preselection + pi0 rejection
@@ -389,6 +397,13 @@ branch = [
   { name = "length",             type = "both_particle", selector = "leading_primary_proton" },
   { name = "polar_angle",        type = "both_particle", selector = "leading_primary_proton" },
   { name = "azimuthal_angle",    type = "both_particle", selector = "leading_primary_proton" },
+  # Split-pi0 diagnostics: showers in OTHER reco interactions near the candidate
+  { name = "gOre_split_shower_dist",       type = "reco", parameters = [ "@gOre_threshold" ] },
+  { name = "gOre_split_shower_p",          type = "reco", parameters = [ "@gOre_threshold" ] },
+  { name = "gOre_split_shower_impact",     type = "reco", parameters = [ "@gOre_threshold", "@split_dist_max" ] },
+  { name = "gOre_split_pi0_mass_diff",     type = "reco", parameters = [ "@gOre_threshold", "@split_dist_max" ] },
+  { name = "gOre_split_same_nu_fragments", type = "reco" },
+  { name = "nreco",                        type = "event" },
 ]
 
 [[tree]] # stage3: full selection (presel + pi0 + e/γ)
@@ -453,6 +468,13 @@ branch = [
   { name = "length",             type = "both_particle", selector = "leading_primary_proton" },
   { name = "polar_angle",        type = "both_particle", selector = "leading_primary_proton" },
   { name = "azimuthal_angle",    type = "both_particle", selector = "leading_primary_proton" },
+  # Split-pi0 diagnostics: showers in OTHER reco interactions near the candidate
+  { name = "gOre_split_shower_dist",       type = "reco", parameters = [ "@gOre_threshold" ] },
+  { name = "gOre_split_shower_p",          type = "reco", parameters = [ "@gOre_threshold" ] },
+  { name = "gOre_split_shower_impact",     type = "reco", parameters = [ "@gOre_threshold", "@split_dist_max" ] },
+  { name = "gOre_split_pi0_mass_diff",     type = "reco", parameters = [ "@gOre_threshold", "@split_dist_max" ] },
+  { name = "gOre_split_same_nu_fragments", type = "reco" },
+  { name = "nreco",                        type = "event" },
 ]
 
 # -----------------------------------------------------------------------------
@@ -508,6 +530,13 @@ branch = [
   { name = "primary_softmax",    type = "reco_particle", selector = "leading_primary_proton" },
   { name = "proton_softmax",     type = "reco_particle", selector = "leading_primary_proton" },
   { name = "ke",                 type = "both_particle", selector = "leading_primary_proton" },
+  # Split-pi0 diagnostics: showers in OTHER reco interactions near the candidate
+  { name = "gOre_split_shower_dist",       type = "reco", parameters = [ "@gOre_threshold" ] },
+  { name = "gOre_split_shower_p",          type = "reco", parameters = [ "@gOre_threshold" ] },
+  { name = "gOre_split_shower_impact",     type = "reco", parameters = [ "@gOre_threshold", "@split_dist_max" ] },
+  { name = "gOre_split_pi0_mass_diff",     type = "reco", parameters = [ "@gOre_threshold", "@split_dist_max" ] },
+  { name = "gOre_split_same_nu_fragments", type = "reco" },
+  { name = "nreco",                        type = "event" },
 ]
 
 [[tree]] # signal N-1 on delta-mass window (window -> no-op)
@@ -552,6 +581,13 @@ branch = [
   { name = "primary_softmax",    type = "reco_particle", selector = "leading_primary_proton" },
   { name = "proton_softmax",     type = "reco_particle", selector = "leading_primary_proton" },
   { name = "ke",                 type = "both_particle", selector = "leading_primary_proton" },
+  # Split-pi0 diagnostics: showers in OTHER reco interactions near the candidate
+  { name = "gOre_split_shower_dist",       type = "reco", parameters = [ "@gOre_threshold" ] },
+  { name = "gOre_split_shower_p",          type = "reco", parameters = [ "@gOre_threshold" ] },
+  { name = "gOre_split_shower_impact",     type = "reco", parameters = [ "@gOre_threshold", "@split_dist_max" ] },
+  { name = "gOre_split_pi0_mass_diff",     type = "reco", parameters = [ "@gOre_threshold", "@split_dist_max" ] },
+  { name = "gOre_split_same_nu_fragments", type = "reco" },
+  { name = "nreco",                        type = "event" },
 ]
 
 # -----------------------------------------------------------------------------
