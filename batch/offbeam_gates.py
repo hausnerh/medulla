@@ -41,9 +41,15 @@ def main():
     fe, fs = uproot.open(sys.argv[1]), uproot.open(sys.argv[2])
     ok, sums = True, {}
     for s in sorted({k.split(';')[0] for k in fe['events'].keys(recursive=False)}):
-        a = fe[f'events/{s}/events'].arrays(BRANCHES + ['Run', 'Subrun', 'Evt'], library='np')
+        t = fe[f'events/{s}/events']
+        keys = set(t.keys())
+        # medulla writes event-scope branches as event_<name>; accept either.
+        names = {b: (f'event_{b}' if f'event_{b}' in keys else b) for b in BRANCHES}
+        ids = [k for k in ('Run', 'Subrun', 'Evt') if k in keys]
+        raw = t.arrays(list(names.values()) + ids, library='np')
+        a = {b: raw[names[b]] for b in BRANCHES}
         n = len(a['gate_delta'])
-        nuniq = len(set(zip(a['Run'], a['Subrun'], a['Evt'])))
+        nuniq = len(set(zip(*(raw[k] for k in ids)))) if len(ids) == 3 else n
         gd = a['gate_delta']
         sums[s] = gd.sum()
         lt_sel, n_sel = selection_info(fs, s)
