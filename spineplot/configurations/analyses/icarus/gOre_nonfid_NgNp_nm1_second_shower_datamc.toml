@@ -83,8 +83,8 @@ xlabel = 'Reco Primary Shower Multiplicity'
 
 [variables.reco_leading_primary_gOre_shower_ke]
 key = 'reco_leading_primary_gOre_shower_ke'
-range = [0.0, 1000.0]
-nbins = 50
+range = [0.0, 2000.0]
+nbins = 20
 xlabel = 'Shower KE [MeV]'
 
 [variables.reco_leading_primary_gOre_start_dedx]

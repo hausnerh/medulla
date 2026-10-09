@@ -1,0 +1,128 @@
+#------------------------------------------------------------------------------
+# Stage-1 cut-flow diagnostic for the new production (ReCAF2026) run2 MC.
+#
+# The run2 osc signal selection keeps 39 stage1 candidates from 1.056e21 POT of
+# icarus_run2_cvmc, vs 5723 from 1.33e21 POT of the old production's cvext (the
+# old-production data rates are reproduced by the new data, so only the MC is
+# off by ~100x). Stage1 is only fiducial + containment + flash [0,1.6] us +
+# 1g1p topology + single proton, so one of those reco quantities must behave
+# differently in the new MC. These trees find which:
+#   diag_true_nu      (MC, truth mode)  every true neutrino in the true FV, with
+#                                       its matched reco interaction's stage1 flags
+#                                       -> sequential + N-1 cut flow, reco flash
+#                                       time distribution of real neutrinos
+#   diag_reco_noflash (all samples)     stage1 minus the flash cut -> where the
+#                                       flash times of candidates actually sit
+#   diag_reco_noprong (all samples)     stage1 minus topology + single proton ->
+#                                       multiplicities of contained in-time
+#                                       interactions (PID / threshold behaviour)
+# cv_old (the OLD production's nominal-POT cv MC) is the reference.
+# Run with: ./batch/run_cc_sideband.sh --signal --select-only \
+#             --sel-toml selection/toml/gOre_osc_run2_cutflow_diag.toml
+# then: python3 batch/osc_cutflow_diag.py <merged output>.root
+#------------------------------------------------------------------------------
+[general]
+output = "gOre_osc_run2_cutflow_diag"
+fsthresh = [
+  "@gOre_threshold",
+  "@gOre_threshold",
+  "@muon_threshold",
+  "@pion_threshold",
+  "@proton_threshold",
+]
+pidfn = "gOre_pid"
+
+[parameters]
+gOre_threshold   = 25 # MeV
+muon_threshold   = 25 # MeV
+pion_threshold   = 25 # MeV
+proton_threshold = 50 # MeV
+flash_low_t      =  0.0 # µs
+flash_high_t     =  1.6 # µs
+
+[[sample]] # new production run2 CV MC (labelled "cvext" in the osc selection tomls)
+name = "cv_new"
+path = "/pnfs/sbn/persistent/users/mueller/osc/icarus/flatcaf/icarus_run2_cvmc/*/*/*.root"
+ismc = true
+disable = false
+
+[[sample]] # OLD production nominal-POT CV MC (reference)
+name = "cv_old"
+path = "/pnfs/icarus/persistent/users/mueller/production/simulation/nominal/*.flat.root"
+ismc = true
+disable = false
+
+[[sample]]
+name = "offbeam"
+path = "/pnfs/sbn/persistent/users/mueller/osc/icarus/flatcaf/ICARUS_Run2BeamOffWF_BNB_data_ReCAF2026/*/*/*.root"
+ismc = false
+disable = false
+
+[[sample]] # run2 10% unblinded subsample
+name = "onbeam"
+path = "/pnfs/sbn/persistent/users/mueller/osc/icarus/flatcaf/icarus_run2_onbeam_10p/*/*/*.root"
+ismc = false
+disable = false
+
+[[tree]]
+name = "diag_true_nu"
+sim_only = true
+mode = "true"
+cut = [
+  { name = "neutrino",     type = "true" },
+  { name = "fiducial_cut", type = "true" },
+]
+branch = [
+  { name = "category",          type = "true" },
+  { name = "gOre_category",     type = "true", parameters = [ "@gOre_threshold", "@muon_threshold", "@proton_threshold", "@pion_threshold" ] },
+  { name = "containment",       type = "true" },
+  { name = "fiducial",          type = "reco" },
+  { name = "containment",       type = "reco" },
+  { name = "flash",             type = "reco" },
+  { name = "flash_time",        type = "reco" },
+  { name = "flash_total_pe",    type = "reco" },
+  { name = "flash_score",       type = "reco" },
+  { name = "gOre_topology",     type = "reco", parameters = [ "@gOre_threshold", "@muon_threshold", "@pion_threshold" ] },
+  { name = "n_primary_showers", type = "both", parameters = [ "@gOre_threshold" ] },
+  { name = "n_protons",         type = "both", parameters = [ "@proton_threshold" ] },
+  { name = "vertex_x",          type = "both" },
+  { name = "vertex_z",          type = "both" },
+  { name = "trigger_within_gate", type = "event" },
+  { name = "nreco",             type = "event" },
+]
+
+[[tree]]
+name = "diag_reco_noflash"
+sim_only = false
+mode = "reco"
+cut = [
+  { name = "fiducial_cut",    type = "reco" },
+  { name = "containment_cut", type = "reco" },
+  { name = "gOre_topology",   type = "reco", parameters = [ "@gOre_threshold", "@muon_threshold", "@pion_threshold" ] },
+  { name = "single_proton",   type = "reco", parameters = [ "@proton_threshold" ] },
+]
+branch = [
+  { name = "gOre_category",   type = "true", parameters = [ "@gOre_threshold", "@muon_threshold", "@proton_threshold", "@pion_threshold" ] },
+  { name = "flash",           type = "reco" },
+  { name = "flash_time",      type = "reco" },
+  { name = "flash_total_pe",  type = "reco" },
+  { name = "flash_score",     type = "reco" },
+  { name = "trigger_within_gate", type = "event" },
+]
+
+[[tree]]
+name = "diag_reco_noprong"
+sim_only = false
+mode = "reco"
+cut = [
+  { name = "fiducial_cut",    type = "reco" },
+  { name = "containment_cut", type = "reco" },
+  { name = "flash_cut",       type = "reco", parameters = [ "@flash_low_t", "@flash_high_t" ] },
+]
+branch = [
+  { name = "gOre_category",     type = "true", parameters = [ "@gOre_threshold", "@muon_threshold", "@proton_threshold", "@pion_threshold" ] },
+  { name = "gOre_topology",     type = "reco", parameters = [ "@gOre_threshold", "@muon_threshold", "@pion_threshold" ] },
+  { name = "n_primary_showers", type = "reco", parameters = [ "@gOre_threshold" ] },
+  { name = "n_protons",         type = "reco", parameters = [ "@proton_threshold" ] },
+  { name = "flash_time",        type = "reco" },
+]
