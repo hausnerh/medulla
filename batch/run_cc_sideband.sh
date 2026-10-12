@@ -64,6 +64,9 @@ HELD_DISK_GB=2000
 PLOT_HELD_MEMORY_MB=80000                   # > the 64 GB launch default, for a memory-hold
 PLOT_HELD_DISK_GB=25                        # plot jobs don't want the selection 2 TB
 PLOT_HELD_RUNTIME_S=28800                   # best-effort wall-time bump (8h) for a time-hold
+PLOT_LIFETIME=8h                            # plot job --expected-lifetime
+PLOT_LIFETIME_STAGE1=24h                    # *_stage1_* plot jobs (nonfid_NgNp_stage1 kept
+                                            #  getting held at 8h); skip them with --skip-plots stage1
 POLL=300                                    # seconds between queue polls
 CRED_WAIT_MAX=14400                         # seconds to wait for creds to return (4h)
 
@@ -102,7 +105,7 @@ SL7RUN(){
 NAT(){ if [[ -n "$NATIVE_SETUP" ]]; then bash -lc "{ $NATIVE_SETUP ; } >/dev/null 2>&1 ; $1"; else bash -lc "$1"; fi; }
 
 # ---- argument parsing ------------------------------------------------
-RESUME_PROJ=""; PLOTS_ONLY=0; SYS_ROOT_OVERRIDE=""; CHECK_ENV=0; SEL_TOML_OVERRIDE=""; SYS_TOML_OVERRIDE=""; SELECT_ONLY=0; OFFBEAM_EXPOSURE=""
+RESUME_PROJ=""; PLOTS_ONLY=0; SYS_ROOT_OVERRIDE=""; CHECK_ENV=0; SEL_TOML_OVERRIDE=""; SYS_TOML_OVERRIDE=""; SELECT_ONLY=0; OFFBEAM_EXPOSURE=""; SKIP_PLOTS=""
 usage(){
   cat <<EOF
 Usage: $0 [--signal|--sideband] [--resume PROJECT_DIR] [--plots-only [SYS_ROOT]] [--check-env] [--help]
@@ -131,6 +134,10 @@ Usage: $0 [--signal|--sideband] [--resume PROJECT_DIR] [--plots-only [SYS_ROOT]]
                          the hadd, fill the off-beam Livetime (empty in ReCAF2026
                          off-beam headers) with its sum(gate_delta), after
                          batch/offbeam_gates.py cross-checks it (see that script).
+  --skip-plots REGEX     Don't launch (or retrieve) plot configs whose name matches
+                         REGEX (bash =~), e.g. --skip-plots stage1 to leave out the
+                         slow nonfid_NgNp_stage1 job. *_stage1_* jobs otherwise get
+                         a ${PLOT_LIFETIME_STAGE1} lifetime (others ${PLOT_LIFETIME}).
 
 Run this NATIVELY (not inside sl7_container). jobsub is native; ifdh/hadd/
 run_systematics/root run in SL7 via the SL7RUN wrapper (see CONFIG block).
@@ -153,6 +160,8 @@ while [[ $# -gt 0 ]]; do
         --select-only) SELECT_ONLY=1; shift ;;
         --offbeam-exposure)   OFFBEAM_EXPOSURE="$2"; shift 2 ;;
         --offbeam-exposure=*) OFFBEAM_EXPOSURE="${1#*=}"; shift ;;
+        --skip-plots)   SKIP_PLOTS="$2"; shift 2 ;;
+        --skip-plots=*) SKIP_PLOTS="${1#*=}"; shift ;;
         -h|--help)     usage; exit 0 ;;
         *) echo "Unknown option: $1" >&2; usage; exit 1 ;;
     esac
@@ -214,6 +223,16 @@ fi
 if [[ -n "$SYS_TOML_OVERRIDE" ]]; then
     [[ -f "$SYS_TOML_OVERRIDE" ]] || { echo "Bad --sys-toml '$SYS_TOML_OVERRIDE' (not found)" >&2; exit 1; }
     SYS_TOML="$SYS_TOML_OVERRIDE"
+fi
+# --skip-plots: drop matching configs up front so they are neither launched
+# nor retrieved (retrieve() walks CONFIGS too).
+if [[ -n "$SKIP_PLOTS" ]]; then
+    kept=()
+    for c in "${CONFIGS[@]}"; do
+        if [[ "$c" =~ $SKIP_PLOTS ]]; then echo "Skipping plot config $c (--skip-plots '$SKIP_PLOTS')"
+        else kept+=("$c"); fi
+    done
+    CONFIGS=("${kept[@]}")
 fi
 
 if [[ -n "$RESUME_PROJ" ]]; then
@@ -603,7 +622,7 @@ submit_plots(){
     fi
     log "Staged sys ROOT to $OUT/output_gOre_1g1p_sys.root"
 
-    local plot_jobs=() cfg out jid pschedd pcluster tree n nd mcflag bn
+    local plot_jobs=() cfg out jid pschedd pcluster tree n nd mcflag bn lifetime
     for cfg in "${CONFIGS[@]}"; do
         # Tree name = 'selected_' + config basename minus the 'gOre_' prefix and
         # '_datamc' suffix. Derives from the FULL basename so it covers cc_Xg1p
@@ -628,9 +647,11 @@ submit_plots(){
         while IFS= read -r bn; do
             [[ -n "$bn" ]] && SL7RUN "ifdh rm '$OUT/$cfg/$bn'" >/dev/null 2>&1 || true
         done < <(SL7RUN "ifdh ls '$OUT/$cfg'" 2>/dev/null | grep -E '\.(png|pdf)$' | sed 's#.*/##')
-        log "Launching plot job: $cfg ($n MC / ${nd:-0} data events${mcflag:+ -> MC-only}) [native jobsub]"
+        lifetime=$PLOT_LIFETIME
+        [[ "$cfg" == *_stage1_* ]] && lifetime=$PLOT_LIFETIME_STAGE1
+        log "Launching plot job: $cfg ($n MC / ${nd:-0} data events${mcflag:+ -> MC-only}, lifetime $lifetime) [native jobsub]"
         out=$(NAT "yes | ./batch/launch_spineplot.sh --input='$OUT/output_gOre_1g1p_sys.root' \
-                --output='$OUT/$cfg' --config='$cfg' --tag='$TAG' --gituser='$GITUSER' $mcflag" 2>&1)
+                --output='$OUT/$cfg' --config='$cfg' --tag='$TAG' --gituser='$GITUSER' --lifetime='$lifetime' $mcflag" 2>&1)
         echo "$out" | tee -a "$LOGFILE"
         jid=$(echo "$out" | parse_jobid)
         [[ -z "$jid" ]] && { log "WARN: could not parse jobid for $cfg"; continue; }

@@ -27,6 +27,7 @@
 # Usage:
 #   ./launch_spineplot.sh [--input=PNFS_ROOT] [--output=PNFS_DIR]
 #                         [--config=BASENAME] [--tag=REF] [--gituser=USER]
+#                         [--memory=NNNNNMB] [--lifetime=NNh] [--mc-only]
 #
 # Defaults:
 #   --input   = /pnfs/icarus/scratch/users/hhausner/CCSidebandPlots/output_gOre_1g1p_sys.root
@@ -46,6 +47,7 @@ TAG="feature/hausnerh_gOre_1g1p"
 GITUSER="hausnerh"
 MCONLY=0
 MEMORY=64000MB   # override with --memory=NNNNNMB (e.g. to resubmit a memory-held plot)
+LIFETIME=8h      # override with --lifetime=24h (e.g. nonfid_NgNp_stage1, which keeps getting time-held)
 
 usage() {
     grep '^#' "$0" | sed 's/^#//'
@@ -66,6 +68,7 @@ while [[ $# -gt 0 ]]; do
     --gituser)   GITUSER="$2";      shift 2 ;;
     --mc-only)   MCONLY=1;          shift ;;
     --memory=*)  MEMORY="${1#*=}";  shift ;;
+    --lifetime=*) LIFETIME="${1#*=}"; shift ;;
     -h|--help)   usage ;;
     *) echo "Unknown option: $1" >&2; usage ;;
   esac
@@ -84,7 +87,7 @@ cmd=(
     -N 1
     "--memory=$MEMORY"
     --disk=25GB
-    --expected-lifetime=8h
+    "--expected-lifetime=$LIFETIME"
     --resource-provides=usage_model=DEDICATED,OPPORTUNISTIC
     "--append_condor_requirements='(TARGET.HAS_Singularity==true)'"
     --singularity-image=/cvmfs/singularity.opensciencegrid.org/fermilab/fnal-wn-sl7:latest

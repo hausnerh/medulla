@@ -1,3 +1,7 @@
+# CC is split as for NC: CC Δ->Nγ / CC Δ->Nπ0 / Other CC (from
+# true_cc_sideband_category; Other CC includes all CC νe). fracunc_<var> /
+# fracunc_det_<var> figures: per-bin fractional uncertainty of the stacked
+# prediction by source / by detector variation (SpineFracUncertainty1D).
 # Non-fiducial Xγ + Np "outside-the-box" sideband, stage 3 (+ pi0_rejection + egamma_separation).
 # Max-statistics photon-ID cross-check in the region disjoint from the signal
 # box (!fiducial_cut): >=1 photon, >=1 proton, no muon/lepton/pion requirement,
@@ -19,7 +23,7 @@ path = '/exp/icarus/app/users/hhausner/plots/gOre_nonfid_NgNp/stage3'
 [analysis]
 ordinate_sample = 'onbeam'
 category_branch = 'true_category'
-category_assignment = [[0], [1], [2], [3], [4], [5], [6], [7], [8], [9], [10]]
+category_assignment = [[0], [1], [2], [3], [4], [5], [6], [7], [8], [9], [10], [11]]
 category_labels = [
   'NC $\Delta{\to}N\gamma$ (1$\gamma$1p)',
   'NC $\Delta{\to}N\gamma$ (Other Topo.)',
@@ -28,13 +32,14 @@ category_labels = [
   'NC $\pi^0$ (Other)',
   'NC $\pi^{\pm}$',
   'Other NC',
-  'CC e',
+  'CC $\Delta{\to}N\gamma$',
+  'CC $\Delta{\to}N\pi^0$',
   'Other CC',
   'Cosmic / Non-$\nu$',
   'Data (BNB)',
 ]
-category_colors = ['#E69900', '#59B3E6', '#009980', '#F2E640', '#0073B3', '#CC6600', '#CC99B3', '#9980CC', '#E6338C', '#808080', '#000000']
-category_types  = ['histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'scatter']
+category_colors = ['#E69900', '#59B3E6', '#009980', '#F2E640', '#0073B3', '#CC6600', '#CC99B3', '#B2182B', '#9980CC', '#E6338C', '#808080', '#000000']
+category_types  = ['histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'scatter']
 
 [samples.mc]
 key = 'full'
@@ -42,9 +47,12 @@ exposure_type = 'pot'
 trees = ['selected_nonfid_NgNp_stage3']
 systematics = ['selected_nonfid_NgNp_stage3_multisimTree', 'selected_nonfid_NgNp_stage3_multisigmaTree', 'selected_nonfid_NgNp_stage3_variationTree']
 print_sys = true
-fillna = 9
+fillna = 10
 
 [samples.mc.precompute]
+# CC split (see the category comment at the top): signal true_category with
+# its CC bins (7, 8) re-split by true_cc_sideband_category; cosmic 9 -> 10.
+true_category         = "true_category * (true_category < 7) + ((true_category >= 7) & (true_category <= 8)) * (7 * ((true_cc_sideband_category == 0) | (true_cc_sideband_category == 1)) + 8 * (true_cc_sideband_category == 3) + 9 * ((true_cc_sideband_category != 0) & (true_cc_sideband_category != 1) & (true_cc_sideband_category != 3))) + 10 * (true_category == 9)"
 reco_delta_mass_P_dev = "abs(reco_delta_mass_P - 1232)"
 n_selected_flag       = "0*reco_gOre_topology + 1"
 
@@ -54,7 +62,7 @@ exposure_type = 'pot'
 trees = ['selected_nonfid_NgNp_stage3']
 
 [samples.onbeam.precompute]
-true_category = "0*reco_gOre_topology + 10"
+true_category = "0*reco_gOre_topology + 11"
 reco_delta_mass_P_dev     = "abs(reco_delta_mass_P - 1232)"
 n_selected_flag           = "0*reco_gOre_topology + 1"
 
@@ -71,7 +79,7 @@ exposure_type = 'livetime'
 trees = ['selected_nonfid_NgNp_stage3']
 
 [samples.offbeam.precompute]
-true_category             = "0*reco_gOre_topology + 9"
+true_category             = "0*reco_gOre_topology + 10"
 reco_delta_mass_P_dev     = "abs(reco_delta_mass_P - 1232)"
 n_selected_flag           = "0*reco_gOre_topology + 1"
 
@@ -211,3 +219,135 @@ name = 'reco_leading_primary_proton_ke'
 type = 'SimpleFigure'
 style = 'selected_icarus_nonfid_NgNp'
 artists = [{type = 'SpineSpectra1D', yrange = 1.4, variable = 'reco_leading_primary_proton_ke', draw_kwargs = {draw_error = 'total'}}]
+
+[[figure]]
+name = 'fracunc_reco_n_primary_showers'
+type = 'SimpleFigure'
+style = 'selected_icarus_nonfid_NgNp'
+artists = [{type = 'SpineFracUncertainty1D', variable = 'reco_n_primary_showers', yrange = 1.5, sources = [{label = 'Flux', pattern = '_Flux$'}, {label = 'Cross Section (GENIE)', pattern = '^(GENIEReWeight|ZExpPCA)'}, {label = 'Detector', pattern = '^var[0-9]{2}$'}, {label = 'MC Stat.', pattern = '^mc_statistical$'}, {label = 'Cosmic (Off-beam) Stat.', pattern = '^offbeam_statistical$'}]}]
+
+[[figure]]
+name = 'fracunc_det_reco_n_primary_showers'
+type = 'SimpleFigure'
+style = 'selected_icarus_nonfid_NgNp'
+artists = [{type = 'SpineFracUncertainty1D', variable = 'reco_n_primary_showers', yrange = 1.5, sources = [{pattern = '^var[0-9]{2}$', each = true}], total_label = 'Total Detector'}]
+
+[[figure]]
+name = 'fracunc_reco_leading_primary_gOre_shower_ke'
+type = 'SimpleFigure'
+style = 'selected_icarus_nonfid_NgNp'
+artists = [{type = 'SpineFracUncertainty1D', variable = 'reco_leading_primary_gOre_shower_ke', yrange = 1.5, sources = [{label = 'Flux', pattern = '_Flux$'}, {label = 'Cross Section (GENIE)', pattern = '^(GENIEReWeight|ZExpPCA)'}, {label = 'Detector', pattern = '^var[0-9]{2}$'}, {label = 'MC Stat.', pattern = '^mc_statistical$'}, {label = 'Cosmic (Off-beam) Stat.', pattern = '^offbeam_statistical$'}]}]
+
+[[figure]]
+name = 'fracunc_det_reco_leading_primary_gOre_shower_ke'
+type = 'SimpleFigure'
+style = 'selected_icarus_nonfid_NgNp'
+artists = [{type = 'SpineFracUncertainty1D', variable = 'reco_leading_primary_gOre_shower_ke', yrange = 1.5, sources = [{pattern = '^var[0-9]{2}$', each = true}], total_label = 'Total Detector'}]
+
+[[figure]]
+name = 'fracunc_reco_leading_primary_gOre_start_dedx'
+type = 'SimpleFigure'
+style = 'selected_icarus_nonfid_NgNp'
+artists = [{type = 'SpineFracUncertainty1D', variable = 'reco_leading_primary_gOre_start_dedx', yrange = 1.5, sources = [{label = 'Flux', pattern = '_Flux$'}, {label = 'Cross Section (GENIE)', pattern = '^(GENIEReWeight|ZExpPCA)'}, {label = 'Detector', pattern = '^var[0-9]{2}$'}, {label = 'MC Stat.', pattern = '^mc_statistical$'}, {label = 'Cosmic (Off-beam) Stat.', pattern = '^offbeam_statistical$'}]}]
+
+[[figure]]
+name = 'fracunc_det_reco_leading_primary_gOre_start_dedx'
+type = 'SimpleFigure'
+style = 'selected_icarus_nonfid_NgNp'
+artists = [{type = 'SpineFracUncertainty1D', variable = 'reco_leading_primary_gOre_start_dedx', yrange = 1.5, sources = [{pattern = '^var[0-9]{2}$', each = true}], total_label = 'Total Detector'}]
+
+[[figure]]
+name = 'fracunc_reco_leading_primary_gOre_photon_softmax'
+type = 'SimpleFigure'
+style = 'selected_icarus_nonfid_NgNp'
+artists = [{type = 'SpineFracUncertainty1D', variable = 'reco_leading_primary_gOre_photon_softmax', yrange = 1.5, sources = [{label = 'Flux', pattern = '_Flux$'}, {label = 'Cross Section (GENIE)', pattern = '^(GENIEReWeight|ZExpPCA)'}, {label = 'Detector', pattern = '^var[0-9]{2}$'}, {label = 'MC Stat.', pattern = '^mc_statistical$'}, {label = 'Cosmic (Off-beam) Stat.', pattern = '^offbeam_statistical$'}]}]
+
+[[figure]]
+name = 'fracunc_det_reco_leading_primary_gOre_photon_softmax'
+type = 'SimpleFigure'
+style = 'selected_icarus_nonfid_NgNp'
+artists = [{type = 'SpineFracUncertainty1D', variable = 'reco_leading_primary_gOre_photon_softmax', yrange = 1.5, sources = [{pattern = '^var[0-9]{2}$', each = true}], total_label = 'Total Detector'}]
+
+[[figure]]
+name = 'fracunc_reco_leading_primary_gOre_primary_softmax'
+type = 'SimpleFigure'
+style = 'selected_icarus_nonfid_NgNp'
+artists = [{type = 'SpineFracUncertainty1D', variable = 'reco_leading_primary_gOre_primary_softmax', yrange = 1.5, sources = [{label = 'Flux', pattern = '_Flux$'}, {label = 'Cross Section (GENIE)', pattern = '^(GENIEReWeight|ZExpPCA)'}, {label = 'Detector', pattern = '^var[0-9]{2}$'}, {label = 'MC Stat.', pattern = '^mc_statistical$'}, {label = 'Cosmic (Off-beam) Stat.', pattern = '^offbeam_statistical$'}]}]
+
+[[figure]]
+name = 'fracunc_det_reco_leading_primary_gOre_primary_softmax'
+type = 'SimpleFigure'
+style = 'selected_icarus_nonfid_NgNp'
+artists = [{type = 'SpineFracUncertainty1D', variable = 'reco_leading_primary_gOre_primary_softmax', yrange = 1.5, sources = [{pattern = '^var[0-9]{2}$', each = true}], total_label = 'Total Detector'}]
+
+[[figure]]
+name = 'fracunc_reco_leading_primary_gOre_directional_spread'
+type = 'SimpleFigure'
+style = 'selected_icarus_nonfid_NgNp'
+artists = [{type = 'SpineFracUncertainty1D', variable = 'reco_leading_primary_gOre_directional_spread', yrange = 1.5, sources = [{label = 'Flux', pattern = '_Flux$'}, {label = 'Cross Section (GENIE)', pattern = '^(GENIEReWeight|ZExpPCA)'}, {label = 'Detector', pattern = '^var[0-9]{2}$'}, {label = 'MC Stat.', pattern = '^mc_statistical$'}, {label = 'Cosmic (Off-beam) Stat.', pattern = '^offbeam_statistical$'}]}]
+
+[[figure]]
+name = 'fracunc_det_reco_leading_primary_gOre_directional_spread'
+type = 'SimpleFigure'
+style = 'selected_icarus_nonfid_NgNp'
+artists = [{type = 'SpineFracUncertainty1D', variable = 'reco_leading_primary_gOre_directional_spread', yrange = 1.5, sources = [{pattern = '^var[0-9]{2}$', each = true}], total_label = 'Total Detector'}]
+
+[[figure]]
+name = 'fracunc_reco_leading_primary_gOre_axial_spread'
+type = 'SimpleFigure'
+style = 'selected_icarus_nonfid_NgNp'
+artists = [{type = 'SpineFracUncertainty1D', variable = 'reco_leading_primary_gOre_axial_spread', yrange = 1.5, sources = [{label = 'Flux', pattern = '_Flux$'}, {label = 'Cross Section (GENIE)', pattern = '^(GENIEReWeight|ZExpPCA)'}, {label = 'Detector', pattern = '^var[0-9]{2}$'}, {label = 'MC Stat.', pattern = '^mc_statistical$'}, {label = 'Cosmic (Off-beam) Stat.', pattern = '^offbeam_statistical$'}]}]
+
+[[figure]]
+name = 'fracunc_det_reco_leading_primary_gOre_axial_spread'
+type = 'SimpleFigure'
+style = 'selected_icarus_nonfid_NgNp'
+artists = [{type = 'SpineFracUncertainty1D', variable = 'reco_leading_primary_gOre_axial_spread', yrange = 1.5, sources = [{pattern = '^var[0-9]{2}$', each = true}], total_label = 'Total Detector'}]
+
+[[figure]]
+name = 'fracunc_reco_delta_mass_P'
+type = 'SimpleFigure'
+style = 'selected_icarus_nonfid_NgNp'
+artists = [{type = 'SpineFracUncertainty1D', variable = 'reco_delta_mass_P', yrange = 1.5, sources = [{label = 'Flux', pattern = '_Flux$'}, {label = 'Cross Section (GENIE)', pattern = '^(GENIEReWeight|ZExpPCA)'}, {label = 'Detector', pattern = '^var[0-9]{2}$'}, {label = 'MC Stat.', pattern = '^mc_statistical$'}, {label = 'Cosmic (Off-beam) Stat.', pattern = '^offbeam_statistical$'}]}]
+
+[[figure]]
+name = 'fracunc_det_reco_delta_mass_P'
+type = 'SimpleFigure'
+style = 'selected_icarus_nonfid_NgNp'
+artists = [{type = 'SpineFracUncertainty1D', variable = 'reco_delta_mass_P', yrange = 1.5, sources = [{pattern = '^var[0-9]{2}$', each = true}], total_label = 'Total Detector'}]
+
+[[figure]]
+name = 'fracunc_reco_delta_mass_P_dev'
+type = 'SimpleFigure'
+style = 'selected_icarus_nonfid_NgNp'
+artists = [{type = 'SpineFracUncertainty1D', variable = 'reco_delta_mass_P_dev', yrange = 1.5, sources = [{label = 'Flux', pattern = '_Flux$'}, {label = 'Cross Section (GENIE)', pattern = '^(GENIEReWeight|ZExpPCA)'}, {label = 'Detector', pattern = '^var[0-9]{2}$'}, {label = 'MC Stat.', pattern = '^mc_statistical$'}, {label = 'Cosmic (Off-beam) Stat.', pattern = '^offbeam_statistical$'}]}]
+
+[[figure]]
+name = 'fracunc_det_reco_delta_mass_P_dev'
+type = 'SimpleFigure'
+style = 'selected_icarus_nonfid_NgNp'
+artists = [{type = 'SpineFracUncertainty1D', variable = 'reco_delta_mass_P_dev', yrange = 1.5, sources = [{pattern = '^var[0-9]{2}$', each = true}], total_label = 'Total Detector'}]
+
+[[figure]]
+name = 'fracunc_reco_leading_primary_proton_primary_softmax'
+type = 'SimpleFigure'
+style = 'selected_icarus_nonfid_NgNp'
+artists = [{type = 'SpineFracUncertainty1D', variable = 'reco_leading_primary_proton_primary_softmax', yrange = 1.5, sources = [{label = 'Flux', pattern = '_Flux$'}, {label = 'Cross Section (GENIE)', pattern = '^(GENIEReWeight|ZExpPCA)'}, {label = 'Detector', pattern = '^var[0-9]{2}$'}, {label = 'MC Stat.', pattern = '^mc_statistical$'}, {label = 'Cosmic (Off-beam) Stat.', pattern = '^offbeam_statistical$'}]}]
+
+[[figure]]
+name = 'fracunc_det_reco_leading_primary_proton_primary_softmax'
+type = 'SimpleFigure'
+style = 'selected_icarus_nonfid_NgNp'
+artists = [{type = 'SpineFracUncertainty1D', variable = 'reco_leading_primary_proton_primary_softmax', yrange = 1.5, sources = [{pattern = '^var[0-9]{2}$', each = true}], total_label = 'Total Detector'}]
+
+[[figure]]
+name = 'fracunc_reco_leading_primary_proton_ke'
+type = 'SimpleFigure'
+style = 'selected_icarus_nonfid_NgNp'
+artists = [{type = 'SpineFracUncertainty1D', variable = 'reco_leading_primary_proton_ke', yrange = 1.5, sources = [{label = 'Flux', pattern = '_Flux$'}, {label = 'Cross Section (GENIE)', pattern = '^(GENIEReWeight|ZExpPCA)'}, {label = 'Detector', pattern = '^var[0-9]{2}$'}, {label = 'MC Stat.', pattern = '^mc_statistical$'}, {label = 'Cosmic (Off-beam) Stat.', pattern = '^offbeam_statistical$'}]}]
+
+[[figure]]
+name = 'fracunc_det_reco_leading_primary_proton_ke'
+type = 'SimpleFigure'
+style = 'selected_icarus_nonfid_NgNp'
+artists = [{type = 'SpineFracUncertainty1D', variable = 'reco_leading_primary_proton_ke', yrange = 1.5, sources = [{pattern = '^var[0-9]{2}$', each = true}], total_label = 'Total Detector'}]

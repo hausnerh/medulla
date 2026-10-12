@@ -240,7 +240,7 @@ class SpineSpectra1D(SpineSpectra):
                     range=xr, label=reduce(labels), color=reduce(colors), **style.plot_kwargs)
             if draw_error:
                 systs = [s[draw_error] for s in self._systematics.values() if draw_error in s]
-                cov = np.sum(s.get_covariance(self._variable._key) for s in systs)
+                cov = sum(s.get_covariance(self._variable._key) for s in systs)
                 x = reduce(bincenters)[0]
                 y = scale * np.sum(reduce(data), axis=0)
                 xerr = [x / 2 for x in binwidths[0]]

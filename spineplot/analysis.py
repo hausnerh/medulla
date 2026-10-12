@@ -6,6 +6,7 @@ from matplotlib import pyplot as plt
 from sample import Sample
 from figure import SpineFigure, SimpleFigure
 from spectra1d import SpineSpectra1D
+from fracunc1d import SpineFracUncertainty1D
 from spectra2d import SpineSpectra2D
 from efficiency import SpineEfficiency
 from confusion import ConfusionMatrix
@@ -130,6 +131,20 @@ class Analysis:
                             draw_kwargs = x.get('draw_kwargs', {})
                             draw_kwargs['draw_error'] = draw_kwargs.get('draw_error', None)
                             self._figures[fig['name']].register_spine_artist(art, draw_kwargs=draw_kwargs)
+                            self._artists.append(art)
+                        elif x['type'] == 'SpineFracUncertainty1D':
+                            # Check if the variable is present in all samples
+                            if not all(self._variables[x['variable']]._validity_check.values()):
+                                missing_samples = [k for k, v in self._variables[x['variable']]._validity_check.items() if not v]
+                                raise ConfigException(f"Variable '{x['variable']}' not found in all samples ({' '.join(missing_samples)}).")
+
+                            # Create the artist
+                            art = SpineFracUncertainty1D(self._variables[x['variable']], restrict_categories,
+                                                         self._colors, self._category_types, x['sources'],
+                                                         x.get('title', None), x.get('xrange', None),
+                                                         x.get('xtitle', None), x.get('yrange', None),
+                                                         x.get('ytitle', None), x.get('total_label', 'Total Uncertainty'))
+                            self._figures[fig['name']].register_spine_artist(art, draw_kwargs=x.get('draw_kwargs', {}))
                             self._artists.append(art)
                         elif x['type'] == 'SpineSpectra2D':
                             # Check if the variables are present in all samples
