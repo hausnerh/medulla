@@ -54,7 +54,7 @@ class SpineSpectra1D(SpineSpectra):
     """
     def __init__(self, variable, categories, colors, category_types,
                  title=None, xrange=None, xtitle=None,
-                 yrange=None, ytitle=None) -> None:
+                 yrange=None, ytitle=None, category_hatches=None) -> None:
         """
         Initializes the SpineSpectra1D.
 
@@ -101,6 +101,11 @@ class SpineSpectra1D(SpineSpectra):
         ytitle : str, optional
             The label for the y-axis. If None, the label will be
             'Candidates'. The default is None.
+        category_hatches : dict, optional
+            Map from the category label to a matplotlib hatch pattern
+            drawn over that category's stacked histogram (e.g. to tell
+            CC categories apart from same-colored NC ones). Labels that
+            are absent or map to '' are drawn plain. The default is None.
 
         Returns
         -------
@@ -110,6 +115,7 @@ class SpineSpectra1D(SpineSpectra):
                          xrange, xtitle, yrange, ytitle)
         self._variable = self._variables[0]
         self._category_types = category_types
+        self._category_hatches = category_hatches or {}
 
     def add_sample(self, sample, is_ordinate) -> None:
         """
@@ -219,6 +225,7 @@ class SpineSpectra1D(SpineSpectra):
             if fit_type is not None:
                 super().fit_with_function(ax, bincenters[0], np.sum(data, axis=0), self._binedges[labels[0]], fit_type, range=xr)
 
+            raw_labels = labels
             if show_component_number and show_component_percentage:
                 hlabel = lambda x : f'{np.sum(x):.1f}, {np.sum(x)/denominator:.2%}'
                 slabel = lambda x : f'{np.sum(x):.1f}'
@@ -235,9 +242,23 @@ class SpineSpectra1D(SpineSpectra):
             
             scale = 1.0 if not normalize else 1.0 / np.sum(reduce(data))
             # Use either uniform bins or customized bins
-            ax.hist(reduce(bincenters), weights=[scale*x for x in reduce(data)], 
+            _, _, containers = ax.hist(reduce(bincenters), weights=[scale*x for x in reduce(data)],
                     bins=self._variable._nbins if self._variable._custom_bins is None else self._variable._custom_bins,
                     range=xr, label=reduce(labels), color=reduce(colors), **style.plot_kwargs)
+            # Hatch the requested categories. The hatch is drawn in the
+            # patch's edge color, so hatched layers get a translucent white
+            # edge with no outline. Set before the legend is built so the
+            # legend entries carry the hatch too.
+            if self._category_hatches:
+                if not isinstance(containers, list):
+                    containers = [containers]
+                for label, container in zip(reduce(raw_labels), containers):
+                    hatch = self._category_hatches.get(label, '')
+                    if hatch:
+                        for patch in container:
+                            patch.set_hatch(hatch)
+                            patch.set_edgecolor((1.0, 1.0, 1.0, 0.6))
+                            patch.set_linewidth(0)
             if draw_error:
                 systs = [s[draw_error] for s in self._systematics.values() if draw_error in s]
                 cov = sum(s.get_covariance(self._variable._key) for s in systs)

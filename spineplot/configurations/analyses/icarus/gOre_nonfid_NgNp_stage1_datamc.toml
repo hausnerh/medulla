@@ -44,8 +44,11 @@ category_labels = [
   'Cosmic / Non-$\nu$',
   'Data (BNB)',
 ]
-category_colors = ['#E69900', '#59B3E6', '#009980', '#F2E640', '#0073B3', '#CC6600', '#CC99B3', '#B2182B', '#F4A582', '#1B7837', '#9980CC', '#542788', '#8C510A', '#E6338C', '#808080', '#000000']
+category_colors = ['#E69900', '#59B3E6', '#009980', '#F2E640', '#0073B3', '#CC6600', '#CC99B3', '#E69900', '#59B3E6', '#009980', '#F2E640', '#0073B3', '#CC6600', '#CC99B3', '#808080', '#000000']
 category_types  = ['histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'scatter']
+# CC (7-13) share their NC counterpart's color, hatched '\\' — orthogonal to the
+# '///' of the systematics band so the two stay distinguishable where they overlap.
+category_hatches = ['', '', '', '', '', '', '', '\\\\', '\\\\', '\\\\', '\\\\', '\\\\', '\\\\', '\\\\', '', '']
 
 [samples.mc]
 key = 'full'

@@ -69,6 +69,8 @@ class Analysis:
             self._categories.update({c : self._config['analysis']['category_labels'][ci] for c in cat})
         self._colors = {c : self._config['analysis']['category_colors'][ci] for ci, c in enumerate(self._config['analysis']['category_labels'])}
         self._category_types = {c : self._config['analysis']['category_types'][ci] for ci, c in enumerate(self._config['analysis']['category_labels'])}
+        hatches = self._config['analysis'].get('category_hatches', [])
+        self._category_hatches = {c : hatches[ci] for ci, c in enumerate(self._config['analysis']['category_labels']) if ci < len(hatches) and hatches[ci]}
 
         # Initialize the samples
         if 'samples' not in self._config.keys():
@@ -127,7 +129,8 @@ class Analysis:
                             art = SpineSpectra1D(self._variables[x['variable']], restrict_categories,
                                                  self._colors, self._category_types, x.get('title', None),
                                                  x.get('xrange', None), x.get('xtitle', None),
-                                                 x.get('yrange', None), x.get('ytitle', None))
+                                                 x.get('yrange', None), x.get('ytitle', None),
+                                                 self._category_hatches)
                             draw_kwargs = x.get('draw_kwargs', {})
                             draw_kwargs['draw_error'] = draw_kwargs.get('draw_error', None)
                             self._figures[fig['name']].register_spine_artist(art, draw_kwargs=draw_kwargs)
