@@ -3,7 +3,7 @@
 # Differences from the source, nothing else:
 #   * [input]/[output] paths match the --sel-toml label (gOre_1g1p_sidebands_osc).
 #   * [input].weights is a FILE LIST (weights_gOre_1g1p_sidebands_osc.txt, written into build/ by
-#     the orchestrator from the selection toml's `cvext` globs). The osc CAFs sit
+#     the orchestrator from the selection toml's `cv` globs). The osc CAFs sit
 #     in nested */*/*.root dirs across two productions, which a single TChain
 #     wildcard can't express.
 #   * The old var00-13p detsys ([variations] + type='variation' [[sys]]) is
@@ -29,10 +29,10 @@
 #     trees + signal tree present under events/<sample>/<tree>, with
 #     `*_exposure` siblings (add_exposure=true on every tree in the
 #     selection toml).
-#   - cvext flat-CAF glob for weight lookup.
+#   - cv flat-CAF glob for weight lookup.
 #
 # Strategy:
-#   * cvext copy of each reco tree gets per-event multisim/multisigma/variation
+#   * cv copy of each reco tree gets per-event multisim/multisigma/variation
 #     weight columns appended (`action = 'add_weights'`).
 #   * cv copy carried as-is (nominal MC reference).
 #   * offbeam / onbeam carried as-is.
@@ -82,7 +82,7 @@ bins = [25, 0, 500]
 # standard gpvm. If so, run Stage 3 on a high-memory node or switch the stage1
 # events/full block below from add_weights to action='copy' (stat-only).
 [[tree]]
-origin = 'events/cvext/selected_nonfid_NgNp_stage1'
+origin = 'events/cv/selected_nonfid_NgNp_stage1'
 destination = 'events/full/'
 name = 'selected_nonfid_NgNp_stage1'
 action = 'add_weights'
@@ -101,7 +101,7 @@ name = 'selected_nonfid_NgNp_stage1'
 action = 'copy'
 
 [[tree]]
-origin = 'events/cvext/selected_nonfid_NgNp_stage2'
+origin = 'events/cv/selected_nonfid_NgNp_stage2'
 destination = 'events/full/'
 name = 'selected_nonfid_NgNp_stage2'
 action = 'add_weights'
@@ -120,7 +120,7 @@ name = 'selected_nonfid_NgNp_stage2'
 action = 'copy'
 
 [[tree]]
-origin = 'events/cvext/selected_nonfid_NgNp_stage3'
+origin = 'events/cv/selected_nonfid_NgNp_stage3'
 destination = 'events/full/'
 name = 'selected_nonfid_NgNp_stage3'
 action = 'add_weights'
@@ -140,7 +140,7 @@ action = 'copy'
 
 # --- non-fiducial N-1 diagnostic trees (recover statistics vs full chain) ---
 [[tree]]
-origin = 'events/cvext/selected_nonfid_NgNp_nm1_gOre_softmax'
+origin = 'events/cv/selected_nonfid_NgNp_nm1_gOre_softmax'
 destination = 'events/full/'
 name = 'selected_nonfid_NgNp_nm1_gOre_softmax'
 action = 'add_weights'
@@ -159,7 +159,7 @@ name = 'selected_nonfid_NgNp_nm1_gOre_softmax'
 action = 'copy'
 
 [[tree]]
-origin = 'events/cvext/selected_nonfid_NgNp_nm1_second_shower'
+origin = 'events/cv/selected_nonfid_NgNp_nm1_second_shower'
 destination = 'events/full/'
 name = 'selected_nonfid_NgNp_nm1_second_shower'
 action = 'add_weights'
@@ -178,7 +178,7 @@ name = 'selected_nonfid_NgNp_nm1_second_shower'
 action = 'copy'
 
 [[tree]]
-origin = 'events/cvext/selected_nonfid_NgNp_nm1_delta_mass'
+origin = 'events/cv/selected_nonfid_NgNp_nm1_delta_mass'
 destination = 'events/full/'
 name = 'selected_nonfid_NgNp_nm1_delta_mass'
 action = 'add_weights'

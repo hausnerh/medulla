@@ -10,7 +10,7 @@ the SAME globs the selection used for its MC sample, so the weights always come
 from exactly the files that were selected.
 
 Usage:
-  make_weights_list.py SELECTION_TOML OUTPUT_TXT [--sample cvext]
+  make_weights_list.py SELECTION_TOML OUTPUT_TXT [--sample cv]
 """
 import argparse
 import sys
@@ -21,7 +21,7 @@ import toml
 ap = argparse.ArgumentParser()
 ap.add_argument("selection_toml")
 ap.add_argument("output_txt")
-ap.add_argument("--sample", default="cvext", help="sample whose files carry the weights")
+ap.add_argument("--sample", default="cv", help="sample whose files carry the weights")
 args = ap.parse_args()
 
 samples = [s for s in toml.load(args.selection_toml).get("sample", []) if s.get("name") == args.sample]

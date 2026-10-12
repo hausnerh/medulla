@@ -14,7 +14,10 @@ gOre_threshold   = 25 # MeV
 muon_threshold   = 25 # MeV
 pion_threshold   = 25 # MeV
 proton_threshold = 50 # MeV
-flash_low_t      =  0.0 # µs
+# ReCAF2026 MC puts every neutrino flash at ~ -22 ns (no spill time structure;
+# osc_cutflow_diag: 5-95% in [-30, -14] ns), so a 0 us lower edge kept ~2% of the
+# MC neutrinos. Upstream osc selections use [-0.5, 1.6] us; data spans the spill.
+flash_low_t      = -0.5 # µs
 flash_high_t     =  1.6 # µs
 fiducial_xdist_pos = 50 # cm
 fiducial_xdist_neg = 50 # cm
@@ -140,18 +143,18 @@ cuts = [
 
 # -----------------------------------------------------------------------------
 # ICARUS osc production (ReCAF2026), MC/offbeam = run2 + run4.
-# Sample NAMES mirror the old production (cvext / offbeam / onbeam) so the
+# Sample NAMES mirror the old production (cv / offbeam / onbeam; no 10x-POT cvext here) so the
 # systematics + plot configs work unchanged.
-# cvext/offbeam span BOTH runs (path = list of globs): exposure sums run2+run4,
+# cv/offbeam span BOTH runs (path = list of globs): exposure sums run2+run4,
 # so the plots are POT-combined automatically.
 # There is no separate extended CV:
-# `cvext` here IS the osc central value (lower stats than the old cvext).
+# `cv` is the osc central value (nominal POT; there is no 10x-POT cvext).
 # onbeam is run2's 10% subsample only: run4's BeamOn dir has no '10p' tag and may
 # be the full box -> held out (onbeam_run4, disabled) until blinding is confirmed.
 # dirt + the unisim detvars are defined but disabled (detvar detsys not wired yet).
 # -----------------------------------------------------------------------------
 [[sample]]
-name = "cvext"
+name = "cv"
 path = [
   "/pnfs/sbn/persistent/users/mueller/osc/icarus/flatcaf/icarus_run4_cvmc/*/*/*.root",
   "/pnfs/sbn/persistent/users/mueller/osc/icarus/flatcaf/icarus_run2_cvmc/*/*/*.root",

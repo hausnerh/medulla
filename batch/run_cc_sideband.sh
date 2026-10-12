@@ -579,11 +579,11 @@ do_systematics(){
     local syslog="$DEBUG_DIR/run_systematics_$STAMP.log" rc wlist
     # If the systematics toml reads its weights from a .txt file list (osc
     # production: nested dirs across two runs, beyond a TChain wildcard), build
-    # that list in build/ from the selection toml's own `cvext` globs. Tomls that
+    # that list in build/ from the selection toml's own `cv` globs (osc production). Tomls that
     # use a direct glob (old production) skip this entirely.
     wlist=$(grep -m1 -E "^weights[[:space:]]*=" "$SYS_TOML" | sed -E "s/^[^']*'([^']*)'.*/\1/")
     if [[ "$wlist" == *.txt ]]; then
-        log "Building weight file list build/$wlist from $SEL_TOML (cvext) [SL7]"
+        log "Building weight file list build/$wlist from $SEL_TOML (cv) [SL7]"
         SL7RUN "python3 batch/make_weights_list.py '$SEL_TOML' 'build/$wlist'" 2>&1 | tee -a "$LOGFILE"
         [[ -s "build/$wlist" ]] || die "could not build weight file list build/$wlist"
     fi

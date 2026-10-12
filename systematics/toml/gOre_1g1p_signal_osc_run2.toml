@@ -3,7 +3,7 @@
 # Differences from the source, nothing else:
 #   * [input]/[output] paths match the --sel-toml label (gOre_1g1p_signal_osc_run2).
 #   * [input].weights is a FILE LIST (weights_gOre_1g1p_signal_osc_run2.txt, written into build/ by
-#     the orchestrator from the selection toml's `cvext` globs). The osc CAFs sit
+#     the orchestrator from the selection toml's `cv` globs). The osc CAFs sit
 #     in nested */*/*.root dirs across two productions, which a single TChain
 #     wildcard can't express.
 #   * The old var00-13p detsys ([variations] + type='variation' [[sys]]) is
@@ -29,10 +29,10 @@
 #     trees + signal tree present under events/<sample>/<tree>, with
 #     `*_exposure` siblings (add_exposure=true on every tree in the
 #     selection toml).
-#   - cvext flat-CAF glob for weight lookup.
+#   - cv flat-CAF glob for weight lookup.
 #
 # Strategy:
-#   * cvext copy of each reco tree gets per-event multisim/multisigma/variation
+#   * cv copy of each reco tree gets per-event multisim/multisigma/variation
 #     weight columns appended (`action = 'add_weights'`).
 #   * cv copy carried as-is (nominal MC reference).
 #   * offbeam / onbeam carried as-is.
@@ -78,12 +78,12 @@ bins = [25, 0, 500]
 
 # ----------------------------------------------------------------------------
 # Tree copies / weight-attach for each stage of the 1γ1p chain.
-# Pattern per tree: cvext -> events/full (add_weights); nominal/offbeam/onbeam -> copy.
+# Pattern per tree: cv -> events/full (add_weights); nominal/offbeam/onbeam -> copy.
 # ----------------------------------------------------------------------------
 
 # --- stage1: preselection ---
 [[tree]]
-origin = 'events/cvext/selected_1g1p_stage1'
+origin = 'events/cv/selected_1g1p_stage1'
 destination = 'events/full/'
 name = 'selected_1g1p_stage1'
 action = 'add_weights'
@@ -103,7 +103,7 @@ action = 'copy'
 
 # --- stage2: + π0 rejection ---
 [[tree]]
-origin = 'events/cvext/selected_1g1p_stage2'
+origin = 'events/cv/selected_1g1p_stage2'
 destination = 'events/full/'
 name = 'selected_1g1p_stage2'
 action = 'add_weights'
@@ -123,7 +123,7 @@ action = 'copy'
 
 # --- stage3: + e/γ separation (final) ---
 [[tree]]
-origin = 'events/cvext/selected_1g1p_stage3'
+origin = 'events/cv/selected_1g1p_stage3'
 destination = 'events/full/'
 name = 'selected_1g1p_stage3'
 action = 'add_weights'
@@ -145,7 +145,7 @@ action = 'copy'
 #     _variation tree is an empty pass-through, same as the stage trees, since
 #     only selected_1g1p_stage3 is in the detsys [variations] block above) ---
 [[tree]]
-origin = 'events/cvext/selected_1g1p_nm1_gOre_softmax'
+origin = 'events/cv/selected_1g1p_nm1_gOre_softmax'
 destination = 'events/full/'
 name = 'selected_1g1p_nm1_gOre_softmax'
 action = 'add_weights'
@@ -164,7 +164,7 @@ name = 'selected_1g1p_nm1_gOre_softmax'
 action = 'copy'
 
 [[tree]]
-origin = 'events/cvext/selected_1g1p_nm1_delta_mass'
+origin = 'events/cv/selected_1g1p_nm1_delta_mass'
 destination = 'events/full/'
 name = 'selected_1g1p_nm1_delta_mass'
 action = 'add_weights'
@@ -189,7 +189,7 @@ action = 'copy'
 # ----------------------------------------------------------------------------
 # --- stage1 exposure ---
 [[tree]]
-origin = 'events/cvext/selected_1g1p_stage1_exposure'
+origin = 'events/cv/selected_1g1p_stage1_exposure'
 destination = 'events/full/'
 name = 'selected_1g1p_stage1_exposure'
 action = 'copy'
@@ -208,7 +208,7 @@ action = 'copy'
 
 # --- stage2 exposure ---
 [[tree]]
-origin = 'events/cvext/selected_1g1p_stage2_exposure'
+origin = 'events/cv/selected_1g1p_stage2_exposure'
 destination = 'events/full/'
 name = 'selected_1g1p_stage2_exposure'
 action = 'copy'
@@ -227,7 +227,7 @@ action = 'copy'
 
 # --- stage3 exposure ---
 [[tree]]
-origin = 'events/cvext/selected_1g1p_stage3_exposure'
+origin = 'events/cv/selected_1g1p_stage3_exposure'
 destination = 'events/full/'
 name = 'selected_1g1p_stage3_exposure'
 action = 'copy'

@@ -40,7 +40,7 @@ proton_threshold = 50 # MeV
 flash_low_t      =  0.0 # µs
 flash_high_t     =  1.6 # µs
 
-[[sample]] # new production run2 CV MC (labelled "cvext" in the osc selection tomls)
+[[sample]] # new production run2 CV MC
 name = "cv_new"
 path = "/pnfs/sbn/persistent/users/mueller/osc/icarus/flatcaf/icarus_run2_cvmc/*/*/*.root"
 ismc = true

@@ -1,5 +1,7 @@
-# CC is split as for NC: CC Δ->Nγ / CC Δ->Nπ0 / Other CC (from
-# true_cc_sideband_category; Other CC includes all CC νe). fracunc_<var> /
+# CC categories mirror the NC ones (7-13 = CC counterparts of 0-6): signal
+# true_category CC bins re-split by true_cc_sideband_category (νμ CC topology),
+# with true_n_protons (1γ1p vs other) and true_n_primary_showers (single γ).
+# Other CC includes all CC νe (NC has no flavour split either). fracunc_<var> /
 # fracunc_det_<var> figures: per-bin fractional uncertainty of the stacked
 # prediction by source / by detector variation (SpineFracUncertainty1D).
 # Non-fiducial Xγ + Np "outside-the-box" sideband, stage 2 (+ pi0_rejection).
@@ -23,7 +25,7 @@ path = '/exp/icarus/app/users/hhausner/plots/gOre_nonfid_NgNp/stage2'
 [analysis]
 ordinate_sample = 'onbeam'
 category_branch = 'true_category'
-category_assignment = [[0], [1], [2], [3], [4], [5], [6], [7], [8], [9], [10], [11]]
+category_assignment = [[0], [1], [2], [3], [4], [5], [6], [7], [8], [9], [10], [11], [12], [13], [14], [15]]
 category_labels = [
   'NC $\Delta{\to}N\gamma$ (1$\gamma$1p)',
   'NC $\Delta{\to}N\gamma$ (Other Topo.)',
@@ -32,14 +34,18 @@ category_labels = [
   'NC $\pi^0$ (Other)',
   'NC $\pi^{\pm}$',
   'Other NC',
-  'CC $\Delta{\to}N\gamma$',
-  'CC $\Delta{\to}N\pi^0$',
+  'CC $\Delta{\to}N\gamma$ (1$\gamma$1p)',
+  'CC $\Delta{\to}N\gamma$ (Other Topo.)',
+  'Other CC 1$\gamma$Xp Post-FSI',
+  'CC $\pi^0$ ($\Delta$ Res)',
+  'CC $\pi^0$ (Other)',
+  'CC $\pi^{\pm}$',
   'Other CC',
   'Cosmic / Non-$\nu$',
   'Data (BNB)',
 ]
-category_colors = ['#E69900', '#59B3E6', '#009980', '#F2E640', '#0073B3', '#CC6600', '#CC99B3', '#B2182B', '#9980CC', '#E6338C', '#808080', '#000000']
-category_types  = ['histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'scatter']
+category_colors = ['#E69900', '#59B3E6', '#009980', '#F2E640', '#0073B3', '#CC6600', '#CC99B3', '#B2182B', '#F4A582', '#1B7837', '#9980CC', '#542788', '#8C510A', '#E6338C', '#808080', '#000000']
+category_types  = ['histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'histogram', 'scatter']
 
 [samples.mc]
 key = 'full'
@@ -47,12 +53,11 @@ exposure_type = 'pot'
 trees = ['selected_nonfid_NgNp_stage2']
 systematics = ['selected_nonfid_NgNp_stage2_multisimTree', 'selected_nonfid_NgNp_stage2_multisigmaTree', 'selected_nonfid_NgNp_stage2_variationTree']
 print_sys = true
-fillna = 10
+fillna = 14
 
 [samples.mc.precompute]
-# CC split (see the category comment at the top): signal true_category with
-# its CC bins (7, 8) re-split by true_cc_sideband_category; cosmic 9 -> 10.
-true_category         = "true_category * (true_category < 7) + ((true_category >= 7) & (true_category <= 8)) * (7 * ((true_cc_sideband_category == 0) | (true_cc_sideband_category == 1)) + 8 * (true_cc_sideband_category == 3) + 9 * ((true_cc_sideband_category != 0) & (true_cc_sideband_category != 1) & (true_cc_sideband_category != 3))) + 10 * (true_category == 9)"
+# CC mirror of the NC categories (see the comment at the top); cosmic 9 -> 14.
+true_category         = "true_category * (true_category < 7) + ((true_category >= 7) & (true_category <= 8)) * (7 * ((true_cc_sideband_category == 0) & (true_n_protons == 1)) + 8 * ((true_cc_sideband_category == 0) & (true_n_protons != 1)) + 9 * ((true_cc_sideband_category == 2) & (true_n_primary_showers == 1)) + 10 * (true_cc_sideband_category == 3) + 11 * (true_cc_sideband_category == 4) + 12 * (true_cc_sideband_category == 5) + 13 * ~((true_cc_sideband_category == 0) | ((true_cc_sideband_category == 2) & (true_n_primary_showers == 1)) | (true_cc_sideband_category == 3) | (true_cc_sideband_category == 4) | (true_cc_sideband_category == 5))) + 14 * (true_category == 9)"
 reco_delta_mass_P_dev = "abs(reco_delta_mass_P - 1232)"
 n_selected_flag       = "0*reco_gOre_topology + 1"
 
@@ -62,7 +67,7 @@ exposure_type = 'pot'
 trees = ['selected_nonfid_NgNp_stage2']
 
 [samples.onbeam.precompute]
-true_category = "0*reco_gOre_topology + 11"
+true_category = "0*reco_gOre_topology + 15"
 reco_delta_mass_P_dev     = "abs(reco_delta_mass_P - 1232)"
 n_selected_flag           = "0*reco_gOre_topology + 1"
 
@@ -79,7 +84,7 @@ exposure_type = 'livetime'
 trees = ['selected_nonfid_NgNp_stage2']
 
 [samples.offbeam.precompute]
-true_category             = "0*reco_gOre_topology + 10"
+true_category             = "0*reco_gOre_topology + 14"
 reco_delta_mass_P_dev     = "abs(reco_delta_mass_P - 1232)"
 n_selected_flag           = "0*reco_gOre_topology + 1"
 
