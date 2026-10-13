@@ -116,6 +116,7 @@ class SpineSpectra1D(SpineSpectra):
         self._variable = self._variables[0]
         self._category_types = category_types
         self._category_hatches = category_hatches or {}
+        self._ordinate = None
 
     def add_sample(self, sample, is_ordinate) -> None:
         """
@@ -136,6 +137,8 @@ class SpineSpectra1D(SpineSpectra):
         None.
         """
         super().add_sample(sample, is_ordinate)
+        if is_ordinate:
+            self._ordinate = sample._name
 
         if self._plotdata is None:
             self._plotdata = {}
@@ -260,7 +263,10 @@ class SpineSpectra1D(SpineSpectra):
                             patch.set_edgecolor((1.0, 1.0, 1.0, 0.6))
                             patch.set_linewidth(0)
             if draw_error:
-                systs = [s[draw_error] for s in self._systematics.values() if draw_error in s]
+                # The band is the uncertainty on the prediction: the ordinate
+                # (data) sample's own statistical uncertainty is already its
+                # error bars, so it must not enter the band.
+                systs = [s[draw_error] for n, s in self._systematics.items() if draw_error in s and n != self._ordinate]
                 cov = sum(s.get_covariance(self._variable._key) for s in systs)
                 x = reduce(bincenters)[0]
                 y = scale * np.sum(reduce(data), axis=0)

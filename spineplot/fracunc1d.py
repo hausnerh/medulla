@@ -66,27 +66,6 @@ class SpineFracUncertainty1D(SpineSpectra1D):
                          title, xrange, xtitle, yrange, ytitle)
         self._sources = sources
         self._total_label = total_label
-        self._ordinate = None
-
-    def add_sample(self, sample, is_ordinate) -> None:
-        """
-        Adds a sample (see SpineSpectra1D.add_sample) and remembers which
-        sample is the ordinate.
-
-        Parameters
-        ----------
-        sample : Sample
-            The sample to add.
-        is_ordinate : bool
-            A flag to indicate if the sample is the ordinate sample.
-
-        Returns
-        -------
-        None.
-        """
-        super().add_sample(sample, is_ordinate)
-        if is_ordinate:
-            self._ordinate = sample._name
 
     def _matching(self, pattern) -> dict:
         """
@@ -166,16 +145,22 @@ class SpineFracUncertainty1D(SpineSpectra1D):
                     systs = [s for v in matches.values() for s in v]
                     lines.append((src.get('label', src['pattern']), src.get('color', None), self._variance(systs)))
 
+            # The total is drawn first (thick, underneath) so that a source
+            # equal to the total in some bins (e.g. the only nonzero one)
+            # stays visible on top of it.
+            handles = list()
+            if self._total_label is not None and lines:
+                total = np.sum([var for _, _, var in lines], axis=0)
+                total_handle = ax.stairs(frac(total), edges, label=self._total_label, color='black', linewidth=4)
             # Explicit colors: the plot styles override the default color
             # cycle (every line came out black).
             palette = plt.get_cmap('tab10' if len(lines) <= 10 else 'tab20').colors
             for i, (label, color, var) in enumerate(lines):
-                ax.stairs(frac(var), edges, label=label, linewidth=2,
-                          color=color if color is not None else palette[i % len(palette)])
+                handles.append(ax.stairs(frac(var), edges, label=label, linewidth=2,
+                               color=color if color is not None else palette[i % len(palette)]))
             if self._total_label is not None and lines:
-                total = np.sum([var for _, _, var in lines], axis=0)
-                ax.stairs(frac(total), edges, label=self._total_label, color='black', linewidth=2.5)
-            ax.legend(ncol=legend_ncol)
+                handles.append(total_handle)
+            ax.legend(handles=handles, ncol=legend_ncol)
 
         if isinstance(self._yrange, (tuple, list)):
             ax.set_ylim(*self._yrange)
