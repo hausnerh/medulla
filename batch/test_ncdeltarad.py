@@ -144,6 +144,7 @@ class FakeGrid:
         self.cfg, self.good, self.queue_ticks = cfg, {k: list(v) for k, v in good.items()}, queue_ticks
         self.token_ok, self.held = token_ok, held
         self.sidecar_br = sidecar_br      # BR(Nγ) the fake gen "used" (None = nominal table)
+        self.sl7_scripts = []
         self.calls, self.next_id, self.live = [], 100, {}
         self.dry_run = False
 
@@ -153,8 +154,13 @@ class FakeGrid:
     def __call__(self, cmd, mutating=True, timeout=0):
         self.calls.append(cmd)
         prog = cmd[0] if isinstance(cmd, list) else cmd.split()[0]
+        if prog == 'apptainer':           # sl7_exec: the root call is the script's last line
+            script = Path(cmd.split()[-1].strip("'"))
+            self.sl7_scripts.append(script.read_text())
+            cmd = script.read_text().strip().splitlines()[-1].split(' ')
+            prog = 'root'
         if prog == 'root':                # dump_delta_decays.C("<list>","<csv>")
-            out_csv = cmd[-1].rsplit('"', 2)[-2]
+            out_csv = ' '.join(cmd[4:]).strip("'").rsplit('"', 2)[-2]
             _pilot_csv(out_csv, self.sidecar_br, n=4000, seed=5)
             return 0, ''
         if prog == sys.executable:        # pilot_check.py / delta_br.py run for real
@@ -404,6 +410,18 @@ def test_gen_sidecar_published_with_weights(campaign):
     rad = [float(r['weight']) for r in rows if r['radiative'] == '1']
     assert 0.005 < np.median(rad) < 0.05            # ~ P_nom / P_enh
     assert 'PASS' in Path(state['sidecar']['pilot_check']).read_text()
+
+
+def test_sidecar_dump_runs_in_sl7_container_when_configured(campaign):
+    wd = campaign(sl7_exec='apptainer exec -B /cvmfs,/exp IMAGE bash {script}')
+    cfg = json.loads((wd / 'config.json').read_text())
+    grid = FakeGrid(cfg, good=dict(gen=[10], g4=[10], caf=[10]))
+    _, state = _drive(wd, grid)
+    assert state['stages']['gen']['status'] == 'done'
+    assert len(grid.sl7_scripts) == 1
+    script = grid.sl7_scripts[0]
+    assert 'setup icaruscode v10_06_00_13 -q e26:prof' in script and 'dump_delta_decays.C' in script
+    assert not any(isinstance(c, list) and c[0] == 'root' for c in grid.calls)   # never run on the host
 
 
 def test_nominal_table_stops_campaign_before_g4(campaign):

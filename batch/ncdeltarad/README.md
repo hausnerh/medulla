@@ -115,13 +115,22 @@ you want it.
 
 ## 3. Running
 
-On an ICARUS gpvm, inside the SL7 container used for e26 releases:
+**Run the orchestrator on the AL9 host, not in the SL7 container.** Inside
+the container, `jobsub_submit` fails with `HTCondorIOError: Failed
+communication with collector`. larbatch is plain Python and runs on AL9 from
+cvmfs. It also needs ICARUS's `experiment_utilities` module on `PYTHONPATH`.
+The gen-stage sidecar dump still needs SL7 for ROOT and gallery, so it runs
+in the container through `sl7_exec` (set in `campaign_run2.toml`).
 
 ```bash
-source /cvmfs/icarus.opensciencegrid.org/products/icarus/setup_icarus.sh
-setup icaruscode v10_06_00_13 -q e26:prof      # brings genie ($GENIE), gallery
-setup larbatch                                  # project.py
+# once, inside the SL7 container after "setup icaruscode": find the module
+python3 -c "import experiment_utilities as e; print(e.__file__)"
+# on the AL9 host
+export PATH=/cvmfs/larsoft.opensciencegrid.org/products/larbatch/v01_61_01/bin:$PATH
+export PYTHONPATH=/cvmfs/larsoft.opensciencegrid.org/products/larbatch/v01_61_01/python:<dir of experiment_utilities.py>:$PYTHONPATH
 htgettoken -a htvaultprod.fnal.gov -i icarus
+# init needs no release when genie_pdg_table points at the cvmfs table:
+#   genie_pdg_table = "/cvmfs/larsoft.opensciencegrid.org/products/genie/v3_04_02a/Linux64bit+3.10-2.17-e26-prof/GENIE-Generator/data/evgen/catalogues/pdg/genie_pdg_table.txt"
 
 cp batch/ncdeltarad/campaign_run2.toml my_campaign.toml   # fill in the FILL_ME values
 python batch/ncdeltarad/orchestrate.py init my_campaign.toml

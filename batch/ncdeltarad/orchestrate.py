@@ -71,7 +71,12 @@ DEFAULTS = dict(experiment='icarus', release='v10_06_00_13', qual='e26:prof', fi
                 br_gamma=delta_br.BR_GAMMA_DEFAULT, genie_pdg_table='', min_good_fraction=0.95,
                 max_makeup=2, accept_fraction=0.80, held_timeout_hours=6.0, fallback_wait_hours=12.0,
                 notify_cmd='', persistent_base='', numevents=1000000000, delta_sidecar=True,
-                xrootd_prefix='root://fndcadoor.fnal.gov:1094/pnfs/fnal.gov/usr/')
+                xrootd_prefix='root://fndcadoor.fnal.gov:1094/pnfs/fnal.gov/usr/',
+                # '' = run the sidecar's ROOT dump directly (orchestrator inside SL7);
+                # set to an apptainer command with {script} when running on AL9.
+                sl7_exec='',
+                sl7_setup=('source /cvmfs/icarus.opensciencegrid.org/products/icarus/setup_icarus.sh\n'
+                           'setup icaruscode {release} -q {qual}'))
 STAGE_DEFAULTS = dict(datatier='', memory=4000, disk='20GB', lifetime='8h', ana=False,
                       maxfilesperjob=1, persistent=False, jobsub='', publish=[])
 JOBID_RE = re.compile(r'(\d+)\.\d+@(jobsub\d+\.fnal\.gov)')
@@ -402,9 +407,16 @@ class Orchestrator:
         (pub / 'gen_xrootd.list').write_text(''.join(u + '\n' for u in urls))
         csv_path, w_path = pub / 'delta_decays.csv', pub / 'ncdeltarad_weights.csv'
         br = f"{self.cfg['br_gamma']:g}"
-        rc, out = self.sh(['root', '-l', '-b', '-q',
-                           f'{HERE / "dump_delta_decays.C"}("{pub / "gen_xrootd.list"}","{csv_path}")'],
-                          mutating=False, timeout=6 * 3600)
+        root_cmd = ['root', '-l', '-b', '-q',
+                    f'{HERE / "dump_delta_decays.C"}("{pub / "gen_xrootd.list"}","{csv_path}")']
+        if self.cfg.get('sl7_exec'):
+            # Orchestrator on AL9 (where jobsub works): ROOT + gallery need the
+            # SL7 release, so run the dump in the container via a script.
+            script = pub / 'dump_delta_decays.sh'
+            script.write_text('#!/bin/bash\nset -e\n' + self.cfg['sl7_setup'].format(**self.cfg) + '\n'
+                              + ' '.join(shlex.quote(x) for x in root_cmd) + '\n')
+            root_cmd = self.cfg['sl7_exec'].format(script=shlex.quote(str(script)))
+        rc, out = self.sh(root_cmd, mutating=False, timeout=6 * 3600)
         if rc != 0 and not self.dry_run:
             return False, f'gen sidecar: dump_delta_decays.C failed (rc {rc}): {out[-300:]}'
         rc, out = self.sh([sys.executable, str(HERE / 'pilot_check.py'), str(csv_path), '--br-gamma', br],
