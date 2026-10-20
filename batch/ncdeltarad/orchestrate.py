@@ -279,6 +279,10 @@ class Orchestrator:
 
     def submit(self, st, s, action):
         rc, out = self.project(st['name'], action)
+        if self.dry_run:
+            self.log(f"{st['name']}: [dry-run] would --{action} {s['numjobs']} jobs "
+                     f"(maxfilesperjob {st['maxfilesperjob']}); nothing submitted, state unchanged")
+            return 'dry-run'
         if rc != 0:
             s['errors'] = s.get('errors', 0) + 1
             self.log(f"{st['name']}: project.py --{action} failed (rc {rc}):\n{out[-2000:]}")

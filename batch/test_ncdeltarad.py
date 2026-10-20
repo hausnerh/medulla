@@ -290,6 +290,18 @@ def test_copy_to_pnfs_removes_destination_first(tmp_path, monkeypatch):
     assert dst in removed and dst.read_text() == 'new'
 
 
+def test_dry_run_submits_nothing(campaign):
+    wd = campaign()
+    cfg = json.loads((wd / 'config.json').read_text())
+    grid = FakeGrid(cfg, good=dict(gen=[10]))
+    o = O.Orchestrator(wd, shell=O.Shell(lambda m: None, dry_run=True), dry_run=True)
+    o.sh = lambda cmd, mutating=True, timeout=0: grid(cmd) if not mutating else (0, '')
+    assert o.tick() == 'dry-run'
+    o.save()
+    assert json.loads((wd / 'state.json').read_text())['stages']['gen']['status'] == 'pending'
+    assert not any(isinstance(c, list) and c[0] == 'project.py' for c in grid.calls)
+
+
 def test_full_chain_with_makeup(campaign):
     wd = campaign()
     cfg = json.loads((wd / 'config.json').read_text())
