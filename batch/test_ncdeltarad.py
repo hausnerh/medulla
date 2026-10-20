@@ -90,6 +90,12 @@ def test_patch_table_only_touches_gamma_lines():
         assert ' 22 ' in a and '6.63000e-01' in b and len(a) == len(b)
 
 
+def test_fcl_files_are_ascii():
+    """The FHiCL parser rejects non-ASCII bytes, even in comments."""
+    for f in NCDR.glob('*.fcl'):
+        f.read_bytes().decode('ascii')
+
+
 def test_hitnuc_to_delta():
     assert list(D.delta_pdg_from_hitnuc([2212, 2112, 0])) == [2214, 2114, 0]
 

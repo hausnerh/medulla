@@ -1,9 +1,12 @@
-# Enhanced-radiative NC Δ(1232) sample: the production BNB overlay generator
-# (volDetEnclosure, fiducial mbox, BNB simple_flux, 5e12 POT/spill, overlay
-# RootInput source) restricted to GENIE's RES-NC process.
+# Enhanced-radiative NC Delta(1232) sample: the production BNB overlay
+# generator (volDetEnclosure, fiducial mbox, BNB simple_flux, 5e12 POT/spill,
+# overlay RootInput source) restricted to GENIE's RES-NC process.
 #
-# The Δ→Nγ enhancement itself is NOT in this file: GENIE R-3_04_02 has no fcl
-# or XML knob for resonance branching ratios. The job must export
+# NB: keep this file pure ASCII -- the FHiCL parser rejects non-ASCII bytes,
+# even in comments.
+#
+# The Delta -> N gamma enhancement itself is NOT in this file: GENIE R-3_04_02
+# has no fcl or XML knob for resonance branching ratios. The job must export
 # GENIE_PDG_TABLE pointing at the patched table (delta_br.py table), which
 # ncdeltarad_genie_env.sh does as the stage's larbatch <initsource>.
 #
