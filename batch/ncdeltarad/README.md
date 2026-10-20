@@ -122,12 +122,16 @@ cvmfs. It also needs ICARUS's `experiment_utilities` module on `PYTHONPATH`.
 The gen-stage sidecar dump still needs SL7 for ROOT and gallery, so it runs
 in the container through `sl7_exec` (set in `campaign_run2.toml`).
 
+`project.py` on AL9 needs three cvmfs directories on its paths: larbatch,
+ICARUS's `experiment_utilities` (icarusutil `lib/`), and the SAM Python client.
+`path_prepend` / `pythonpath_prepend` in `campaign_run2.toml` hold them. The
+orchestrator applies them to every command it runs, including under tmux or
+cron. Verified on icarusgpvm01 (2026-10-20): `project.py --status` works with
+exactly those three directories. To run `project.py` by hand, export the same
+directories (directories, not `.py` files).
+
 ```bash
-# once, inside the SL7 container after "setup icaruscode": find the module
-python3 -c "import experiment_utilities as e; print(e.__file__)"
 # on the AL9 host
-export PATH=/cvmfs/larsoft.opensciencegrid.org/products/larbatch/v01_61_01/bin:$PATH
-export PYTHONPATH=/cvmfs/larsoft.opensciencegrid.org/products/larbatch/v01_61_01/python:<dir of experiment_utilities.py>:$PYTHONPATH
 htgettoken -a htvaultprod.fnal.gov -i icarus
 # init needs no release when genie_pdg_table points at the cvmfs table:
 #   genie_pdg_table = "/cvmfs/larsoft.opensciencegrid.org/products/genie/v3_04_02a/Linux64bit+3.10-2.17-e26-prof/GENIE-Generator/data/evgen/catalogues/pdg/genie_pdg_table.txt"

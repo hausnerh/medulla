@@ -37,6 +37,15 @@ jobsub_extra     = "--singularity-image /cvmfs/singularity.opensciencegrid.org/f
 # working jobsub.
 sl7_exec = "/cvmfs/oasis.opensciencegrid.org/mis/apptainer/current/bin/apptainer exec -B /cvmfs,/exp,/nashome,/pnfs/icarus,/opt,/run/user,/etc/hostname,/etc/hosts,/etc/krb5.conf /cvmfs/singularity.opensciencegrid.org/fermilab/fnal-dev-sl7:latest bash {script}"
 
+# Prepended to PATH / PYTHONPATH for every command the orchestrator runs, so
+# project.py works on AL9 without per-shell exports (also under tmux/cron).
+# Versions: larbatch as used by v10_06_00_13; icarusutil from
+# `python3 -c "import experiment_utilities as e; print(e.__file__)"` in SL7.
+path_prepend       = [ "/cvmfs/larsoft.opensciencegrid.org/products/larbatch/v01_61_01/bin" ]
+pythonpath_prepend = [ "/cvmfs/larsoft.opensciencegrid.org/products/larbatch/v01_61_01/python",
+                       "/cvmfs/icarus.opensciencegrid.org/products/icarus/icarusutil/v10_06_00_04/lib",
+                       "/cvmfs/fermilab.opensciencegrid.org/products/common/prd/sam_web_client/v3_6/NULL/python" ]
+
 min_good_fraction  = 0.95   # stage done when >= this fraction of jobs produced good output
 max_makeup         = 2      # project.py --makeup rounds before giving up
 accept_fraction    = 0.80   # after the makeups, accept the stage if at least this fraction is good

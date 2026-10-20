@@ -155,9 +155,22 @@ def render_xml(c, numjobs):
 # --------------------------------------------------------------------------- #
 # shell backend (one replaceable entry point, so the logic is testable)
 # --------------------------------------------------------------------------- #
+def job_env(cfg, base=None):
+    """Environment for every command the orchestrator runs: the config's
+    path_prepend / pythonpath_prepend in front of PATH / PYTHONPATH, so that
+    `run` under tmux or cron finds project.py and its modules (larbatch,
+    ICARUS experiment_utilities, samweb client) without per-shell exports."""
+    env = dict(os.environ if base is None else base)
+    for var, key in (('PATH', 'path_prepend'), ('PYTHONPATH', 'pythonpath_prepend')):
+        extra = [p for p in cfg.get(key, []) if p]
+        if extra:
+            env[var] = os.pathsep.join(extra + [p for p in env.get(var, '').split(os.pathsep) if p])
+    return env
+
+
 class Shell:
-    def __init__(self, log, dry_run=False):
-        self.log, self.dry_run = log, dry_run
+    def __init__(self, log, dry_run=False, env=None):
+        self.log, self.dry_run, self.env = log, dry_run, env
 
     def __call__(self, cmd, mutating=True, timeout=1800):
         """Run `cmd` (list or shell string). In dry-run, mutating commands are
@@ -168,7 +181,8 @@ class Shell:
             return 0, ''
         self.log(f'$ {text}')
         try:
-            p = subprocess.run(cmd, shell=isinstance(cmd, str), capture_output=True, text=True, timeout=timeout)
+            p = subprocess.run(cmd, shell=isinstance(cmd, str), capture_output=True, text=True,
+                               timeout=timeout, env=self.env)
         except subprocess.TimeoutExpired:
             return 124, f'timeout after {timeout}s'
         return p.returncode, (p.stdout or '') + (p.stderr or '')
@@ -181,7 +195,7 @@ class Orchestrator:
         self.state_path = self.dir / 'state.json'
         self.state = json.loads(self.state_path.read_text())
         self.xml = self.dir / f"{self.cfg['name']}.xml"
-        self.sh = shell or Shell(self.log, dry_run)
+        self.sh = shell or Shell(self.log, dry_run, env=job_env(self.cfg))
         self.dry_run = dry_run
         self.clock = clock
 
@@ -523,7 +537,7 @@ def cmd_init(a):
         raise SystemExit(f'{wd}/state.json exists (use --force to re-initialise)')
     wd.mkdir(parents=True, exist_ok=True)
     (wd / 'config.json').write_text(json.dumps(c, indent=1))
-    sh = Shell(lambda m: print(m), a.dry_run)
+    sh = Shell(lambda m: print(m), a.dry_run, env=job_env(c))
 
     table_in = c['genie_pdg_table'] or os.path.join(os.environ.get('GENIE', ''),
                                                        'data/evgen/catalogues/pdg/genie_pdg_table.txt')

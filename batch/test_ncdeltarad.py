@@ -4,6 +4,7 @@ patching, the back-to-nominal weight, the pilot check, and the orchestrator
 state machine against a fake project.py / jobsub_q.
 """
 import csv
+import os
 import json
 import subprocess
 import sys
@@ -294,6 +295,17 @@ def test_copy_to_pnfs_removes_destination_first(tmp_path, monkeypatch):
                             __call__=lambda self, c, **k: (1, 'ifdh should not be needed')))()
     O.copy_to_pnfs(sh, src, dst)
     assert dst in removed and dst.read_text() == 'new'
+
+
+def test_job_env_prepends_paths(tmp_path):
+    cfg = dict(path_prepend=['/cvmfs/larbatch/bin'], pythonpath_prepend=['/cvmfs/a', '/cvmfs/b'])
+    env = O.job_env(cfg, base={'PATH': '/usr/bin', 'PYTHONPATH': '/x'})
+    assert env['PATH'] == os.pathsep.join(['/cvmfs/larbatch/bin', '/usr/bin'])
+    assert env['PYTHONPATH'] == os.pathsep.join(['/cvmfs/a', '/cvmfs/b', '/x'])
+    assert O.job_env({}, base={'PATH': '/usr/bin'}) == {'PATH': '/usr/bin'}
+    sh = O.Shell(lambda m: None, env=O.job_env(dict(pythonpath_prepend=[str(tmp_path)])))
+    rc, out = sh([sys.executable, '-c', 'import os; print(os.environ["PYTHONPATH"].split(os.pathsep)[0])'])
+    assert rc == 0 and out.strip() == str(tmp_path)
 
 
 def test_dry_run_submits_nothing(campaign):
