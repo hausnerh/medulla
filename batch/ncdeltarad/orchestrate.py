@@ -70,7 +70,8 @@ DEFAULTS = dict(experiment='icarus', release='v10_06_00_13', qual='e26:prof', fi
                 run_type='physics', resource='DEDICATED,OPPORTUNISTIC', jobsub_extra='',
                 br_gamma=delta_br.BR_GAMMA_DEFAULT, genie_pdg_table='', min_good_fraction=0.95,
                 max_makeup=2, accept_fraction=0.80, held_timeout_hours=6.0, fallback_wait_hours=12.0,
-                notify_cmd='', persistent_base='', numevents=1000000000)
+                notify_cmd='', persistent_base='', numevents=1000000000, delta_sidecar=True,
+                xrootd_prefix='root://fndcadoor.fnal.gov:1094/pnfs/fnal.gov/usr/')
 STAGE_DEFAULTS = dict(datatier='', memory=4000, disk='20GB', lifetime='8h', ana=False,
                       maxfilesperjob=1, persistent=False, jobsub='', publish=[])
 JOBID_RE = re.compile(r'(\d+)\.\d+@(jobsub\d+\.fnal\.gov)')
@@ -340,6 +341,11 @@ class Orchestrator:
         s['status'], s['finished'] = status, now()
         if status == 'done':
             note = f'{note} {self.publish(st, s)}'.strip()
+            if st['name'] == 'gen' and self.cfg.get('delta_sidecar', True):
+                ok, msg = self.gen_sidecar(s)
+                note = f'{note} {msg}'
+                if not ok:
+                    s['status'] = status = 'failed'
         self.notify(f"[{self.cfg['name']}] {st['name']} {status}", f"{s['good']}/{s['expected']} good. {note}".strip())
         # 'done' is reserved for the whole campaign; a finished stage advances.
         return 'advanced' if status == 'done' else status
@@ -378,6 +384,42 @@ class Orchestrator:
         self.log(f"{st['name']}: {msg}")
         return msg
 
+    def gen_sidecar(self, s):
+        """Gen-level truth for the weights, and the gate on the patched table.
+        Dumps every NC Δ decay of the good gen files (dump_delta_decays.C, read
+        over xrootd), requires pilot_check.py to pass (radiative fraction vs W
+        matches the enhanced table; join key unique), then writes the per-event
+        weights and publishes both CSVs to <persistent_base>/gen_sidecar/.
+        Returns (ok, message); a failure stops the campaign before g4."""
+        pub = self.dir / 'published' / 'gen'
+        good = [x for x in (pub / 'files.list').read_text().split() if x] if (pub / 'files.list').exists() else []
+        prefix = self.cfg['xrootd_prefix']
+        urls = [prefix + f[len('/pnfs/'):] if f.startswith('/pnfs/') else f for f in good]
+        (pub / 'gen_xrootd.list').write_text(''.join(u + '\n' for u in urls))
+        csv_path, w_path = pub / 'delta_decays.csv', pub / 'ncdeltarad_weights.csv'
+        br = f"{self.cfg['br_gamma']:g}"
+        rc, out = self.sh(['root', '-l', '-b', '-q',
+                           f'{HERE / "dump_delta_decays.C"}("{pub / "gen_xrootd.list"}","{csv_path}")'],
+                          mutating=False, timeout=6 * 3600)
+        if rc != 0 and not self.dry_run:
+            return False, f'gen sidecar: dump_delta_decays.C failed (rc {rc}): {out[-300:]}'
+        rc, out = self.sh([sys.executable, str(HERE / 'pilot_check.py'), str(csv_path), '--br-gamma', br],
+                          mutating=False)
+        (pub / 'pilot_check.txt').write_text(out)
+        if rc != 0 and not self.dry_run:
+            return False, f'gen sidecar: pilot_check FAILED (see {pub / "pilot_check.txt"}):\n{out[-1500:]}'
+        rc, out = self.sh([sys.executable, str(HERE / 'delta_br.py'), 'weights', '--in', str(csv_path),
+                           '--out', str(w_path), '--br-gamma', br], mutating=False)
+        if rc != 0 and not self.dry_run:
+            return False, f'gen sidecar: weights failed: {out[-300:]}'
+        dest = Path(manifest_dir(self.cfg)) / 'gen_sidecar'
+        for src in (csv_path, w_path, pub / 'pilot_check.txt'):
+            copy_to_pnfs(self.sh, src, str(dest / src.name))
+        self.state['sidecar'] = dict(delta_decays=str(dest / csv_path.name), weights=str(dest / w_path.name),
+                                     pilot_check=str(dest / 'pilot_check.txt'))
+        self.log(f'gen sidecar: pilot_check passed; weights -> {dest / w_path.name}')
+        return True, f'sidecar + weights published to {dest}'
+
     def write_manifest(self):
         """Campaign manifest on /pnfs: what was generated and where the outputs
         (and their lists) are, for the GPU SPINE step and for medulla."""
@@ -392,7 +434,9 @@ class Orchestrator:
                  release=self.cfg['release'], qual=self.cfg['qual'], event_generator_list='NCRES',
                  overlay_inputdef=self.cfg['overlay_inputdef'], br_gamma=self.cfg['br_gamma'],
                  pdg_table=str(dest / 'ncdeltarad_pdg_table.txt'), config=str(dest / 'campaign_config.json'),
-                 weight='batch/ncdeltarad/delta_br.py weight(radiative, W, delta_pdg, br_gamma)',
+                 weight='per event from gen_sidecar/ncdeltarad_weights.csv, joined on (run, subrun, event); '
+                        'computed by batch/ncdeltarad/delta_br.py from the GENIE Δ mass and decay channel',
+                 sidecar=self.state.get('sidecar', {}),
                  stages=stages)
         local = self.dir / 'manifest.json'
         local.write_text(json.dumps(m, indent=1))

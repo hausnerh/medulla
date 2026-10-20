@@ -64,39 +64,53 @@ radiative:      w = P_γ^nom(W) / P_γ^enh(W)            (≈ 0.015 at the pole)
 non-radiative:  w = (1 − P_γ^nom(W)) / (1 − P_γ^enh(W))  (≈ 1.66 at the pole; ~25 near the Nπ threshold, where few events sit)
 ```
 
-The weight needs only three inputs, all in CAF truth (`SRTrueInteraction`):
+**Where the weight's inputs come from: the gen-level sidecar, not the CAF.**
+W must be the Δ invariant mass GENIE decayed with. CAF truth does not carry
+it. `SRTrueInteraction::w` is nugen's `MCNeutrino::W`, computed for a free
+nucleon at rest (`GENIE2ART.cxx`). The pilot measured it against the Δ mass:
+median +31 MeV, 1–99% range [−0.15, +0.49] GeV. GENIE's selected W
+(`GTruth::fgW`) is not in the CAF either.
 
-| Input | Source |
-|---|---|
-| W | `w` |
-| Δ charge | `hitnuc`: in NC a struck proton gives Δ⁺, a struck neutron Δ⁰ |
-| radiative or not | a primary photon above 30 MeV in an NC `resnum == 0` event |
+So after the gen stage, the orchestrator runs `dump_delta_decays.C` over the
+good gen files. That writes one row per NC Δ decay, with (run, subrun,
+event), the Δ PDG code, the Δ mass and the decay channel. It then runs
+`pilot_check.py` as a gate and writes `ncdeltarad_weights.csv`
+(`delta_br.py weights`). Medulla joins that file on (Run, Subrun, Evt). The
+art event ID is unchanged from gen through CAF.
 
-The radiative tag works because GENIE decays the Δ before final-state
-interactions, the photon is untouched by them, and π⁰ is still undecayed at
-the GENIE level. Making π⁰ and γ exactly 50/50 would mean scaling the Nπ±
-channel differently. The weight would then depend on π⁰ versus π± at
-production, which final-state interactions hide from the CAF, so it would
-need a per-event record carried from gen.
+With the exact channel available, a strict π⁰:γ = 50/50 (scaling Nπ±
+differently) would also be possible. It needs a per-channel weight; ask if
+you want it.
 
 **Using it in the analysis.**
 - The sample is a complete NC Δ(1232) sample: all three channels, reweighted.
   Its `resnum == 0` events replace the CV's NC `resnum == 0` events. Drop the
   higher resonances it also contains; the CV covers those.
-- Normalise it by its own POT and multiply by w.
-- Statistics gain for radiative events is about 1/w: ~65× per POT at the pole.
+- Normalise it by its own POT and multiply by the sidecar weight.
+- Statistics gain for radiative events is about 1/w: ×63 per POT, measured on
+  the pilot.
+
+**Geometry scan.** The gen fcl also sets `GeomScan: "flux: 10000 2.0 1"`.
+- **Why:** GENIEHelper forces one global probability scale, built from the
+  maximum cross-section times the maximum path length per material. The
+  RES-NC cross-section flattens at high energy. Unlike with the Default list,
+  that leaves no margin for the default box scan's underestimated path
+  lengths. The pilot crashed with GENIE FATAL
+  `Negative no interaction probability! (P = -40%)`.
+- **Cost:** only GENIE throws. POT uses the same scale, so normalisation is
+  unaffected.
 
 ## 2. Files
 
 | File | Purpose |
 |---|---|
 | `simulation_genie_..._ncdeltarad.fcl` | gen fcl (NCRES only) |
-| `delta_br.py` | GENIE Δ branching-ratio emulation, table patcher, `weight()`; `split` prints the table above |
+| `delta_br.py` | GENIE Δ branching-ratio emulation, table patcher, `weight()`; `split` prints the table above; `weights` turns the sidecar into per-event weights |
 | `ncdeltarad_genie_env.sh` | gen-stage `<initsource>`: sets and validates `GENIE_PDG_TABLE` |
 | `campaign_run2.toml` | campaign config (paths, overlay SAM definition, stages, resources) |
 | `orchestrate.py` | campaign orchestrator around larbatch `project.py` |
-| `dump_delta_decays.C` | gallery macro: every NC Δ decay in gen files → CSV |
-| `pilot_check.py` | pilot validation from that CSV |
+| `dump_delta_decays.C` | gallery macro: every NC Δ decay in gen files → sidecar CSV |
+| `pilot_check.py` | sidecar validation: the gen-stage gate (also runnable by hand) |
 | `../test_ncdeltarad.py` | tests: branching-ratio emulation, weight closure, patcher, pilot check, orchestrator state machine, /pnfs publishing + manifest |
 
 ## 3. Running
@@ -140,6 +154,11 @@ python batch/ncdeltarad/orchestrate.py status <workdir>
      fails and the campaign stops.
 
 7. Publishes the finished stage's file lists to `/pnfs` (section 3a).
+8. **After gen only:** writes the sidecar and gates on it. It runs
+   `dump_delta_decays.C` over xrootd, then `pilot_check.py`, then the
+   weights. If the radiative fraction does not match the patched table, or
+   the join key is not unique, the gen stage is marked failed and nothing is
+   submitted to g4.
 
 **Operations.**
 - Optional external stages after `caf` are `submit_cmd`/`check_cmd` shell
@@ -170,6 +189,10 @@ plus the manifest go to `persistent_base`:
     files.list                       good outputs (project.py --checkana)
     flatcaf_files.list               *.flat.caf.root                   <- merge target / medulla
     caf_files.list                   *.caf.root (non-flat)
+<persistent_base>/gen_sidecar/
+    delta_decays.csv                 every NC Δ decay: run, subrun, event, Δ pdg, Δ mass, channel
+    ncdeltarad_weights.csv           per-event weight back to nominal   <- join on (run, subrun, event)
+    pilot_check.txt                  the gate's output
 <persistent_base>/manifest.json      release, NCRES, BR(Nγ), overlay definition, and per stage:
                                      outdir, good/expected, attempts, list paths and counts
 <persistent_base>/ncdeltarad_pdg_table.txt, campaign_config.json   (provenance)
@@ -186,29 +209,41 @@ plus the manifest go to `persistent_base`:
 
 ## 4. Pilot first (`gen_numjobs = 10`), then scale
 
-Once the gen stage is done:
+The orchestrator now runs the pilot check itself after gen (step 8 above).
+By hand, on a local gen file:
 
 ```bash
-ls <pnfs_base>/gen/out/*/*.root > gen_files.list
-root -l -b -q 'batch/ncdeltarad/dump_delta_decays.C("gen_files.list","delta_decays.csv")'
+echo $PWD/gen.root > gen.list
+root -l -b -q 'batch/ncdeltarad/dump_delta_decays.C("gen.list","delta_decays.csv")'
 python batch/ncdeltarad/pilot_check.py delta_decays.csv
 ```
 
-`pilot_check.py` tests the four assumptions the weighting rests on. It exits
-non-zero if any fails:
+**Required checks:**
+- The radiative fraction per W bin matches the enhanced prediction. This
+  also catches a `TDatabasePDG` filled before GENIE loaded its table.
+- The join key is unique and every Δ has a two-body decay.
 
-1. **The patched table was used.** The radiative fraction per W bin must match
-   the enhanced prediction, not the nominal one. This also catches a
-   `TDatabasePDG` that was filled before GENIE loaded its table.
-2. **CAF `w` equals the Δ mass GENIE decays with.** If it doesn't (e.g.
-   binding), compute the weight from the Δ mass instead.
-3. **The 30 MeV primary-photon tag reproduces the true decay channel.**
-4. **`hitnuc` gives the Δ charge.**
+**Informational checks:** CAF `w` vs the Δ mass, the 30 MeV photon tag, and
+struck nucleon vs Δ charge.
 
-**Sizing.** After the pilot has gone through CAF and medulla, measure the
-number of stage1 category-0 events per job. Then
-`gen_numjobs ≈ target / (that number)`. Each gen job uses one overlay input
-file, so check the size of the overlay dataset.
+**Interactive smoke test (17 overlay files, 641 events), 2026-10-20.**
+- **Enhanced run:** 537 NC Δ decays, χ²/ndf = 2.1/6 against the enhanced
+  prediction (e.g. 0.458 ± 0.030 observed vs 0.425 predicted at the pole).
+- **Nominal control:** χ²/ndf = 361/6, with about 0.8% radiative at the pole.
+- **Photon tag:** exact (0% mis-tagged).
+- **CAF `w`:** not the Δ mass (see section 1).
+
+**Sizing.**
+- **Overlay files:** the run2 off-beam min-bias files average about 38
+  events. One file had only 9.
+- **Signal yield (rough):** about 0.05 stage1 signal events per generated
+  event, so about 1.9 per file.
+- **Target:** ten times the CV's 134 stage1 signal events needs about 700
+  files, e.g. `maxfilesperjob = 5` on gen with `gen_numjobs ≈ 140`.
+- **Measure, don't trust the estimate:** count stage1 category-0 events per
+  job on the pilot.
+- **Tape:** only about 1 in 3.5 files of the definition was on disk, so
+  prestage the subset first (`samweb prestage-dataset`).
 
 ## 5. Not verified here (check on the pilot)
 
@@ -230,10 +265,10 @@ from a laptop:
 
 ## 6. Still needed in medulla
 
-- **Truth branches** for the weight: true `w`, `hitnuc`, and the radiative tag
-  (number of primary photons above 30 MeV).
+- **The weight join:** join `gen_sidecar/ncdeltarad_weights.csv` on (Run,
+  Subrun, Evt). The medulla trees already carry these.
 - **A per-event weight in spineplot.** Today it only applies one POT scale per
   sample. `batch/gore_cut_opt.py` already takes explicit weights, so the cut
   re-tune can use the sample first.
 - **The replacement logic:** drop CV NC `resnum == 0` events and add this
-  sample with `delta_br.weight(...)`.
+  sample's `resnum == 0` events with the sidecar weight.

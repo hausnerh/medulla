@@ -140,9 +140,10 @@ class FakeGrid:
     """Stands in for project.py / jobsub_q / htgettoken. `good` maps stage ->
     list of good-output counts returned by successive checks."""
 
-    def __init__(self, cfg, good, queue_ticks=1, token_ok=True, held=False):
+    def __init__(self, cfg, good, queue_ticks=1, token_ok=True, held=False, sidecar_br=0.663):
         self.cfg, self.good, self.queue_ticks = cfg, {k: list(v) for k, v in good.items()}, queue_ticks
         self.token_ok, self.held = token_ok, held
+        self.sidecar_br = sidecar_br      # BR(Nγ) the fake gen "used" (None = nominal table)
         self.calls, self.next_id, self.live = [], 100, {}
         self.dry_run = False
 
@@ -152,6 +153,13 @@ class FakeGrid:
     def __call__(self, cmd, mutating=True, timeout=0):
         self.calls.append(cmd)
         prog = cmd[0] if isinstance(cmd, list) else cmd.split()[0]
+        if prog == 'root':                # dump_delta_decays.C("<list>","<csv>")
+            out_csv = cmd[-1].rsplit('"', 2)[-2]
+            _pilot_csv(out_csv, self.sidecar_br, n=4000, seed=5)
+            return 0, ''
+        if prog == sys.executable:        # pilot_check.py / delta_br.py run for real
+            r = subprocess.run(cmd, capture_output=True, text=True)
+            return r.returncode, r.stdout + r.stderr
         if prog == 'htgettoken':
             return (0 if self.token_ok else 1), ''
         if prog == 'project.py':
@@ -337,6 +345,37 @@ def test_publishes_lists_and_manifest(tmp_path):
     assert m['br_gamma'] == pytest.approx(0.663) and m['event_generator_list'] == 'NCRES'
     assert '6.63000e-01' in (tmp_path / 'persistent' / 'ncdeltarad_pdg_table.txt').read_text()
     assert (tmp_path / 'persistent' / 'campaign_config.json').exists()
+
+
+def test_gen_sidecar_published_with_weights(campaign):
+    wd = campaign()
+    cfg = json.loads((wd / 'config.json').read_text())
+    _, state = _drive(wd, FakeGrid(cfg, good=dict(gen=[10], g4=[10], caf=[10])))
+    side = Path(state['sidecar']['weights'])
+    rows = list(csv.DictReader(open(side)))
+    assert len(rows) == 4000 and {'run', 'subrun', 'event', 'weight', 'radiative'} <= set(rows[0])
+    rad = [float(r['weight']) for r in rows if r['radiative'] == '1']
+    assert 0.005 < np.median(rad) < 0.05            # ~ P_nom / P_enh
+    assert 'PASS' in Path(state['sidecar']['pilot_check']).read_text()
+
+
+def test_nominal_table_stops_campaign_before_g4(campaign):
+    wd = campaign()
+    cfg = json.loads((wd / 'config.json').read_text())
+    grid = FakeGrid(cfg, good=dict(gen=[10]), sidecar_br=None)
+    results, state = _drive(wd, grid)
+    assert results[-1] == 'failed' and state['stages']['gen']['status'] == 'failed'
+    assert state['stages']['g4']['status'] == 'pending'
+    assert not any(isinstance(c, list) and c[0] == 'project.py' and c[4] == 'g4' for c in grid.calls)
+
+
+def test_sidecar_rejects_duplicate_events(tmp_path):
+    p = tmp_path / 'd.csv'
+    _pilot_csv(p, 0.663, n=10)
+    lines = p.read_text().splitlines()
+    p.write_text('\n'.join(lines + [lines[1]]) + '\n')
+    with pytest.raises(ValueError, match='duplicated'):
+        D.sidecar_weights(p)
 
 
 def test_removes_long_held_jobs(campaign):

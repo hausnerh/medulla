@@ -1,7 +1,7 @@
 # Enhanced-radiative NC Δ campaign (ReCAF2026-style run2 overlay chain).
 # Copy, fill in the FILL_ME values, then:
 #   python batch/ncdeltarad/orchestrate.py init batch/ncdeltarad/campaign_run2.toml
-# Start with a pilot (gen_numjobs = 10) and run pilot_check.py on its gen output
+# Start with a pilot (gen_numjobs = 10); the orchestrator gates gen on pilot_check.py
 # before scaling up.
 
 [campaign]
@@ -15,7 +15,7 @@ persistent_base  = "/pnfs/icarus/persistent/users/FILL_ME/ncdeltarad/ncdeltarad_
 # SAM definition of the run2 overlay input (data) files the production gen
 # stage reads; one GENIE NC RES interaction is added to each overlay event.
 overlay_inputdef = "FILL_ME"
-gen_numjobs      = 10            # = overlay input files consumed (maxfilesperjob = 1)
+gen_numjobs      = 10            # gen jobs; each reads maxfilesperjob overlay files (~38 events each)
 
 release          = "v10_06_00_13"
 qual             = "e26:prof"
@@ -42,6 +42,7 @@ fcl      = "simulation_genie_icarus_bnb_overlays_volDetEnclosure_fiducial_ncdelt
 datatier = "simulated"
 memory   = 3000
 lifetime = "8h"
+maxfilesperjob = 5            # ~190 events per gen job; 10x CV signal needs ~140 jobs
 
 [[stage]]
 name     = "g4"

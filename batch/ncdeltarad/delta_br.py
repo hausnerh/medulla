@@ -16,14 +16,19 @@ threshold uses the PDG-table daughter masses. Γ cancels in P_i.
 
 Enhancement keeps the two Nπ BRs at their nominal values and raises only the
 Nγ BR. Both pion channels then scale by the same factor, so every
-non-radiative decay gets the same weight and the weight needs only
-(radiative?, W, Δ charge), all available from CAF truth:
+non-radiative decay gets the same weight, which needs only (radiative?, W,
+Δ charge):
     radiative:      w = P_γ^nom(W) / P_γ^enh(W)
     non-radiative:  w = (1 − P_γ^nom(W)) / (1 − P_γ^enh(W))
+W is the Δ invariant mass GENIE decayed with. CAF truth does not have it
+(SRTrueInteraction::w is nugen's free-nucleon-at-rest W, off by Fermi motion
+and binding), so the inputs come from the gen-level sidecar written by
+dump_delta_decays.C, joined on (run, subrun, event).
 
 Usage
-  delta_br.py table  --in genie_pdg_table.txt --out ncdeltarad_pdg_table.txt [--br-gamma 0.663]
-  delta_br.py split  [--br-gamma 0.663]     # channel split and weights vs W
+  delta_br.py table   --in genie_pdg_table.txt --out ncdeltarad_pdg_table.txt [--br-gamma 0.663]
+  delta_br.py split   [--br-gamma 0.663]     # channel split and weights vs W
+  delta_br.py weights --in delta_decays.csv --out ncdeltarad_weights.csv [--br-gamma 0.663]
 """
 import argparse
 import re
@@ -108,6 +113,28 @@ def weight(radiative, W, delta_pdg, br_gamma=BR_GAMMA_DEFAULT):
     return w
 
 
+def sidecar_weights(path, br_gamma=BR_GAMMA_DEFAULT):
+    """Per-event weights from the gen-level sidecar (dump_delta_decays.C CSV).
+    The exact Δ mass and decay channel come from GENIE's record; CAF truth
+    has neither (SRTrueInteraction::w is the free-nucleon-at-rest W).
+    Returns a list of dicts keyed by (run, subrun, event); raises on a
+    duplicated key, since the join to the CAF would then be ambiguous."""
+    import csv
+    rows = list(csv.DictReader(open(path)))
+    seen, out = set(), []
+    for r in rows:
+        key = (int(r['run']), int(r['subrun']), int(r['event']))
+        if key in seen:
+            raise ValueError(f'{path}: duplicated (run, subrun, event) {key}')
+        seen.add(key)
+        rad = '22' in r['channel'].split(':')
+        pdg, wd = int(r['delta_pdg']), float(r['w_delta'])
+        out.append(dict(run=key[0], subrun=key[1], event=key[2], delta_pdg=pdg, w_delta=wd,
+                        channel=r['channel'], radiative=int(rad),
+                        weight=float(weight([rad], [wd], [pdg], br_gamma)[0])))
+    return out
+
+
 def delta_pdg_from_hitnuc(hitnuc):
     """NC conserves charge: struck proton -> Δ+, struck neutron -> Δ0."""
     hitnuc = np.asarray(hitnuc)
@@ -153,7 +180,22 @@ def main():
     t.add_argument('--br-gamma', type=float, default=BR_GAMMA_DEFAULT)
     s = sub.add_parser('split', help='print channel split and weights vs W')
     s.add_argument('--br-gamma', type=float, default=BR_GAMMA_DEFAULT)
+    w = sub.add_parser('weights', help='per-event weights CSV from the gen-level sidecar')
+    w.add_argument('--in', dest='inp', required=True, help='dump_delta_decays.C output')
+    w.add_argument('--out', required=True)
+    w.add_argument('--br-gamma', type=float, default=BR_GAMMA_DEFAULT)
     a = ap.parse_args()
+
+    if a.cmd == 'weights':
+        import csv
+        rows = sidecar_weights(a.inp, a.br_gamma)
+        with open(a.out, 'w', newline='') as f:
+            wr = csv.DictWriter(f, fieldnames=['run', 'subrun', 'event', 'delta_pdg', 'w_delta', 'channel',
+                                               'radiative', 'weight'])
+            wr.writeheader()
+            wr.writerows(rows)
+        print(f'wrote {a.out}: {len(rows)} NC Δ events, BR(Nγ)={a.br_gamma:g}')
+        return
 
     if a.cmd == 'table':
         text, n = patch_table(open(a.inp).read(), a.br_gamma)
