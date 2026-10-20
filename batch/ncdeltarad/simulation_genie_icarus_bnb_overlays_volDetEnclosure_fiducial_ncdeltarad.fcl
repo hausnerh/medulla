@@ -18,4 +18,16 @@
 
 physics.producers.generator.EventGeneratorList: "NCRES"
 
+# Max path lengths: flux-ray scan (10000 BNB rays) with safety factor 2.0, and
+# write maxpathlength.xml to the job directory.
+# Why: GENIEHelper forces a single global probability scale (GMCJDriver::
+# ForceSingleProbScale), built from max{xsec(E)} x max path length per
+# material. With the Default list the total xsec keeps rising to the top of the
+# BNB flux, which leaves a large margin at typical energies; the RES-NC xsec
+# saturates, so an underestimated max path length from the "default" box scan
+# overflows: GENIE exits with "Negative no interaction probability!" (seen at
+# P = -40%). A larger safety factor only costs GENIE throws (unbiased; POT uses
+# the same scale).
+physics.producers.generator.GeomScan: "flux: 10000 2.0 1"
+
 outputs.rootoutput.fileName: "simulation_genie_icarus_bnb_ncdeltarad_volDetEnclosure_%tc-%p.root"
