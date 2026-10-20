@@ -255,6 +255,41 @@ def test_init_stages_files_and_renders_xml(campaign):
     assert xml.count('<initsource>') == 1 and '-f ' in xml.split('<stage name="g4">')[0]
 
 
+def test_reinit_replaces_staged_files(campaign, tmp_path):
+    wd = campaign()
+    staged = wd.parent / 'pnfs' / 'fcl' / 'ncdeltarad_pdg_table.txt'
+    staged.write_text('stale')
+    cfg = next(wd.parent.glob('c.toml'))
+    O.cmd_init(type('A', (), dict(config=str(cfg), force=True, dry_run=False))())
+    assert '6.63000e-01' in staged.read_text()
+
+
+def test_copy_to_pnfs_removes_destination_first(tmp_path, monkeypatch):
+    """dCache refuses to overwrite: the destination must be deleted, not opened for write."""
+    src, dst = tmp_path / 'a.txt', tmp_path / 'out' / 'a.txt'
+    src.write_text('new')
+    dst.parent.mkdir()
+    dst.write_text('old')
+    real_open, removed = open, []
+    real_unlink = Path.unlink
+
+    def guarded_open(path, mode='r', *a, **k):
+        if Path(path) == dst and 'w' in mode and dst.exists():
+            raise PermissionError('dCache: file exists')
+        return real_open(path, mode, *a, **k)
+
+    def tracking_unlink(self, missing_ok=False):
+        removed.append(self)
+        return real_unlink(self, missing_ok=missing_ok)
+
+    monkeypatch.setattr('builtins.open', guarded_open)
+    monkeypatch.setattr(Path, 'unlink', tracking_unlink)
+    sh = type('S', (), dict(dry_run=False, log=lambda self, m: None,
+                            __call__=lambda self, c, **k: (1, 'ifdh should not be needed')))()
+    O.copy_to_pnfs(sh, src, dst)
+    assert dst in removed and dst.read_text() == 'new'
+
+
 def test_full_chain_with_makeup(campaign):
     wd = campaign()
     cfg = json.loads((wd / 'config.json').read_text())

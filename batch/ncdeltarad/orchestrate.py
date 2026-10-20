@@ -473,13 +473,28 @@ class Orchestrator:
 # CLI
 # --------------------------------------------------------------------------- #
 def copy_to_pnfs(sh, src, dst):
+    """Copy to /pnfs, replacing an existing file. dCache does not overwrite in
+    place (a direct write and `ifdh cp` both refuse an existing destination),
+    so the destination is deleted first, as batch/utilities.safe_write_text
+    does. A plain buffered copy is tried before `ifdh cp` (see
+    batch/utilities.safe_copy for the NFS-mount quirks)."""
     if sh.dry_run:
         sh.log(f'[dry-run] copy {src} -> {dst}')
         return
-    Path(dst).parent.mkdir(parents=True, exist_ok=True)
+    dst = Path(dst)
+    dst.parent.mkdir(parents=True, exist_ok=True)
     try:
-        shutil.copyfile(src, dst)
+        dst.unlink(missing_ok=True)
     except OSError:
+        sh(['ifdh', 'rm', str(dst)])
+    try:
+        with open(src, 'rb') as fsrc, open(dst, 'wb') as fdst:
+            shutil.copyfileobj(fsrc, fdst)
+    except OSError:
+        try:
+            dst.unlink(missing_ok=True)
+        except OSError:
+            pass
         rc, out = sh(['ifdh', 'cp', str(src), str(dst)])
         if rc != 0:
             raise SystemExit(f'cannot copy {src} -> {dst}: {out}')
