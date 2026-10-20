@@ -1,0 +1,18 @@
+# Enhanced-radiative NC Δ(1232) sample: the production BNB overlay generator
+# (volDetEnclosure, fiducial mbox, BNB simple_flux, 5e12 POT/spill, overlay
+# RootInput source) restricted to GENIE's RES-NC process.
+#
+# The Δ→Nγ enhancement itself is NOT in this file: GENIE R-3_04_02 has no fcl
+# or XML knob for resonance branching ratios. The job must export
+# GENIE_PDG_TABLE pointing at the patched table (delta_br.py table), which
+# ncdeltarad_genie_env.sh does as the stage's larbatch <initsource>.
+#
+# "NCRES" is GENIE's global list (EventGeneratorListAssembler.xml); the tune
+# (${GENIE_XSEC_TUNE}, AR23_20i) still supplies the RES-NC model. POTSummary
+# stays per generated spill, so the sample is normalised by its own POT.
+
+#include "simulation_genie_icarus_bnb_overlays_volDetEnclosure_fiducial.fcl"
+
+physics.producers.generator.EventGeneratorList: "NCRES"
+
+outputs.rootoutput.fileName: "simulation_genie_icarus_bnb_ncdeltarad_volDetEnclosure_%tc-%p.root"

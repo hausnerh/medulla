@@ -1,0 +1,95 @@
+# Enhanced-radiative NC Δ campaign (ReCAF2026-style run2 overlay chain).
+# Copy, fill in the FILL_ME values, then:
+#   python batch/ncdeltarad/orchestrate.py init batch/ncdeltarad/campaign_run2.toml
+# Start with a pilot (gen_numjobs = 10) and run pilot_check.py on its gen output
+# before scaling up.
+
+[campaign]
+name             = "ncdeltarad_run2_pilot"
+# Local state, rendered XML, project.py book directories and the log.
+workdir          = "/exp/icarus/data/users/FILL_ME/ncdeltarad/ncdeltarad_run2_pilot"
+# Intermediate outputs (scratch is LRU-purged: fine for gen/g4/detsim/stage0).
+pnfs_base        = "/pnfs/icarus/scratch/users/FILL_ME/ncdeltarad/ncdeltarad_run2_pilot"
+# Stages flagged `persistent = true` (larcv, CAF) write here instead.
+persistent_base  = "/pnfs/icarus/persistent/users/FILL_ME/ncdeltarad/ncdeltarad_run2_pilot"
+# SAM definition of the run2 overlay input (data) files the production gen
+# stage reads; one GENIE NC RES interaction is added to each overlay event.
+overlay_inputdef = "FILL_ME"
+gen_numjobs      = 10            # = overlay input files consumed (maxfilesperjob = 1)
+
+release          = "v10_06_00_13"
+qual             = "e26:prof"
+file_type        = "overlay"
+br_gamma         = 0.663         # BR(Δ→Nγ) in the patched table = BR(Nπ0): 1:1 at the Δ pole
+# genie_pdg_table = ""           # default: $GENIE/data/evgen/catalogues/pdg/genie_pdg_table.txt
+
+resource         = "DEDICATED,OPPORTUNISTIC"
+# Applied to every stage. Check against the current ICARUS production XMLs
+# (container image, extra requirements).
+jobsub_extra     = "--singularity-image /cvmfs/singularity.opensciencegrid.org/fermilab/fnal-wn-sl7:latest"
+
+min_good_fraction  = 0.95   # stage done when >= this fraction of jobs produced good output
+max_makeup         = 2      # project.py --makeup rounds before giving up
+accept_fraction    = 0.80   # after the makeups, accept the stage if at least this fraction is good
+held_timeout_hours = 6
+# notify_cmd = 'echo {body} | mail -s {subject} FILL_ME@fnal.gov'
+
+# Resource requests are first guesses: take memory/disk/lifetime from the
+# production XMLs for the same fcls, or from the pilot's job logs.
+[[stage]]
+name     = "gen"
+fcl      = "simulation_genie_icarus_bnb_overlays_volDetEnclosure_fiducial_ncdeltarad.fcl"
+datatier = "simulated"
+memory   = 3000
+lifetime = "8h"
+
+[[stage]]
+name     = "g4"
+fcl      = "larg4_icarus_cosmics_sce.fcl"
+datatier = "simulated"
+memory   = 4000
+lifetime = "24h"
+
+[[stage]]
+name     = "detsim"
+fcl      = "detsim_2d_icarus_refactored_yzsim_overlay_Run4.fcl"
+datatier = "detector-simulated"
+memory   = 6000
+lifetime = "12h"
+
+[[stage]]
+name     = "stage0"
+fcl      = "stage0_run2_wcdnn_icarus_overlay.fcl"
+datatier = "reconstructed"
+memory   = 8000
+lifetime = "24h"
+
+[[stage]]
+name       = "stage1"
+fcl        = "stage1_run2_larcv_icarus_overlay.fcl"
+datatier   = "reconstructed"
+memory     = 6000
+lifetime   = "12h"
+persistent = true            # its larcv files feed SPINE
+
+[[stage]]
+name       = "caf"
+fcl        = "cafmakerjob_icarus_detsim2d_systtools_and_fluxwgt_overlay.fcl"
+datatier   = "caf"
+memory     = 4000
+lifetime   = "8h"
+ana        = true            # CAF output is not an art file: use project.py --checkana
+persistent = true
+
+# External stages run after the larbatch chain, in order. submit_cmd runs once;
+# check_cmd is polled: exit 0 = done, 1 = still running, 2 = failed.
+# Placeholders: {workdir} {pnfs_base} {persistent_base} {name}.
+# [[external]]
+# name       = "spine"
+# submit_cmd = "FILL_ME: submit SPINE on {persistent_base}/stage1/out and merge into {persistent_base}/caf/out"
+# check_cmd  = "FILL_ME: exit 0 when the SPINE-merged CAFs are complete"
+#
+# [[external]]
+# name       = "medulla"
+# submit_cmd = "FILL_ME: medulla selection over the merged CAFs (batch/run_cc_sideband.sh --sel-toml ...)"
+# check_cmd  = "FILL_ME"
