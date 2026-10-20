@@ -28,7 +28,7 @@ void dump_delta_decays(const std::string& filelist, const std::string& outcsv,
 
   std::ofstream out(outcsv);
   out << "run,subrun,event,delta_pdg,w_delta,w_kine,hitnuc,channel,n_daughters,"
-         "n_photon_status1_gt30mev\n";
+         "n_photon_status1_gt30mev,mother_pdg\n";
 
   art::InputTag const tag(label);
   long nev = 0, ndelta = 0;
@@ -56,9 +56,15 @@ void dump_delta_decays(const std::string& filelist, const std::string& outcsv,
           ++nd;
           channel += (channel.empty() ? "" : ":") + std::to_string(c.PdgCode());
         }
+        // Mother: the struck nucleon for a primary Δ; a heavier resonance
+        // for a secondary one (R -> Δ π). 0 if not found.
+        int mother_pdg = 0;
+        for (int j = 0; j < t.NParticles(); ++j)
+          if (t.GetParticle(j).TrackId() == d.Mother()) { mother_pdg = t.GetParticle(j).PdgCode(); break; }
         out << aux.run() << ',' << aux.subRun() << ',' << aux.event() << ','
             << d.PdgCode() << ',' << d.Momentum().M() << ',' << nu.W() << ','
-            << nu.HitNuc() << ',' << channel << ',' << nd << ',' << nphot << '\n';
+            << nu.HitNuc() << ',' << channel << ',' << nd << ',' << nphot << ','
+            << mother_pdg << '\n';
       }
     }
   }

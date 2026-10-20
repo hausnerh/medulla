@@ -40,7 +40,8 @@ def load(path):
                 pdg=col('delta_pdg', int), w_delta=col('w_delta'), w_kine=col('w_kine'),
                 hitnuc=col('hitnuc', int), nphot=col('n_photon_status1_gt30mev', int),
                 nd=col('n_daughters', int), rad=np.array(['22' in r['channel'].split(':') for r in rows]),
-                channel=[r['channel'] for r in rows])
+                channel=[r['channel'] for r in rows],
+                mother=np.array([int(r.get('mother_pdg') or 0) for r in rows]))  # older dumps lack it
 
 
 def radiative_fraction_check(d, br_gamma):
@@ -95,6 +96,11 @@ def main():
     tab = Counter(zip(d['hitnuc'], d['pdg']))
     print('\n5. [info] struck nucleon x Δ (count):  ' +
           ', '.join(f'hitnuc {h} -> {p}: {n}' for (h, p), n in sorted(tab.items())))
+    if d['mother'].any():
+        mism = D.delta_pdg_from_hitnuc(d['hitnuc']) != d['pdg']
+        mt = Counter(d['mother'][mism])
+        print('   charge-mismatched Δ by mother pdg (secondary Δ from a heavier resonance expected): ' +
+              (', '.join(f'{m}: {n}' for m, n in sorted(mt.items())) or 'none'))
 
     w = D.weight(d['rad'], d['w_delta'], d['pdg'], a.br_gamma)
     print(f'\nweights: radiative median {np.median(w[d["rad"]]):.4f}, Nπ median {np.median(w[~d["rad"]]):.3f}, '
