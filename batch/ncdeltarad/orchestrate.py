@@ -67,7 +67,7 @@ sys.path.insert(0, str(HERE))
 import delta_br  # noqa: E402
 
 DEFAULTS = dict(experiment='icarus', release='v10_06_00_13', qual='e26:prof', file_type='overlay',
-                run_type='physics', resource='DEDICATED,OPPORTUNISTIC', jobsub_extra='',
+                run_type='physics', resource='DEDICATED,OPPORTUNISTIC', jobsub_extra='', os='SL7',
                 br_gamma=delta_br.BR_GAMMA_DEFAULT, genie_pdg_table='', min_good_fraction=0.95,
                 max_makeup=2, accept_fraction=0.80, held_timeout_hours=6.0, fallback_wait_hours=12.0,
                 notify_cmd='', persistent_base='', numevents=1000000000, delta_sidecar=True,
@@ -128,6 +128,11 @@ def render_xml(c, numjobs):
              '  <larsoft>', f'    <tag>{c["release"]}</tag>', f'    <qual>{c["qual"]}</qual>', '  </larsoft>',
              f'  <version>{c["release"]}</version>', f'  <filetype>{c["file_type"]}</filetype>',
              f'  <runtype>{c["run_type"]}</runtype>', f'  <fcldir>{fcldir}</fcldir>']
+    if c.get('os'):
+        # larbatch turns <os> into +SingularityImage (fnal-wn-<os>) for the
+        # worker AND the SAM start/stop jobs; a --singularity-image in <jobsub>
+        # reaches only the workers.
+        lines.append(f'  <os>{c["os"]}</os>')
     for st in c['stages']:
         d = stage_dirs(c, st)
         jobsub = f"--expected-lifetime={st['lifetime']} {c['jobsub_extra']} {st['jobsub']}"

@@ -320,6 +320,13 @@ def test_dry_run_submits_nothing(campaign):
     assert not any(isinstance(c, list) and c[0] == 'project.py' for c in grid.calls)
 
 
+def test_xml_sets_project_os_for_start_stop_jobs(campaign):
+    xml = (campaign() / 't.xml').read_text()
+    project_part = xml.split('<stage ')[0]
+    assert '<os>SL7</os>' in project_part
+    assert '--singularity-image' not in xml
+
+
 def test_full_chain_with_makeup(campaign):
     wd = campaign()
     cfg = json.loads((wd / 'config.json').read_text())

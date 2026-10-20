@@ -24,9 +24,14 @@ br_gamma         = 0.663         # BR(Δ→Nγ) in the patched table = BR(Nπ0):
 # genie_pdg_table = ""           # default: $GENIE/data/evgen/catalogues/pdg/genie_pdg_table.txt
 
 resource         = "DEDICATED,OPPORTUNISTIC"
-# Applied to every stage. Check against the current ICARUS production XMLs
-# (container image, extra requirements).
-jobsub_extra     = "--singularity-image /cvmfs/singularity.opensciencegrid.org/fermilab/fnal-wn-sl7:latest"
+# Job container: rendered as the project's <os>; larbatch maps SL7 to
+# /cvmfs/singularity.opensciencegrid.org/fermilab/fnal-wn-sl7:latest for the
+# workers AND the SAM start/stop jobs. Needed when submitting from AL9: the
+# start job otherwise lands on a bare AL9 node, where setup_icarus.sh fails
+# ("UPS setup appears to have failed") and the DAG stops.
+os               = "SL7"
+# Extra jobsub_submit options for every stage's worker jobs (not the image).
+jobsub_extra     = ""
 
 # Where the orchestrator runs. jobsub (and so project.py --submit) needs the
 # AL9 host: inside the SL7 container it fails with "HTCondorIOError: Failed
