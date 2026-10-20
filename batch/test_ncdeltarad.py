@@ -157,11 +157,27 @@ class FakeGrid:
                 return 0, f'Use job id {self.next_id}.0@jobsub01.fnal.gov to retrieve output'
             if action in ('--check', '--checkana'):
                 st = next(s for s in self.cfg['stages'] if s['name'] == stage)
-                book = Path(O.stage_dirs(self.cfg, st)['bookdir'])
+                dirs = O.stage_dirs(self.cfg, st)
+                book = Path(dirs['bookdir'])
                 book.mkdir(parents=True, exist_ok=True)
                 n = self.good[stage].pop(0)
+                good = []
+                for i in range(n):          # one output directory per good job
+                    jd = Path(dirs['outdir']) / f'job_{i}'
+                    jd.mkdir(parents=True, exist_ok=True)
+                    main = jd / (f'{stage}_{i}.flat.caf.root' if st['ana'] else f'{stage}_{i}.root')
+                    main.write_text('x')
+                    good.append(str(main))
+                    if st['ana']:
+                        (jd / f'{stage}_{i}.caf.root').write_text('x')
+                    if stage == 'stage1':
+                        (jd / f'larcv_{i}.root').write_text('x')
+                # leftovers of a failed job must never be published
+                bad = Path(dirs['outdir']) / 'job_failed'
+                bad.mkdir(parents=True, exist_ok=True)
+                (bad / 'larcv_failed.root').write_text('x')
                 name = 'filesana.list' if st['ana'] else 'files.list'
-                (book / name).write_text(''.join(f'/pnfs/x/{stage}_{i}.root\n' for i in range(n)))
+                (book / name).write_text(''.join(f + '\n' for f in good))
                 return 0, ''
         if prog == 'jobsub_q':
             cl = cmd[cmd.index('--jobid') + 1]
@@ -262,6 +278,59 @@ def test_waits_for_token(campaign):
     results, state = _drive(wd, grid)
     assert results[-1] == 'auth' and state['stages']['gen']['status'] == 'pending'
     assert not any(isinstance(c, list) and c[0] == 'project.py' for c in grid.calls)
+
+
+def test_publishes_lists_and_manifest(tmp_path):
+    (tmp_path / 'table.txt').write_text(TABLE)
+    cfgp = tmp_path / 'c.toml'
+    cfgp.write_text(textwrap.dedent(f"""\
+        [campaign]
+        name = "t"
+        workdir = "{tmp_path / 'wd'}"
+        pnfs_base = "{tmp_path / 'scratch'}"
+        persistent_base = "{tmp_path / 'persistent'}"
+        overlay_inputdef = "def"
+        gen_numjobs = 4
+        genie_pdg_table = "{tmp_path / 'table.txt'}"
+        [[stage]]
+        name = "gen"
+        fcl = "simulation_genie_icarus_bnb_overlays_volDetEnclosure_fiducial_ncdeltarad.fcl"
+        [[stage]]
+        name = "stage1"
+        fcl = "stage1.fcl"
+        persistent = true
+        publish = [ {{ name = "larcv", glob = "*larcv*.root" }} ]
+        [[stage]]
+        name = "caf"
+        fcl = "caf.fcl"
+        ana = true
+        persistent = true
+        publish = [ {{ name = "flatcaf", glob = "*.flat.caf.root" }},
+                    {{ name = "caf", glob = "*.caf.root", exclude = "*.flat.caf.root" }} ]
+        """))
+    O.cmd_init(type('A', (), dict(config=str(cfgp), force=False, dry_run=False))())
+    wd = tmp_path / 'wd'
+    cfg = json.loads((wd / 'config.json').read_text())
+    grid = FakeGrid(cfg, good=dict(gen=[4], stage1=[4], caf=[4]))
+    results, state = _drive(wd, grid)
+    assert results[-1] == 'done'
+
+    s1 = tmp_path / 'persistent' / 'stage1'
+    larcv = (s1 / 'larcv_files.list').read_text().split()
+    assert len(larcv) == 4 and not any('failed' in f for f in larcv)
+    assert len((s1 / 'files.list').read_text().split()) == 4
+    caf = tmp_path / 'persistent' / 'caf'
+    flat = (caf / 'flatcaf_files.list').read_text().split()
+    plain = (caf / 'caf_files.list').read_text().split()
+    assert len(flat) == 4 and len(plain) == 4 and not any(f.endswith('.flat.caf.root') for f in plain)
+    assert (tmp_path / 'scratch' / 'gen' / 'files.list').exists()     # non-persistent stage stays on scratch
+
+    m = json.loads((tmp_path / 'persistent' / 'manifest.json').read_text())
+    assert m['stages']['stage1']['lists']['larcv']['n'] == 4
+    assert m['stages']['caf']['lists']['flatcaf']['list'] == str(caf / 'flatcaf_files.list')
+    assert m['br_gamma'] == pytest.approx(0.663) and m['event_generator_list'] == 'NCRES'
+    assert '6.63000e-01' in (tmp_path / 'persistent' / 'ncdeltarad_pdg_table.txt').read_text()
+    assert (tmp_path / 'persistent' / 'campaign_config.json').exists()
 
 
 def test_removes_long_held_jobs(campaign):

@@ -3,9 +3,11 @@
 Orchestrator for the enhanced-radiative NC Δ grid campaign.
 
 Drives the ICARUS production chain stage by stage with larbatch's project.py
-(gen -> g4 -> detsim -> stage0 -> stage1 -> caf), followed by optional
-"external" stages (SPINE, medulla) given as shell commands. For each larbatch
-stage it:
+(gen -> g4 -> detsim -> stage0 -> stage1 -> caf). The SPINE step needs a GPU
+node and is not run here: the campaign's product is the stage outputs on
+/pnfs plus file lists and a manifest the SPINE step reads. Optional
+"external" stages (shell commands) can still be chained after caf. For each
+larbatch stage it:
 
   1. renders the project.py XML (numjobs follows the previous stage's good
      output, so no input file is silently dropped),
@@ -14,7 +16,14 @@ stage it:
      longer than `held_timeout_hours`,
   4. runs `project.py --check` (or `--checkana`) once the clusters are gone,
   5. resubmits failures with `project.py --makeup` up to `max_makeup` times,
-     then accepts the stage (>= accept_fraction good) or marks it failed.
+     then accepts the stage (>= accept_fraction good) or marks it failed,
+  6. publishes the stage: `files.list` (good outputs per project.py) and one
+     `<name>_files.list` per [[stage.publish]] glob (e.g. larcv, flat CAF),
+     written next to the stage's outdir on /pnfs.
+
+When every larbatch stage is done it writes <persistent_base>/manifest.json
+(stage outdirs, counts, list paths) and copies the patched PDG table and the
+campaign config next to it.
 
 State lives in <workdir>/state.json (written atomically, guarded by a lock),
 so `tick` can run from cron or `run` can loop in tmux, and either can be
@@ -28,6 +37,7 @@ killed and restarted at any point.
 """
 import argparse
 import fcntl
+import fnmatch
 import json
 import math
 import os
@@ -62,7 +72,7 @@ DEFAULTS = dict(experiment='icarus', release='v10_06_00_13', qual='e26:prof', fi
                 max_makeup=2, accept_fraction=0.80, held_timeout_hours=6.0, fallback_wait_hours=12.0,
                 notify_cmd='', persistent_base='', numevents=1000000000)
 STAGE_DEFAULTS = dict(datatier='', memory=4000, disk='20GB', lifetime='8h', ana=False,
-                      maxfilesperjob=1, persistent=False, jobsub='')
+                      maxfilesperjob=1, persistent=False, jobsub='', publish=[])
 JOBID_RE = re.compile(r'(\d+)\.\d+@(jobsub\d+\.fnal\.gov)')
 STATE_TOKENS = {'I', 'R', 'H', 'X', 'C', 'S'}
 
@@ -88,10 +98,19 @@ def load_config(path):
 
 
 def stage_dirs(c, st):
-    base = c['persistent_base'] if (st['persistent'] and c['persistent_base']) else c['pnfs_base']
-    root = f"{base}/{st['name']}"
+    root = stage_root(c, st)
     return dict(outdir=f'{root}/out', logdir=f'{root}/log', workdir=f"{c['pnfs_base']}/{st['name']}/work",
                 bookdir=f"{c['workdir']}/book/{st['name']}")
+
+
+def stage_root(c, st):
+    """/pnfs directory holding the stage's out/ and log/ and its published lists."""
+    base = c['persistent_base'] if (st['persistent'] and c['persistent_base']) else c['pnfs_base']
+    return f"{base}/{st['name']}"
+
+
+def manifest_dir(c):
+    return c['persistent_base'] or c['pnfs_base']
 
 
 def render_xml(c, numjobs):
@@ -244,6 +263,8 @@ class Orchestrator:
                 return self.poll(st, s)
             if s['status'] == 'checking':
                 return self.check(st, s)
+        if not self.state.get('manifest'):
+            self.write_manifest()
         for ext in self.cfg['external']:
             s = self.state['stages'][ext['name']]
             if s['status'] in ('pending', 'running'):
@@ -317,9 +338,69 @@ class Orchestrator:
 
     def finish(self, st, s, status, note=''):
         s['status'], s['finished'] = status, now()
+        if status == 'done':
+            note = f'{note} {self.publish(st, s)}'.strip()
         self.notify(f"[{self.cfg['name']}] {st['name']} {status}", f"{s['good']}/{s['expected']} good. {note}".strip())
         # 'done' is reserved for the whole campaign; a finished stage advances.
         return 'advanced' if status == 'done' else status
+
+    def publish(self, st, s):
+        """Write the stage's file lists next to its outdir on /pnfs. Only the
+        job directories of project.py's good outputs are searched, so files
+        left by failed attempts are never published. Returns a short summary."""
+        root = Path(stage_root(self.cfg, st))
+        book = Path(stage_dirs(self.cfg, st)['bookdir'])
+        src = book / ('filesana.list' if st['ana'] else 'files.list')
+        good = [x.strip() for x in src.read_text().splitlines() if x.strip()] if src.exists() else []
+        dirs = sorted({str(Path(f).parent) for f in good}) or [str(root / 'out')]
+        lists = {'files': good}
+        for p in st['publish']:
+            found = set()
+            for d in dirs:
+                for f in Path(d).rglob(p['glob']):
+                    if not (p.get('exclude') and fnmatch.fnmatch(f.name, p['exclude'])):
+                        found.add(str(f))
+            lists[p['name']] = sorted(found)
+        published, warn = {}, []
+        for name, files in lists.items():
+            fname = 'files.list' if name == 'files' else f'{name}_files.list'
+            local = self.dir / 'published' / st['name'] / fname
+            local.parent.mkdir(parents=True, exist_ok=True)
+            local.write_text(''.join(f + '\n' for f in files))
+            copy_to_pnfs(self.sh, local, str(root / fname))
+            published[name] = dict(list=str(root / fname), n=len(files))
+            if name != 'files' and len(files) < len(good):
+                warn.append(f'{name}: {len(files)} files for {len(good)} good jobs')
+        s['published'] = published
+        msg = 'published ' + ', '.join(f"{k}={v['n']}" for k, v in published.items()) + f' to {root}'
+        if warn:
+            msg += ' WARNING ' + '; '.join(warn)
+        self.log(f"{st['name']}: {msg}")
+        return msg
+
+    def write_manifest(self):
+        """Campaign manifest on /pnfs: what was generated and where the outputs
+        (and their lists) are, for the GPU SPINE step and for medulla."""
+        dest = Path(manifest_dir(self.cfg))
+        stages = {}
+        for st in self.cfg['stages']:
+            s = self.state['stages'][st['name']]
+            stages[st['name']] = dict(fcl=st['fcl'], outdir=stage_dirs(self.cfg, st)['outdir'], good=s.get('good'),
+                                      expected=s.get('expected'), attempts=s.get('attempts'),
+                                      lists=s.get('published', {}))
+        m = dict(name=self.cfg['name'], created=self.state['created'], finished=now(),
+                 release=self.cfg['release'], qual=self.cfg['qual'], event_generator_list='NCRES',
+                 overlay_inputdef=self.cfg['overlay_inputdef'], br_gamma=self.cfg['br_gamma'],
+                 pdg_table=str(dest / 'ncdeltarad_pdg_table.txt'), config=str(dest / 'campaign_config.json'),
+                 weight='batch/ncdeltarad/delta_br.py weight(radiative, W, delta_pdg, br_gamma)',
+                 stages=stages)
+        local = self.dir / 'manifest.json'
+        local.write_text(json.dumps(m, indent=1))
+        for src, name in ((local, 'manifest.json'), (self.dir / 'ncdeltarad_pdg_table.txt', 'ncdeltarad_pdg_table.txt'),
+                          (self.dir / 'config.json', 'campaign_config.json')):
+            copy_to_pnfs(self.sh, src, str(dest / name))
+        self.state['manifest'] = str(dest / 'manifest.json')
+        self.notify(f"[{self.cfg['name']}] all production stages done", f"manifest: {self.state['manifest']}")
 
     def external(self, ext, s):
         fmt = dict(workdir=self.cfg['workdir'], pnfs_base=self.cfg['pnfs_base'],

@@ -64,13 +64,20 @@ datatier = "reconstructed"
 memory   = 8000
 lifetime = "24h"
 
+# Every finished stage publishes <stage dir>/files.list (project.py's good
+# outputs) and one <name>_files.list per [[stage.publish]] glob, searched only
+# in the good jobs' output directories. stage1 and caf are the inputs of the
+# GPU SPINE step, so they go to persistent_base.
 [[stage]]
 name       = "stage1"
 fcl        = "stage1_run2_larcv_icarus_overlay.fcl"
 datatier   = "reconstructed"
 memory     = 6000
 lifetime   = "12h"
-persistent = true            # its larcv files feed SPINE
+persistent = true
+# superaMC (icarus_analysis_superaMC) writes the larcv file with
+# unique_filename; check the name on the pilot and adjust the glob.
+publish    = [ { name = "larcv", glob = "*larcv*.root" } ]
 
 [[stage]]
 name       = "caf"
@@ -80,16 +87,13 @@ memory     = 4000
 lifetime   = "8h"
 ana        = true            # CAF output is not an art file: use project.py --checkana
 persistent = true
+publish    = [ { name = "flatcaf", glob = "*.flat.caf.root" },
+               { name = "caf",     glob = "*.caf.root", exclude = "*.flat.caf.root" } ]
 
-# External stages run after the larbatch chain, in order. submit_cmd runs once;
-# check_cmd is polled: exit 0 = done, 1 = still running, 2 = failed.
-# Placeholders: {workdir} {pnfs_base} {persistent_base} {name}.
-# [[external]]
-# name       = "spine"
-# submit_cmd = "FILL_ME: submit SPINE on {persistent_base}/stage1/out and merge into {persistent_base}/caf/out"
-# check_cmd  = "FILL_ME: exit 0 when the SPINE-merged CAFs are complete"
+# When all stages are done: <persistent_base>/manifest.json (stage outdirs,
+# counts, list paths) plus ncdeltarad_pdg_table.txt and campaign_config.json.
 #
-# [[external]]
-# name       = "medulla"
-# submit_cmd = "FILL_ME: medulla selection over the merged CAFs (batch/run_cc_sideband.sh --sel-toml ...)"
-# check_cmd  = "FILL_ME"
+# SPINE needs a GPU node and is not run by the orchestrator. Optional
+# [[external]] stages (shell commands) can still be chained after caf:
+# submit_cmd runs once; check_cmd is polled (exit 0 done, 1 running, 2 failed);
+# placeholders {workdir} {pnfs_base} {persistent_base} {name}.

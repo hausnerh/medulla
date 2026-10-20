@@ -17,7 +17,11 @@ the generator stage changes:
 | stage0 | `stage0_run2_wcdnn_icarus_overlay.fcl` |
 | stage1 | `stage1_run2_larcv_icarus_overlay.fcl` (its larcv output feeds SPINE) |
 | caf | `cafmakerjob_icarus_detsim2d_systtools_and_fluxwgt_overlay.fcl` |
-| spine | your existing SPINE + merge-into-CAF step |
+
+The SPINE step (reconstruction on the larcv files, then merging into the CAFs)
+needs a GPU node, so it is not part of this campaign. The campaign's product
+is the stage outputs on `/pnfs`, with file lists and a manifest (section 3a)
+that the SPINE step reads.
 
 ## 1. Physics setup
 
@@ -93,7 +97,7 @@ need a per-event record carried from gen.
 | `orchestrate.py` | campaign orchestrator around larbatch `project.py` |
 | `dump_delta_decays.C` | gallery macro: every NC Δ decay in gen files → CSV |
 | `pilot_check.py` | pilot validation from that CSV |
-| `../test_ncdeltarad.py` | tests: branching-ratio emulation, weight closure, patcher, pilot check, orchestrator state machine |
+| `../test_ncdeltarad.py` | tests: branching-ratio emulation, weight closure, patcher, pilot check, orchestrator state machine, /pnfs publishing + manifest |
 
 ## 3. Running
 
@@ -135,15 +139,50 @@ python batch/ncdeltarad/orchestrate.py status <workdir>
    - then accept if at least `accept_fraction` is good, else the stage
      fails and the campaign stops.
 
+7. Publishes the finished stage's file lists to `/pnfs` (section 3a).
+
 **Operations.**
-- External stages (SPINE, medulla) are `submit_cmd`/`check_cmd` shell
+- Optional external stages after `caf` are `submit_cmd`/`check_cmd` shell
   commands in the config. `check_cmd` exits 0 for done, 1 for running and 2
-  for failed.
+  for failed. None is configured: SPINE runs separately on a GPU node.
 - State is written atomically and a lock file prevents two instances, so
   `run` can be killed and restarted. `tick` also works from cron.
 - `retry <stage>` resets a failed stage.
 - `notify_cmd` (e.g. `mail`) fires on stage done/failed and when the token
   needs a refresh.
+
+## 3a. What ends up on /pnfs
+
+Intermediate stages stay on scratch. `stage1` and `caf` (`persistent = true`)
+plus the manifest go to `persistent_base`:
+
+```
+<pnfs_base>/fcl/                     gen fcl, env script, patched table (job inputs)
+<pnfs_base>/{gen,g4,detsim,stage0}/
+    out/<job>/...                    art outputs
+    files.list                       good outputs (project.py --check)
+<persistent_base>/stage1/
+    out/<job>/...                    art + larcv outputs
+    files.list                       good art outputs
+    larcv_files.list                 larcv files of the good jobs      <- SPINE input
+<persistent_base>/caf/
+    out/<job>/...
+    files.list                       good outputs (project.py --checkana)
+    flatcaf_files.list               *.flat.caf.root                   <- merge target / medulla
+    caf_files.list                   *.caf.root (non-flat)
+<persistent_base>/manifest.json      release, NCRES, BR(Nγ), overlay definition, and per stage:
+                                     outdir, good/expected, attempts, list paths and counts
+<persistent_base>/ncdeltarad_pdg_table.txt, campaign_config.json   (provenance)
+```
+
+**How the lists are built.**
+- The publish lists search only the output directories of the jobs that
+  project.py counted as good. Leftovers of failed attempts are never listed.
+- If a list has fewer files than there are good jobs (e.g. a larcv file is
+  missing), the stage notification says so.
+- The globs are config entries (`[[stage]] publish`). The larcv name comes
+  from `superaMC` with `unique_filename`; confirm it on the pilot. Scratch is
+  purged LRU, so set `persistent = true` on any other stage you want to keep.
 
 ## 4. Pilot first (`gen_numjobs = 10`), then scale
 
