@@ -373,6 +373,29 @@ def test_resolve_input_list_fails_without_preferred_replica(tmp_path):
         O.resolve_input_list(_fake_samweb(['a.root', 'b.root', 'c.root']), c, tmp_path / 'in.list')
 
 
+def test_locality_and_online_split(tmp_path):
+    d = tmp_path / 'archive'
+    d.mkdir()
+    for name, loc in (('a.root', 'ONLINE_AND_NEARLINE'), ('b.root', 'NEARLINE'), ('c.root', 'ONLINE')):
+        (d / name).write_text('x')
+        (d / f'.(get)({name})(locality)').write_text(loc + '\n')
+    (d / 'd.root').write_text('x')                       # no locality info -> treated as not on disk
+    on, off = O.online_split([str(d / n) for n in ('a.root', 'b.root', 'c.root', 'd.root')])
+    assert [Path(p).name for p in on] == ['a.root', 'c.root']
+    assert [Path(p).name for p in off] == ['b.root', 'd.root']
+    assert O.locality(d / 'd.root') == 'UNKNOWN'
+
+
+def test_gen_stage_streams_with_schema_root(campaign):
+    wd = campaign()
+    cfg = json.loads((wd / 'config.json').read_text())
+    cfg['stages'][0]['schema'] = 'root'
+    xml = O.render_xml(cfg, {})
+    gen = xml.split('<stage name="gen">')[1].split('</stage>')[0]
+    g4 = xml.split('<stage name="g4">')[1].split('</stage>')[0]
+    assert '<schema>root</schema>' in gen and '<schema>' not in g4
+
+
 def test_xml_uses_inputlist_when_resolved(campaign):
     wd = campaign()
     cfg = json.loads((wd / 'config.json').read_text())

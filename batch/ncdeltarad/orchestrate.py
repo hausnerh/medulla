@@ -79,7 +79,7 @@ DEFAULTS = dict(experiment='icarus', release='v10_06_00_13', qual='e26:prof', fi
                 sl7_setup=('source /cvmfs/icarus.opensciencegrid.org/products/icarus/setup_icarus.sh\n'
                            'setup icaruscode {release} -q {qual}'))
 STAGE_DEFAULTS = dict(datatier='', memory=4000, disk='20GB', lifetime='8h', ana=False,
-                      maxfilesperjob=1, persistent=False, jobsub='', publish=[])
+                      maxfilesperjob=1, persistent=False, jobsub='', publish=[], schema='')
 JOBID_RE = re.compile(r'(\d+)\.\d+@(jobsub\d+\.fnal\.gov)')
 STATE_TOKENS = {'I', 'R', 'H', 'X', 'C', 'S'}
 
@@ -156,6 +156,10 @@ def render_xml(c, numjobs):
             lines.append(f'    <datatier>{st["datatier"]}</datatier>')
         if st['ana']:
             lines.append('    <ana>1</ana>')
+        if st['schema']:
+            # "root": condor_lar.sh streams each input via xrootd
+            # (file_to_url.sh) instead of ifdh-copying it to the worker.
+            lines.append(f'    <schema>{st["schema"]}</schema>')
         lines.append('  </stage>')
     lines += ['</project>', '</job>', '']
     return '\n'.join(lines)
@@ -316,6 +320,15 @@ class Orchestrator:
             rc, out = self.project(st['name'], 'clean_one')
             if rc != 0 and not self.dry_run:
                 self.log(f"{st['name']}: project.py --clean_one failed (rc {rc}):\n{out[-1000:]}")
+            if st['name'] == 'gen' and self.cfg.get('overlay_inputlist') and Path(self.cfg['overlay_inputlist']).exists():
+                # dCache may have evicted prestaged files since init; a job
+                # given a tape-only file fails (HTTP 403).
+                paths = Path(self.cfg['overlay_inputlist']).read_text().split()
+                _, off = online_split(paths)
+                if off:
+                    self.notify(f"[{self.cfg['name']}] gen: {len(off)}/{len(paths)} input files are not on disk",
+                                f"those jobs will fail to read them; prestage (samweb prestage-dataset) "
+                                f"and use retry, e.g. {off[:2]}")
         rc, out = self.project(st['name'], action)
         if self.dry_run:
             self.log(f"{st['name']}: [dry-run] would --{action} {s['numjobs']} jobs "
@@ -558,6 +571,26 @@ def parse_location(loc):
     return re.sub(r'\(.*\)$', '', loc)
 
 
+def locality(path):
+    """dCache locality of a /pnfs file (ONLINE, NEARLINE, ONLINE_AND_NEARLINE,
+    ...) via the NFS '.(get)(<name>)(locality)' magic file; UNKNOWN if it
+    cannot be read."""
+    p = Path(path)
+    try:
+        return (p.parent / f'.(get)({p.name})(locality)').read_text().strip() or 'UNKNOWN'
+    except OSError:
+        return 'UNKNOWN'
+
+
+def online_split(paths):
+    """(on disk, not on disk). A tape-only file cannot be read by a job (dCache
+    refuses: 'HTTP 403 : Permission refused'); prestage it first."""
+    on, off = [], []
+    for p in paths:
+        (on if locality(p).startswith('ONLINE') else off).append(p)
+    return on, off
+
+
 def resolve_input_list(sh, c, out_path, threads=8):
     """Resolve the overlay SAM definition to one replica per file under
     c['input_location_prefer'] and write the paths to out_path.
@@ -598,13 +631,26 @@ def cmd_init(a):
     sh = Shell(lambda m: print(m), a.dry_run, env=job_env(c))
     if c.get('input_location_prefer'):
         lst = wd / 'overlay_input.list'
-        n = resolve_input_list(sh, c, lst)
+        resolve_input_list(sh, c, lst)
+        paths = lst.read_text().split()
+        if c.get('require_online', True):
+            on, off = online_split(paths)
+            if off:
+                (wd / 'overlay_input_offline.list').write_text(''.join(p + '\n' for p in off))
+                print(f'overlay input: {len(off)}/{len(paths)} files are not on disk (tape only); dropped -- '
+                      f'listed in {wd / "overlay_input_offline.list"}; prestage them to use them')
+            if not on:
+                raise SystemExit(f'no file of {c["overlay_inputdef"]} is on disk: '
+                                 f'samweb -e {c["experiment"]} prestage-dataset --defname={c["overlay_inputdef"]}')
+            paths = on
+            lst.write_text(''.join(p + '\n' for p in paths))
         c['overlay_inputlist'] = str(lst)
         gen = c['stages'][0]
         need = c['gen_numjobs'] * gen['maxfilesperjob']
-        print(f'overlay input: {n} files of {c["overlay_inputdef"]} under {c["input_location_prefer"]} -> {lst}'
+        print(f'overlay input: {len(paths)} files of {c["overlay_inputdef"]} under {c["input_location_prefer"]} '
+              f'-> {lst}'
               + (f'  WARNING: gen asks for {need} files ({c["gen_numjobs"]} jobs x {gen["maxfilesperjob"]})'
-                 if n < need else ''))
+                 if len(paths) < need else ''))
     (wd / 'config.json').write_text(json.dumps(c, indent=1))
 
     table_in = c['genie_pdg_table'] or os.path.join(os.environ.get('GENIE', ''),

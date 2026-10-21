@@ -73,6 +73,9 @@ datatier = "simulated"
 memory   = 3000
 lifetime = "8h"
 maxfilesperjob = 5            # ~190 events per gen job; 10x CV signal needs ~140 jobs
+# Stream the overlay inputs over xrootd: they are 0.8-4.7 GB each, so copying
+# 5 per job (the file-list default) needs ~20 GB of worker disk.
+schema   = "root"
 
 [[stage]]
 name     = "g4"
