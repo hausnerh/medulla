@@ -16,6 +16,12 @@ persistent_base  = "/pnfs/icarus/persistent/users/FILL_ME/ncdeltarad/ncdeltarad_
 # stage reads; one GENIE NC RES interaction is added to each overlay event.
 overlay_inputdef = "FILL_ME"
 gen_numjobs      = 10            # gen jobs; each reads maxfilesperjob overlay files (~38 events each)
+# Feed the gen stage an explicit list of each file's replica under this
+# prefix instead of letting SAM deliver the definition. SAM hands out a
+# /pnfs/sbn/data_add replica of these files that no longer exists
+# ([3011] No such file) -> every gen job failed to open its input.
+# Prestage the definition first (samweb prestage-dataset) -- archive is tape.
+input_location_prefer = "/pnfs/icarus/archive"
 
 release          = "v10_06_00_13"
 qual             = "e26:prof"
@@ -46,7 +52,8 @@ sl7_exec = "/cvmfs/oasis.opensciencegrid.org/mis/apptainer/current/bin/apptainer
 # project.py works on AL9 without per-shell exports (also under tmux/cron).
 # Versions: larbatch as used by v10_06_00_13; icarusutil from
 # `python3 -c "import experiment_utilities as e; print(e.__file__)"` in SL7.
-path_prepend       = [ "/cvmfs/larsoft.opensciencegrid.org/products/larbatch/v01_61_01/bin" ]
+path_prepend       = [ "/cvmfs/larsoft.opensciencegrid.org/products/larbatch/v01_61_01/bin",
+                       "/cvmfs/fermilab.opensciencegrid.org/products/common/prd/sam_web_client/v3_6/NULL/bin" ]
 pythonpath_prepend = [ "/cvmfs/larsoft.opensciencegrid.org/products/larbatch/v01_61_01/python",
                        "/cvmfs/icarus.opensciencegrid.org/products/icarus/icarusutil/v10_06_00_04/lib",
                        "/cvmfs/fermilab.opensciencegrid.org/products/common/prd/sam_web_client/v3_6/NULL/python" ]

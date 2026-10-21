@@ -71,6 +71,7 @@ DEFAULTS = dict(experiment='icarus', release='v10_06_00_13', qual='e26:prof', fi
                 br_gamma=delta_br.BR_GAMMA_DEFAULT, genie_pdg_table='', min_good_fraction=0.95,
                 max_makeup=2, accept_fraction=0.80, held_timeout_hours=6.0, fallback_wait_hours=12.0,
                 notify_cmd='', persistent_base='', numevents=1000000000, delta_sidecar=True,
+                input_location_prefer='',
                 xrootd_prefix='root://fndcadoor.fnal.gov:1094/pnfs/fnal.gov/usr/',
                 # '' = run the sidecar's ROOT dump directly (orchestrator inside SL7);
                 # set to an apptainer command with {script} when running on AL9.
@@ -140,8 +141,11 @@ def render_xml(c, numjobs):
             jobsub += f" -f {fcldir}/ncdeltarad_pdg_table.txt"
         lines += [f'  <stage name="{st["name"]}">', f'    <fcl>{st["fcl"]}</fcl>']
         if st['name'] == 'gen':
-            lines += [f'    <inputdef>{c["overlay_inputdef"]}</inputdef>',
-                      f'    <initsource>{fcldir}/ncdeltarad_genie_env.sh</initsource>']
+            # An explicit list (input_location_prefer) pins every file to one
+            # replica; otherwise SAM delivers the files of the definition.
+            src = (f'    <inputlist>{c["overlay_inputlist"]}</inputlist>' if c.get('overlay_inputlist')
+                   else f'    <inputdef>{c["overlay_inputdef"]}</inputdef>')
+            lines += [src, f'    <initsource>{fcldir}/ncdeltarad_genie_env.sh</initsource>']
         lines += [f'    <{k}>{v}</{k}>' for k, v in d.items()]
         default = c['gen_numjobs'] if st['name'] == 'gen' else 1
         lines += [f'    <numjobs>{numjobs.get(st["name"], default)}</numjobs>',
@@ -344,6 +348,7 @@ class Orchestrator:
             return 'waiting'
         left = [x for v in q.values() for x in v]
         s['queue'] = {k: ''.join(sorted(v)) for k, v in q.items()}
+        s['polled'] = now()
         if not left:
             s['status'] = 'checking'
             return self.check(st, s)
@@ -545,14 +550,62 @@ def copy_to_pnfs(sh, src, dst):
             raise SystemExit(f'cannot copy {src} -> {dst}: {out}')
 
 
+def parse_location(loc):
+    """'enstore:/pnfs/icarus/archive/.../95/32(nearline)' -> '/pnfs/icarus/archive/.../95/32'."""
+    loc = loc.strip()
+    if ':' in loc.split('/')[0]:
+        loc = loc.split(':', 1)[1]
+    return re.sub(r'\(.*\)$', '', loc)
+
+
+def resolve_input_list(sh, c, out_path, threads=8):
+    """Resolve the overlay SAM definition to one replica per file under
+    c['input_location_prefer'] and write the paths to out_path.
+
+    SAM delivers whichever location it prefers. For the run2 off-beam
+    min-bias files that is a /pnfs/sbn/data_add dCache replica that no longer
+    exists ([3011] No such file), so every gen job failed to open its input.
+    An explicit list of the (prestaged) archive copies avoids SAM's choice."""
+    from concurrent.futures import ThreadPoolExecutor
+    prefer = c['input_location_prefer'].rstrip('/')
+    rc, out = sh(['samweb', 'list-definition-files', c['overlay_inputdef']], mutating=False, timeout=600)
+    if rc != 0:
+        raise SystemExit(f"samweb list-definition-files {c['overlay_inputdef']} failed: {out[-500:]}")
+    names = [x.strip() for x in out.splitlines() if x.strip()]
+
+    def locate(name):
+        rc, out = sh(['samweb', 'locate-file', name], mutating=False, timeout=300)
+        locs = [parse_location(x) for x in out.splitlines() if x.strip()] if rc == 0 else []
+        hit = next((p for p in locs if p == prefer or p.startswith(prefer + '/')), None)
+        return name, (f'{hit}/{name}' if hit else None)
+
+    with ThreadPoolExecutor(threads) as ex:
+        found = list(ex.map(locate, names))
+    missing = [n for n, p in found if p is None]
+    if missing:
+        raise SystemExit(f'{len(missing)}/{len(names)} files of {c["overlay_inputdef"]} have no replica under '
+                         f'{prefer}, e.g. {missing[:3]}')
+    Path(out_path).write_text(''.join(p + '\n' for _, p in found))
+    return len(found)
+
+
 def cmd_init(a):
     c = load_config(a.config)
     wd = Path(c['workdir'])
     if (wd / 'state.json').exists() and not a.force:
         raise SystemExit(f'{wd}/state.json exists (use --force to re-initialise)')
     wd.mkdir(parents=True, exist_ok=True)
-    (wd / 'config.json').write_text(json.dumps(c, indent=1))
     sh = Shell(lambda m: print(m), a.dry_run, env=job_env(c))
+    if c.get('input_location_prefer'):
+        lst = wd / 'overlay_input.list'
+        n = resolve_input_list(sh, c, lst)
+        c['overlay_inputlist'] = str(lst)
+        gen = c['stages'][0]
+        need = c['gen_numjobs'] * gen['maxfilesperjob']
+        print(f'overlay input: {n} files of {c["overlay_inputdef"]} under {c["input_location_prefer"]} -> {lst}'
+              + (f'  WARNING: gen asks for {need} files ({c["gen_numjobs"]} jobs x {gen["maxfilesperjob"]})'
+                 if n < need else ''))
+    (wd / 'config.json').write_text(json.dumps(c, indent=1))
 
     table_in = c['genie_pdg_table'] or os.path.join(os.environ.get('GENIE', ''),
                                                        'data/evgen/catalogues/pdg/genie_pdg_table.txt')
@@ -611,13 +664,18 @@ def cmd_run(a):
 
 
 def cmd_status(a):
+    """Show the saved state. It changes only when a tick runs: queue states
+    (R/I/H per job) appear after a tick has polled jobsub_q."""
     o = Orchestrator(a.workdir)
-    print(f"campaign {o.cfg['name']}  (created {o.state['created']})")
-    print(f"{'stage':10s} {'status':9s} {'att':>3s} {'good':>6s} {'expect':>6s}  queue / clusters")
+    print(f"campaign {o.cfg['name']}  (created {o.state['created']}; state as of the last tick -- "
+          f"run `tick` to poll the queue)")
+    print(f"{'stage':10s} {'status':9s} {'att':>3s} {'good':>6s} {'expect':>6s}  {'last poll':25s}  queue / clusters")
     for n, s in o.state['stages'].items():
-        q = ' '.join(f'{k}:{v}' for k, v in (s.get('queue') or {}).items()) or ' '.join(s.get('clusters', []))
+        q = ' '.join(f'{k}:{v or "(empty)"}' for k, v in (s.get('queue') or {}).items()) \
+            or ' '.join(s.get('clusters', []))
+        polled = s.get('polled', 'never' if s['status'] == 'running' else '')
         print(f"{n:10s} {s['status']:9s} {s.get('attempts', 0):3d} {s.get('good', ''):>6} "
-              f"{s.get('expected', ''):>6}  {q}")
+              f"{s.get('expected', ''):>6}  {polled:25s}  {q}")
 
 
 def cmd_retry(a):

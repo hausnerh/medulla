@@ -333,6 +333,53 @@ def test_fresh_submit_cleans_stage_first_makeup_does_not(campaign):
     assert ('g4', '--clean_one') in acts and ('g4', '--clean') not in acts
 
 
+LOCATE = {  # samweb locate-file output, as seen for the run2 off-beam min-bias files
+    'a.root': 'dcache:/pnfs/sbn/data_add/sbn_fd/poms_production/x/fc/42\n'
+              'enstore:/pnfs/icarus/archive/sbn/sbn_fd/data/compressed_raw/offbeambnbminbias/00/00/95/32(nearline)\n',
+    'b.root': 'enstore:/pnfs/icarus/archive/sbn/y/00/00/93/80(nearline)\n'
+              'dcache:/pnfs/sbn/data_add/z/3d/5e\n',
+    'c.root': 'dcache:/pnfs/sbn/data_add/only/here\n',
+}
+
+
+def _fake_samweb(names):
+    def sh(cmd, mutating=True, timeout=0):
+        if cmd[:2] == ['samweb', 'list-definition-files']:
+            return 0, ''.join(n + '\n' for n in names)
+        if cmd[:2] == ['samweb', 'locate-file']:
+            return 0, LOCATE[cmd[2]]
+        raise AssertionError(cmd)
+    return sh
+
+
+def test_parse_location():
+    assert O.parse_location('enstore:/pnfs/icarus/archive/a/b(nearline)') == '/pnfs/icarus/archive/a/b'
+    assert O.parse_location('dcache:/pnfs/sbn/data_add/x') == '/pnfs/sbn/data_add/x'
+
+
+def test_resolve_input_list_prefers_archive(tmp_path):
+    c = dict(overlay_inputdef='def', input_location_prefer='/pnfs/icarus/archive')
+    n = O.resolve_input_list(_fake_samweb(['a.root', 'b.root']), c, tmp_path / 'in.list')
+    lines = (tmp_path / 'in.list').read_text().split()
+    assert n == 2 and all(p.startswith('/pnfs/icarus/archive/') for p in lines)
+    assert lines[0].endswith('/00/00/95/32/a.root') and lines[1].endswith('/00/00/93/80/b.root')
+
+
+def test_resolve_input_list_fails_without_preferred_replica(tmp_path):
+    c = dict(overlay_inputdef='def', input_location_prefer='/pnfs/icarus/archive')
+    with pytest.raises(SystemExit, match='1/3 files'):
+        O.resolve_input_list(_fake_samweb(['a.root', 'b.root', 'c.root']), c, tmp_path / 'in.list')
+
+
+def test_xml_uses_inputlist_when_resolved(campaign):
+    wd = campaign()
+    cfg = json.loads((wd / 'config.json').read_text())
+    cfg['overlay_inputlist'] = '/exp/x/overlay_input.list'
+    xml = O.render_xml(cfg, {})
+    gen = xml.split('<stage name="gen">')[1].split('</stage>')[0]
+    assert '<inputlist>/exp/x/overlay_input.list</inputlist>' in gen and '<inputdef>' not in gen
+
+
 def test_xml_sets_project_os_for_start_stop_jobs(campaign):
     xml = (campaign() / 't.xml').read_text()
     project_part = xml.split('<stage ')[0]
