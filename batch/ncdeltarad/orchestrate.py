@@ -302,6 +302,16 @@ class Orchestrator:
         return 'done'
 
     def submit(self, st, s, action):
+        if action == 'submit':
+            # A fresh submit happens only for a 'pending' stage (new campaign,
+            # `init --force` or `retry`), i.e. the stage is being started over.
+            # project.py refuses to submit into non-empty out/log/book dirs, so
+            # clear what a previous attempt left -- this stage only
+            # (--clean_one; --clean would also wipe the later stages). Makeup
+            # rounds keep their outputs.
+            rc, out = self.project(st['name'], 'clean_one')
+            if rc != 0 and not self.dry_run:
+                self.log(f"{st['name']}: project.py --clean_one failed (rc {rc}):\n{out[-1000:]}")
         rc, out = self.project(st['name'], action)
         if self.dry_run:
             self.log(f"{st['name']}: [dry-run] would --{action} {s['numjobs']} jobs "

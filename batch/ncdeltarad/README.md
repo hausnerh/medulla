@@ -155,7 +155,10 @@ python batch/ncdeltarad/orchestrate.py status <workdir>
    no input file is silently dropped.
 2. Refreshes the token non-interactively. If that fails, it waits and sends
    one notification.
-3. Submits with `project.py --submit` and records the jobsub cluster IDs.
+3. Submits with `project.py --submit` and records the jobsub cluster IDs. A
+   fresh submit (new campaign, `init --force`, `retry`) first runs
+   `project.py --clean_one` for that stage only, because project.py refuses to
+   submit into non-empty out/log/book directories. Makeups keep their outputs.
 4. Polls `jobsub_q`. If every remaining job has been held for longer than
    `held_timeout_hours`, it runs `jobsub_rm` on them.
 5. When the queue is empty, runs `--check` (`--checkana` for the CAF stage)

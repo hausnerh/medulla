@@ -320,6 +320,19 @@ def test_dry_run_submits_nothing(campaign):
     assert not any(isinstance(c, list) and c[0] == 'project.py' for c in grid.calls)
 
 
+def test_fresh_submit_cleans_stage_first_makeup_does_not(campaign):
+    wd = campaign()
+    cfg = json.loads((wd / 'config.json').read_text())
+    grid = FakeGrid(cfg, good=dict(gen=[8, 10], g4=[10], caf=[10]))
+    _drive(wd, grid)
+    acts = [(c[4], c[5]) for c in grid.calls if isinstance(c, list) and c[0] == 'project.py']
+    gen = [a for s, a in acts if s == 'gen']
+    assert gen[:2] == ['--clean_one', '--submit']             # clean right before the fresh submit
+    assert '--makeup' in gen and gen[gen.index('--makeup') - 1] != '--clean_one'
+    assert gen.count('--clean_one') == 1
+    assert ('g4', '--clean_one') in acts and ('g4', '--clean') not in acts
+
+
 def test_xml_sets_project_os_for_start_stop_jobs(campaign):
     xml = (campaign() / 't.xml').read_text()
     project_part = xml.split('<stage ')[0]
