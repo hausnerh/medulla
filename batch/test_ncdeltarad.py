@@ -344,10 +344,12 @@ LOCATE = {  # samweb locate-file output, as seen for the run2 off-beam min-bias 
 
 def _fake_samweb(names):
     def sh(cmd, mutating=True, timeout=0):
-        if cmd[:2] == ['samweb', 'list-definition-files']:
+        # on AL9 nothing sets SAM_EXPERIMENT: samweb must get -e explicitly
+        assert cmd[:3] == ['samweb', '-e', 'icarus'], cmd
+        if cmd[3] == 'list-definition-files':
             return 0, ''.join(n + '\n' for n in names)
-        if cmd[:2] == ['samweb', 'locate-file']:
-            return 0, LOCATE[cmd[2]]
+        if cmd[3] == 'locate-file':
+            return 0, LOCATE[cmd[4]]
         raise AssertionError(cmd)
     return sh
 

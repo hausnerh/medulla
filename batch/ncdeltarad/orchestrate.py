@@ -568,13 +568,13 @@ def resolve_input_list(sh, c, out_path, threads=8):
     An explicit list of the (prestaged) archive copies avoids SAM's choice."""
     from concurrent.futures import ThreadPoolExecutor
     prefer = c['input_location_prefer'].rstrip('/')
-    rc, out = sh(['samweb', 'list-definition-files', c['overlay_inputdef']], mutating=False, timeout=600)
+    rc, out = sh(['samweb', '-e', c.get('experiment', 'icarus'), 'list-definition-files', c['overlay_inputdef']], mutating=False, timeout=600)
     if rc != 0:
         raise SystemExit(f"samweb list-definition-files {c['overlay_inputdef']} failed: {out[-500:]}")
     names = [x.strip() for x in out.splitlines() if x.strip()]
 
     def locate(name):
-        rc, out = sh(['samweb', 'locate-file', name], mutating=False, timeout=300)
+        rc, out = sh(['samweb', '-e', c.get('experiment', 'icarus'), 'locate-file', name], mutating=False, timeout=300)
         locs = [parse_location(x) for x in out.splitlines() if x.strip()] if rc == 0 else []
         hit = next((p for p in locs if p == prefer or p.startswith(prefer + '/')), None)
         return name, (f'{hit}/{name}' if hit else None)
