@@ -159,8 +159,10 @@ python batch/ncdeltarad/orchestrate.py status <workdir>
    fresh submit (new campaign, `init --force`, `retry`) first runs
    `project.py --clean_one` for that stage only, because project.py refuses to
    submit into non-empty out/log/book directories. Makeups keep their outputs.
-4. Polls `jobsub_q`. If every remaining job has been held for longer than
-   `held_timeout_hours`, it runs `jobsub_rm` on them.
+4. Polls `jobsub_q`. Any job held for longer than `held_timeout_hours` is
+   removed with `jobsub_rm`, even while other jobs of the stage run, and the
+   makeup redoes it. A job held for exceeding its memory or disk request never
+   runs: raise the request in the TOML and run `reconfig` before the makeup.
 5. When the queue is empty, runs `--check` (`--checkana` for the CAF stage)
    and counts `files.list` / `filesana.list`.
 6. Decides:
@@ -292,7 +294,8 @@ from a laptop:
   then checks.
 - **The container image, memory/disk/lifetime and resource requests** in
   `campaign_run2.toml`. These are first guesses: take them from the
-  production XMLs for the same fcls.
+  production XMLs for the same fcls. Measured in the pilot: detsim and stage0
+  peak at ~16 GB, so they request 20000 MB (detsim was held at 6000).
 - **The overlay SAM definition** that matches the run2 production.
 
 ## 6. Still needed in medulla

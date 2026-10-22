@@ -294,21 +294,21 @@ class Orchestrator:
         return True
 
     def cluster_states(self, clusters):
-        """{cluster: list of job state letters still in the queue}."""
+        """{cluster: [(job id, state letter)] of the jobs still in the queue}."""
         out = {}
         for cl in clusters:
             rc, txt = self.sh(['jobsub_q', '-G', self.cfg['experiment'], '--jobid', cl], mutating=False, timeout=300)
             if rc != 0 and 'no matching' not in txt.lower() and txt.strip():
                 return None  # query failed; try again next tick
             cid = cl.split('@')[0]
-            states = []
+            jobs = []
             for line in txt.splitlines():
                 tok = line.split()
                 if tok and tok[0].startswith(cid + '.'):
                     st = next((t for t in tok[3:] if t in STATE_TOKENS), '?')
                     if st not in ('C', 'X'):
-                        states.append(st)
-            out[cl] = states
+                        jobs.append((tok[0], st))
+            out[cl] = jobs
         return out
 
     def count_good(self, st):
@@ -406,7 +406,7 @@ class Orchestrator:
         if not clusters and not self.dry_run:
             self.log(f"{st['name']}: no job id in project.py output; will check after "
                      f"{self.cfg['fallback_wait_hours']} h")
-        s.update(status='running', clusters=clusters, submitted=self.clock(), held_since=None, errors=0)
+        s.update(status='running', clusters=clusters, submitted=self.clock(), held={}, errors=0)
         s['attempts'] = s.get('attempts', 0) + 1
         self.log(f"{st['name']}: --{action} attempt {s['attempts']} submitted {s['numjobs']} jobs {clusters}")
         return 'submitted'
@@ -420,20 +420,25 @@ class Orchestrator:
         q = self.cluster_states(s['clusters'])
         if q is None:
             return 'waiting'
-        left = [x for v in q.values() for x in v]
-        s['queue'] = {k: ''.join(sorted(v)) for k, v in q.items()}
+        jobs = [j for v in q.values() for j in v]
+        left = [x for _, x in jobs]
+        s['queue'] = {k: ''.join(sorted(x for _, x in v)) for k, v in q.items()}
         s['polled'] = now()
-        if not left:
+        if not jobs:
             s['status'] = 'checking'
             return self.check(st, s)
-        if all(x == 'H' for x in left):
-            s['held_since'] = s.get('held_since') or self.clock()
-            if self.clock() - s['held_since'] > 3600 * self.cfg['held_timeout_hours']:
-                for cl in s['clusters']:
-                    self.sh(['jobsub_rm', '-G', self.cfg['experiment'], '--jobid', cl])
-                self.log(f"{st['name']}: removed {len(left)} jobs held > {self.cfg['held_timeout_hours']} h")
-        else:
-            s['held_since'] = None
+        # Held jobs are timed one by one: a job held for exceeding its memory or
+        # disk request never runs, and must not stall a stage whose other jobs
+        # still run. A removed job's output is redone by the makeup.
+        prev = s.get('held') or {}
+        s['held'] = {j: prev.get(j, self.clock()) for j, x in jobs if x == 'H'}
+        stale = [j for j, t0 in s['held'].items() if self.clock() - t0 > 3600 * self.cfg['held_timeout_hours']]
+        for j in stale:
+            self.sh(['jobsub_rm', '-G', self.cfg['experiment'], '--jobid', j])
+            del s['held'][j]
+        if stale:
+            self.log(f"{st['name']}: removed {len(stale)} jobs held > {self.cfg['held_timeout_hours']} h "
+                     f"(if held for memory/disk: raise the stage's request and reconfig before the makeup)")
         self.log(f"{st['name']}: {len(left)} jobs in queue "
                  f"({sum(x == 'R' for x in left)} R, {sum(x == 'I' for x in left)} I, {sum(x == 'H' for x in left)} H)")
         return 'running'
@@ -845,7 +850,7 @@ def cmd_adopt(a):
     def go():
         o = Orchestrator(a.workdir)
         s = o.state['stages'][a.stage]
-        s.update(status='running', clusters=[cluster], submitted=time.time(), held_since=None,
+        s.update(status='running', clusters=[cluster], submitted=time.time(), held={},
                  errors=0, last_error='', queue={})
         s['attempts'] = s.get('attempts', 0) + 1
         o.save()

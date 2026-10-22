@@ -6,6 +6,7 @@ state machine against a fake project.py / jobsub_q.
 import csv
 import os
 import json
+import re
 import subprocess
 import sys
 import textwrap
@@ -147,7 +148,7 @@ class FakeGrid:
         self.sidecar_br = sidecar_br      # BR(Nγ) the fake gen "used" (None = nominal table)
         self.sl7_scripts = []
         self.krb_ok = krb_ok
-        self.calls, self.next_id, self.live = [], 100, {}
+        self.calls, self.next_id, self.live, self.removed = [], 100, {}, set()
         self.dry_run = False
 
     def log(self, msg):
@@ -205,15 +206,26 @@ class FakeGrid:
                 return 0, ''
         if prog == 'jobsub_q':
             cl = cmd[cmd.index('--jobid') + 1]
+            cid = cl.split('@')[0]
+            head = 'JOBSUBJOBID OWNER SUBMITTED RUNTIME ST PRI SIZE CMD\n'
+            row = '{}.{}@jobsub01.fnal.gov me 10/20 12:00 0+01:00:00 {} 0 0.0 condor_lar.sh\n'
+            if self.held == 'mixed':      # job 0 runs to completion, job 1 stays held until removed
+                rows = ''
+                if self.live.get(cl, 0) > 0:
+                    self.live[cl] -= 1
+                    rows += row.format(cid, 0, 'R')
+                if f'{cid}.1@jobsub01.fnal.gov' not in self.removed:
+                    rows += row.format(cid, 1, 'H')
+                return 0, head + rows
             if self.live.get(cl, 0) > 0:
                 if not self.held:
                     self.live[cl] -= 1
-                st = 'H' if self.held else 'R'
-                return 0, (f'JOBSUBJOBID OWNER SUBMITTED RUNTIME ST PRI SIZE CMD\n'
-                           f'{cl.split("@")[0]}.0@jobsub01.fnal.gov me 10/20 12:00 0+01:00:00 {st} 0 0.0 condor_lar.sh\n')
-            return 0, 'JOBSUBJOBID OWNER SUBMITTED RUNTIME ST PRI SIZE CMD\n'
+                return 0, head + row.format(cid, 0, 'H' if self.held else 'R')
+            return 0, head
         if prog == 'jobsub_rm':
-            self.live[cmd[cmd.index('--jobid') + 1]] = 0
+            jid = cmd[cmd.index('--jobid') + 1]
+            self.removed.add(jid)
+            self.live[re.sub(r'\.\d+@', '@', jid)] = 0
             return 0, ''
         return 0, ''
 
@@ -757,3 +769,21 @@ def test_removes_long_held_jobs(campaign):
         if any(isinstance(c, list) and c[0] == 'jobsub_rm' for c in grid.calls):
             break
     assert any(isinstance(c, list) and c[0] == 'jobsub_rm' for c in grid.calls)
+
+
+def test_held_job_beside_running_jobs_is_removed_and_made_up(campaign):
+    """A job held for memory never runs: it must be removed after the timeout
+    even while its siblings run, so the stage reaches its check and makeup
+    (pilot: detsim 1 R + 1 H at 6 GB)."""
+    wd = campaign(held_timeout_hours=0.5)
+    cfg = json.loads((wd / 'config.json').read_text())
+    grid = FakeGrid(cfg, good=dict(gen=[5, 10], g4=[10], caf=[10]), held='mixed', queue_ticks=20)
+    o = O.Orchestrator(wd, shell=grid, clock=grid_clock)
+    for _ in range(40):
+        o.tick()
+        if o.state['stages']['gen']['attempts'] >= 2:
+            break
+    rm = [c for c in grid.calls if isinstance(c, list) and c[0] == 'jobsub_rm']
+    assert rm and all(c[c.index('--jobid') + 1].endswith('.1@jobsub01.fnal.gov') for c in rm)
+    assert o.state['stages']['gen']['attempts'] == 2       # removed job redone by the makeup
+    assert any(isinstance(c, list) and c[:1] == ['project.py'] and '--makeup' in c for c in grid.calls)

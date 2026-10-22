@@ -93,14 +93,14 @@ lifetime = "24h"
 name     = "detsim"
 fcl      = "detsim_2d_icarus_refactored_yzsim_overlay_Run4.fcl"
 datatier = "detector-simulated"
-memory   = 6000
+memory   = 20000             # pilot: ~16 GB peak (held at 6000)
 lifetime = "12h"
 
 [[stage]]
 name     = "stage0"
 fcl      = "stage0_run2_wcdnn_icarus_overlay.fcl"
 datatier = "reconstructed"
-memory   = 8000
+memory   = 20000             # ~16 GB peak, like detsim
 lifetime = "24h"
 
 # Every finished stage publishes <stage dir>/files.list (project.py's good
