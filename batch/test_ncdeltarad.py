@@ -141,11 +141,12 @@ class FakeGrid:
     """Stands in for project.py / jobsub_q / htgettoken. `good` maps stage ->
     list of good-output counts returned by successive checks."""
 
-    def __init__(self, cfg, good, queue_ticks=1, token_ok=True, held=False, sidecar_br=0.663):
+    def __init__(self, cfg, good, queue_ticks=1, token_ok=True, held=False, sidecar_br=0.663, krb_ok=True):
         self.cfg, self.good, self.queue_ticks = cfg, {k: list(v) for k, v in good.items()}, queue_ticks
         self.token_ok, self.held = token_ok, held
         self.sidecar_br = sidecar_br      # BR(Nγ) the fake gen "used" (None = nominal table)
         self.sl7_scripts = []
+        self.krb_ok = krb_ok
         self.calls, self.next_id, self.live = [], 100, {}
         self.dry_run = False
 
@@ -167,6 +168,8 @@ class FakeGrid:
         if prog == sys.executable:        # pilot_check.py / delta_br.py run for real
             r = subprocess.run(cmd, capture_output=True, text=True)
             return r.returncode, r.stdout + r.stderr
+        if prog in ('klist', 'kinit'):
+            return (0 if self.krb_ok else 1), ''
         if prog == 'htgettoken':
             return (0 if self.token_ok else 1), ''
         if prog == 'project.py':
@@ -582,6 +585,37 @@ def test_adopt_tracks_an_external_cluster(campaign):
     assert not any(isinstance(c, list) and c[0] == 'project.py' for c in grid.calls[n:])
     with pytest.raises(SystemExit, match='not a jobsub id'):
         O.cmd_adopt(type('A', (), dict(workdir=str(wd), stage='gen', jobid='garbage'))())
+
+
+def test_waits_for_kerberos_ticket(campaign):
+    wd = campaign()
+    cfg = json.loads((wd / 'config.json').read_text())
+    grid = FakeGrid(cfg, good=dict(gen=[10]), krb_ok=False)
+    o = O.Orchestrator(wd, shell=grid, clock=grid_clock)
+    assert o.tick() == 'auth'
+    assert ['kinit', '-R'] in grid.calls                       # tried the non-interactive renewal
+    assert not any(isinstance(c, list) and c[0] == 'project.py' for c in grid.calls)
+    assert o.state['auth_alerted'] == 'kerberos ticket needed'
+
+
+def test_auth_failure_in_submit_output_is_not_a_stage_error(campaign):
+    wd = campaign()
+    cfg = json.loads((wd / 'config.json').read_text())
+    grid = FakeGrid(cfg, good=dict(gen=[10]))
+    real = grid.__call__
+
+    def vault_fails(cmd, mutating=True, timeout=0):
+        if isinstance(cmd, list) and cmd[0] == 'project.py' and cmd[5] == '--submit':
+            return 1, ("Failed to process job credential requests (1): ... condor_vault_storer failed\n"
+                       "Error: Authentication needed for icarus\nhtgettoken: Failure getting token")
+        return real(cmd, mutating, timeout)
+    vault_fails.dry_run, vault_fails.log = False, grid.log
+    for _ in range(4):
+        o = O.Orchestrator(wd, shell=vault_fails, clock=grid_clock)
+        assert o.tick() == 'auth'
+        o.save()
+    gen = json.loads((wd / 'state.json').read_text())['stages']['gen']
+    assert gen['status'] == 'pending' and gen.get('errors', 0) == 0      # never counted, never failed
 
 
 def test_waits_for_token(campaign):

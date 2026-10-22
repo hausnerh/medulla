@@ -84,6 +84,8 @@ DEFAULTS = dict(experiment='icarus', release='v10_06_00_13', qual='e26:prof', fi
 STAGE_DEFAULTS = dict(datatier='', memory=4000, disk='20GB', lifetime='8h', ana=False,
                       maxfilesperjob=1, persistent=False, jobsub='', publish=[], schema='')
 JOBID_RE = re.compile(r'(\d+)\.\d+@(jobsub\d+\.fnal\.gov)')
+# jobsub/condor_vault_storer output when the submission lacks credentials.
+AUTH_FAILURES = ('Authentication needed', 'htgettoken failed', 'Failed to process job credential')
 STATE_TOKENS = {'I', 'R', 'H', 'X', 'C', 'S'}
 
 
@@ -267,15 +269,27 @@ class Orchestrator:
         numjobs = {n: s['numjobs'] for n, s in self.state['stages'].items() if s.get('numjobs')}
         self.xml.write_text(render_xml(self.cfg, numjobs))
 
+    def auth_needed(self, what, how):
+        if self.state.get('auth_alerted') != what:
+            self.notify(f"[{self.cfg['name']}] {what}", f"run: {how}")
+            self.state['auth_alerted'] = what
+        return False
+
     def ensure_token(self):
+        """Credentials for a submission: a Kerberos ticket (jobsub's
+        condor_vault_storer authenticates to vault with it -- a host restart
+        drops it, and the submit then fails with 'Authentication needed') and a
+        bearer token. Tries the non-interactive renewals first."""
+        rc, _ = self.sh(['klist', '-s'], mutating=False, timeout=60)
+        if rc != 0:
+            rc, _ = self.sh(['kinit', '-R'], mutating=False, timeout=60)
+            if rc != 0:
+                return self.auth_needed('kerberos ticket needed', 'kinit <user>@FNAL.GOV')
         rc, out = self.sh(['htgettoken', '-a', 'htvaultprod.fnal.gov', '-i', self.cfg['experiment'], '--nooidc'],
                           mutating=False, timeout=120)
         if rc != 0:
-            if not self.state.get('auth_alerted'):
-                self.notify(f"[{self.cfg['name']}] token refresh needed",
-                            f"run: htgettoken -a htvaultprod.fnal.gov -i {self.cfg['experiment']}")
-                self.state['auth_alerted'] = True
-            return False
+            return self.auth_needed('token refresh needed',
+                                    f"htgettoken -a htvaultprod.fnal.gov -i {self.cfg['experiment']}")
         self.state['auth_alerted'] = False
         return True
 
@@ -372,6 +386,14 @@ class Orchestrator:
                      f"treating as submitted. Output tail:\n{out[-800:]}")
             s['warning'] = f"--{action} rc {rc} but submitted {clusters} ({now()})"
             rc = 0
+        if rc != 0 and any(x in out for x in AUTH_FAILURES):
+            # Credentials, not the stage: wait for re-authentication instead of
+            # counting towards the 3 errors that fail the stage.
+            self.log(f"{st['name']}: --{action} failed on authentication:\n{out[-800:]}")
+            self.auth_needed('authentication needed for submission',
+                             'klist; kinit <user>@FNAL.GOV; htgettoken -a htvaultprod.fnal.gov -i '
+                             + self.cfg['experiment'])
+            return 'auth'
         if rc != 0:
             s['errors'] = s.get('errors', 0) + 1
             last = [x for x in out.strip().splitlines() if x.strip()]
