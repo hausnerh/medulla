@@ -519,6 +519,47 @@ def test_reconfig_keeps_state_and_input_list(campaign):
     assert json.loads((wd / 'state.json').read_text())['stages']['gen'] == {'status': 'failed', 'attempts': 1}
 
 
+def test_nonzero_exit_with_job_id_counts_as_submitted(campaign):
+    """project.py --makeup printed 'Use job id ...' then exited 1: no duplicate makeup."""
+    wd = campaign()
+    cfg = json.loads((wd / 'config.json').read_text())
+    grid = FakeGrid(cfg, good=dict(gen=[1, 10], g4=[10], caf=[10]))
+    real = grid.__call__
+
+    def makeup_rc1(cmd, mutating=True, timeout=0):
+        rc, out = real(cmd, mutating, timeout)
+        if isinstance(cmd, list) and cmd[0] == 'project.py' and cmd[5] == '--makeup':
+            return 1, out + '\n\nError:\n\n'
+        return rc, out
+    makeup_rc1.dry_run, makeup_rc1.log = False, grid.log      # publish uses the shell's attributes
+    results, state = _drive(wd, makeup_rc1)
+    gen = [c[5] for c in grid.calls if isinstance(c, list) and c[0] == 'project.py' and c[4] == 'gen']
+    assert gen.count('--makeup') == 1                       # exactly one makeup, no duplicate
+    assert state['stages']['gen']['attempts'] == 2 and state['stages']['gen']['status'] == 'done'
+    assert 'rc 1 but submitted' in state['stages']['gen'].get('warning', '')
+
+
+def test_adopt_tracks_an_external_cluster(campaign):
+    wd = campaign()
+    cfg = json.loads((wd / 'config.json').read_text())
+    grid = FakeGrid(cfg, good=dict(gen=[1, 10], g4=[10], caf=[10]))
+    o = O.Orchestrator(wd, shell=grid, clock=grid_clock)
+    o.tick(); o.save()                                    # gen submitted (cluster 101)
+    st = json.loads((wd / 'state.json').read_text())
+    st['stages']['gen'].update(status='checking')         # as left by a "failed" makeup submission
+    (wd / 'state.json').write_text(json.dumps(st))
+    grid.live['72592754@jobsub03.fnal.gov'] = 1            # the makeup that really is in the queue
+    O.cmd_adopt(type('A', (), dict(workdir=str(wd), stage='gen', jobid='72592754.0@jobsub03.fnal.gov'))())
+    st = json.loads((wd / 'state.json').read_text())['stages']['gen']
+    assert st['status'] == 'running' and st['clusters'] == ['72592754@jobsub03.fnal.gov'] and st['attempts'] == 2
+    n = len(grid.calls)
+    o = O.Orchestrator(wd, shell=grid, clock=grid_clock)
+    assert o.tick() == 'running'                          # polls the adopted cluster
+    assert not any(isinstance(c, list) and c[0] == 'project.py' for c in grid.calls[n:])
+    with pytest.raises(SystemExit, match='not a jobsub id'):
+        O.cmd_adopt(type('A', (), dict(workdir=str(wd), stage='gen', jobid='garbage'))())
+
+
 def test_waits_for_token(campaign):
     wd = campaign()
     cfg = json.loads((wd / 'config.json').read_text())

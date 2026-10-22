@@ -186,6 +186,9 @@ python batch/ncdeltarad/orchestrate.py status <workdir>
   outputs first.
 - `recheck <stage>` re-runs the check of a stage whose jobs already ran, with
   no resubmission. Use it when the check itself failed.
+- `adopt <stage> <jobid>` records a cluster that was submitted outside the
+  loop as the stage's current attempt, so the next tick polls it instead
+  of resubmitting.
 - `reconfig <toml>` reloads the config into `config.json` and the XML without
   resetting the state. `init --force` resets everything.
 - `init`, `run` and `reconfig` first check that `project.py -h` starts with

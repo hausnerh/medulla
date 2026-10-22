@@ -36,6 +36,7 @@ killed and restarted at any point.
     orchestrate.py retry  <workdir> <stage>      # start a stage over (cleans its outputs)
     orchestrate.py recheck <workdir> <stage>     # re-run a stage's check, no resubmission
     orchestrate.py reconfig campaign.toml        # reload the TOML, keep the state
+    orchestrate.py adopt  <workdir> <stage> <jobid>  # track a cluster submitted outside the loop
 """
 import argparse
 import fcntl
@@ -353,6 +354,16 @@ class Orchestrator:
             self.log(f"{st['name']}: [dry-run] would --{action} {s['numjobs']} jobs "
                      f"(maxfilesperjob {st['maxfilesperjob']}); nothing submitted, state unchanged")
             return 'dry-run'
+        clusters = sorted({f'{a}@{b}' for a, b in JOBID_RE.findall(out)})
+        if rc != 0 and clusters:
+            # jobsub reported the job id, so the jobs ARE in the queue even
+            # though project.py exited non-zero (seen: a g4 makeup submitted
+            # to cluster 72592754 followed by an empty "Error:" and rc 1).
+            # Treating that as a failed submission would resubmit -> duplicates.
+            self.log(f"{st['name']}: project.py --{action} exited {rc} but jobsub reported {clusters}; "
+                     f"treating as submitted. Output tail:\n{out[-800:]}")
+            s['warning'] = f"--{action} rc {rc} but submitted {clusters} ({now()})"
+            rc = 0
         if rc != 0:
             s['errors'] = s.get('errors', 0) + 1
             last = [x for x in out.strip().splitlines() if x.strip()]
@@ -362,7 +373,6 @@ class Orchestrator:
                 s['status'] = 'failed'
                 self.notify(f"[{self.cfg['name']}] {st['name']} submission failing", out[-500:])
             return 'error'
-        clusters = sorted({f'{a}@{b}' for a, b in JOBID_RE.findall(out)})
         if not clusters and not self.dry_run:
             self.log(f"{st['name']}: no job id in project.py output; will check after "
                      f"{self.cfg['fallback_wait_hours']} h")
@@ -793,6 +803,26 @@ def cmd_recheck(a):
     with_lock(a.workdir, go)
 
 
+def cmd_adopt(a):
+    """Record a cluster submitted outside the orchestrator's knowledge (e.g. a
+    makeup whose project.py exited non-zero after jobsub accepted it) as the
+    stage's current attempt, so the next tick polls it instead of resubmitting."""
+    m = JOBID_RE.search(a.jobid) or re.fullmatch(r'(\d+)@(jobsub\d+\.fnal\.gov)', a.jobid)
+    if not m:
+        raise SystemExit(f'not a jobsub id: {a.jobid} (expected NNN@jobsubNN.fnal.gov)')
+    cluster = f'{m.group(1)}@{m.group(2)}'
+
+    def go():
+        o = Orchestrator(a.workdir)
+        s = o.state['stages'][a.stage]
+        s.update(status='running', clusters=[cluster], submitted=time.time(), held_since=None,
+                 errors=0, last_error='', queue={})
+        s['attempts'] = s.get('attempts', 0) + 1
+        o.save()
+        o.log(f'{a.stage}: adopted {cluster} as attempt {s["attempts"]} (by user)')
+    with_lock(a.workdir, go)
+
+
 def cmd_reconfig(a):
     """Update config.json and the XML from the TOML without touching the
     campaign state (unlike init --force). The resolved input list is kept;
@@ -827,9 +857,11 @@ def main():
     p.add_argument('workdir'); p.add_argument('stage')
     p = sub.add_parser('reconfig', help='reload the TOML into config.json + XML, keeping the state')
     p.add_argument('config')
+    p = sub.add_parser('adopt', help='record an already-submitted cluster as the stage\'s current attempt')
+    p.add_argument('workdir'); p.add_argument('stage'); p.add_argument('jobid')
     a = ap.parse_args()
     dict(init=cmd_init, status=cmd_status, tick=cmd_tick, run=cmd_run, retry=cmd_retry,
-         recheck=cmd_recheck, reconfig=cmd_reconfig)[a.cmd](a)
+         recheck=cmd_recheck, reconfig=cmd_reconfig, adopt=cmd_adopt)[a.cmd](a)
 
 
 if __name__ == '__main__':
