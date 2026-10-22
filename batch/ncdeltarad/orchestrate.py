@@ -170,6 +170,23 @@ def render_xml(c, numjobs):
 # --------------------------------------------------------------------------- #
 # shell backend (one replaceable entry point, so the logic is testable)
 # --------------------------------------------------------------------------- #
+def sl7_script(setup, cmd):
+    """Bash script run inside the SL7 container: release setup, then `cmd`.
+    No `set -e`: the sourced UPS setup scripts run commands that return
+    non-zero internally, and set -e would abort inside them. Each step is
+    checked explicitly instead. The xrootd token location is exported for
+    containers started with --cleanenv (htgettoken writes it to
+    /run/user/<uid>/bt_u<uid>)."""
+    steps = []
+    for line in setup.strip().splitlines():
+        steps.append(f'{line} || {{ echo "ncdeltarad sl7: FAILED: {line}" >&2; exit 2; }}')
+    return ('#!/bin/bash\n'
+            'export BEARER_TOKEN_FILE="${BEARER_TOKEN_FILE:-/run/user/$(id -u)/bt_u$(id -u)}"\n'
+            + '\n'.join(steps) + '\n'
+            'command -v root >/dev/null || { echo "ncdeltarad sl7: FAILED: no root after setup" >&2; exit 3; }\n'
+            + ' '.join(shlex.quote(x) for x in cmd) + '\n')
+
+
 def job_env(cfg, base=None):
     """Environment for every command the orchestrator runs: the config's
     path_prepend / pythonpath_prepend in front of PATH / PYTHONPATH, so that
@@ -466,12 +483,14 @@ class Orchestrator:
             # Orchestrator on AL9 (where jobsub works): ROOT + gallery need the
             # SL7 release, so run the dump in the container via a script.
             script = pub / 'dump_delta_decays.sh'
-            script.write_text('#!/bin/bash\nset -e\n' + self.cfg['sl7_setup'].format(**self.cfg) + '\n'
-                              + ' '.join(shlex.quote(x) for x in root_cmd) + '\n')
+            script.write_text(sl7_script(self.cfg['sl7_setup'].format(**self.cfg), root_cmd))
             root_cmd = self.cfg['sl7_exec'].format(script=shlex.quote(str(script)))
         rc, out = self.sh(root_cmd, mutating=False, timeout=6 * 3600)
+        (pub / 'dump_delta_decays.log').write_text(out)
         if rc != 0 and not self.dry_run:
-            return False, f'gen sidecar: dump_delta_decays.C failed (rc {rc}): {out[-300:]}'
+            last = '\n'.join(out.strip().splitlines()[-8:])
+            return False, (f'gen sidecar: dump_delta_decays.C failed (rc {rc}); full output in '
+                           f'{pub / "dump_delta_decays.log"}:\n{last}')
         rc, out = self.sh([sys.executable, str(HERE / 'pilot_check.py'), str(csv_path), '--br-gamma', br],
                           mutating=False)
         (pub / 'pilot_check.txt').write_text(out)

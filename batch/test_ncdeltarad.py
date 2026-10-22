@@ -605,6 +605,30 @@ def test_sidecar_dump_runs_in_sl7_container_when_configured(campaign):
     assert not any(isinstance(c, list) and c[0] == 'root' for c in grid.calls)   # never run on the host
 
 
+def test_sl7_script_checks_each_step(tmp_path):
+    fakebin = tmp_path / 'bin'
+    fakebin.mkdir()
+    (fakebin / 'root').write_text('#!/bin/bash\necho "fake root $@"\n')
+    (fakebin / 'root').chmod(0o755)
+    env = {'PATH': f'{fakebin}:/usr/bin:/bin', 'HOME': str(tmp_path)}
+
+    def run(setup, cmd, path=None):
+        script = tmp_path / 's.sh'
+        script.write_text(O.sl7_script(setup, cmd))
+        e = dict(env, PATH=path or env['PATH'])
+        return subprocess.run(['bash', str(script)], capture_output=True, text=True, env=e)
+
+    text = O.sl7_script('source /x/setup_icarus.sh\nsetup icaruscode v1 -q e26:prof', ['root', '-b', 'm.C'])
+    assert 'set -e' not in text and 'BEARER_TOKEN_FILE' in text
+    # a sourced setup that returns non-zero internally but succeeds overall is fine
+    r = run('f() { false; true; }; f\ntrue', ['root', '-b', 'm.C("a","b")'])
+    assert r.returncode == 0 and 'fake root -b m.C("a","b")' in r.stdout
+    r = run('true\nfalse', ['root', '-b', 'm.C'])
+    assert r.returncode == 2 and 'FAILED: false' in r.stderr
+    r = run('true', ['root', '-b', 'm.C'], path='/usr/bin:/bin')
+    assert r.returncode == 3 and 'no root after setup' in r.stderr
+
+
 def test_nominal_table_stops_campaign_before_g4(campaign):
     wd = campaign()
     cfg = json.loads((wd / 'config.json').read_text())

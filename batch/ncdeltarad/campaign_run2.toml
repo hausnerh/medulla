@@ -44,9 +44,11 @@ jobsub_extra     = ""
 # communication with collector". On AL9, the gen-stage sidecar dump (ROOT +
 # gallery) still needs the SL7 release, so it runs in the container through
 # sl7_exec ({script} = a generated script that sets up icaruscode first).
+# --cleanenv keeps the AL9 shell's environment (e.g. conda's PATH/PYTHONPATH)
+# out of the SL7 setup; the script exports the xrootd token location itself.
 # Leave sl7_exec unset only if you run the orchestrator inside SL7 with
 # working jobsub.
-sl7_exec = "/cvmfs/oasis.opensciencegrid.org/mis/apptainer/current/bin/apptainer exec -B /cvmfs,/exp,/nashome,/pnfs/icarus,/opt,/run/user,/etc/hostname,/etc/hosts,/etc/krb5.conf /cvmfs/singularity.opensciencegrid.org/fermilab/fnal-dev-sl7:latest bash {script}"
+sl7_exec = "/cvmfs/oasis.opensciencegrid.org/mis/apptainer/current/bin/apptainer exec --cleanenv -B /cvmfs,/exp,/nashome,/pnfs/icarus,/opt,/run/user,/etc/hostname,/etc/hosts,/etc/krb5.conf /cvmfs/singularity.opensciencegrid.org/fermilab/fnal-dev-sl7:latest bash {script}"
 
 # Prepended to PATH / PYTHONPATH for every command the orchestrator runs, so
 # project.py works on AL9 without per-shell exports (also under tmux/cron).
