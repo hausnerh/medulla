@@ -442,6 +442,24 @@ def test_fails_below_accept_fraction(campaign):
     assert state['stages']['g4']['status'] == 'pending'
 
 
+def test_status_shows_why_a_stage_failed(campaign, capsys):
+    wd = campaign()
+    cfg = json.loads((wd / 'config.json').read_text())
+    grid = FakeGrid(cfg, good=dict(gen=[0, 0, 0, 0]))   # each tick re-checks before retrying the makeup
+    real = grid.__call__
+
+    def failing_makeup(cmd, mutating=True, timeout=0):
+        if isinstance(cmd, list) and cmd[0] == 'project.py' and cmd[5] == '--makeup':
+            return 1, 'Traceback ...\nRuntimeError: something about the makeup'
+        return real(cmd, mutating, timeout)
+    _drive(wd, failing_makeup)
+    state = json.loads((wd / 'state.json').read_text())
+    assert state['stages']['gen']['status'] == 'failed' and state['stages']['gen']['attempts'] == 1
+    O.cmd_status(type('A', (), dict(workdir=str(wd)))())
+    out = capsys.readouterr().out
+    assert '--makeup rc 1' in out and 'something about the makeup' in out
+
+
 def test_waits_for_token(campaign):
     wd = campaign()
     cfg = json.loads((wd / 'config.json').read_text())

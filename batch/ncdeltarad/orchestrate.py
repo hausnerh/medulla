@@ -336,6 +336,8 @@ class Orchestrator:
             return 'dry-run'
         if rc != 0:
             s['errors'] = s.get('errors', 0) + 1
+            last = [x for x in out.strip().splitlines() if x.strip()]
+            s['last_error'] = f"--{action} rc {rc} ({now()}): {last[-1][:200] if last else ''}"
             self.log(f"{st['name']}: project.py --{action} failed (rc {rc}):\n{out[-2000:]}")
             if s['errors'] >= 3:
                 s['status'] = 'failed'
@@ -395,6 +397,8 @@ class Orchestrator:
 
     def finish(self, st, s, status, note=''):
         s['status'], s['finished'] = status, now()
+        if status == 'failed':
+            s['note'] = note
         if status == 'done':
             note = f'{note} {self.publish(st, s)}'.strip()
             if st['name'] == 'gen' and self.cfg.get('delta_sidecar', True):
@@ -722,6 +726,9 @@ def cmd_status(a):
         polled = s.get('polled', 'never' if s['status'] == 'running' else '')
         print(f"{n:10s} {s['status']:9s} {s.get('attempts', 0):3d} {s.get('good', ''):>6} "
               f"{s.get('expected', ''):>6}  {polled:25s}  {q}")
+        if s['status'] == 'failed' and (s.get('last_error') or s.get('note')):
+            print(f"{'':10s} -> {s.get('last_error') or s.get('note')}")
+    print(f"details: {o.dir / 'orchestrator.log'}")
 
 
 def cmd_retry(a):
