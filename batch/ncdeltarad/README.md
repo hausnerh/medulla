@@ -267,7 +267,11 @@ struck nucleon vs Δ charge.
 - **Signal yield (rough):** about 0.05 stage1 signal events per generated
   event, so about 1.9 per file.
 - **Target:** ten times the CV's 134 stage1 signal events needs about 700
-  files, e.g. `maxfilesperjob = 5` on gen with `gen_numjobs ≈ 140`.
+  files, i.e. about 700 gen jobs. Each gen job must take **one** overlay file
+  (`maxfilesperjob = 1`): every file is its own art run, and larg4 aborts at the
+  first event of a second run in the same job (pilot, 2026-10-22: G4Exception
+  Tracking0011, "ProcessManager is NULL for particle = proton"). `init` refuses
+  more unless `allow_multifile_gen = true`.
 - **Measure, don't trust the estimate:** count stage1 category-0 events per
   job on the pilot.
 - **Tape:** only about 1 in 3.5 files of the definition was on disk, so

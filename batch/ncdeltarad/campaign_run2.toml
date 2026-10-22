@@ -15,7 +15,7 @@ persistent_base  = "/pnfs/icarus/persistent/users/FILL_ME/ncdeltarad/ncdeltarad_
 # SAM definition of the run2 overlay input (data) files the production gen
 # stage reads; one GENIE NC RES interaction is added to each overlay event.
 overlay_inputdef = "FILL_ME"
-gen_numjobs      = 10            # gen jobs; each reads maxfilesperjob overlay files (~38 events each)
+gen_numjobs      = 10            # gen jobs = overlay files (one each, ~38 events per file)
 # Feed the gen stage an explicit list of each file's replica under this
 # prefix instead of letting SAM deliver the definition. SAM hands out a
 # /pnfs/sbn/data_add replica of these files that no longer exists
@@ -74,7 +74,10 @@ fcl      = "simulation_genie_icarus_bnb_overlays_volDetEnclosure_fiducial_ncdelt
 datatier = "simulated"
 memory   = 3000
 lifetime = "8h"
-maxfilesperjob = 5            # ~190 events per gen job; 10x CV signal needs ~140 jobs
+# One overlay file (= one art run, ~38 events) per gen job: larg4 aborts at the
+# first event of a second run in the same job (pilot: G4Exception Tracking0011).
+# init refuses >1 unless allow_multifile_gen = true. 10x CV signal: ~700 jobs.
+maxfilesperjob = 1
 # Stream the overlay inputs over xrootd: they are 0.8-4.7 GB each, so copying
 # 5 per job (the file-list default) needs ~20 GB of worker disk.
 schema   = "root"

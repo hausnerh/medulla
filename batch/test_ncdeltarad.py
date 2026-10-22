@@ -362,6 +362,30 @@ def _fake_samweb(names):
     return sh
 
 
+def test_gen_must_take_one_overlay_file_per_job(tmp_path):
+    base = textwrap.dedent("""\
+        [campaign]
+        name = "t"
+        workdir = "/w"
+        pnfs_base = "/p"
+        overlay_inputdef = "d"
+        gen_numjobs = 2
+        {extra}
+        [[stage]]
+        name = "gen"
+        fcl = "gen.fcl"
+        maxfilesperjob = {n}
+        """)
+    p = tmp_path / 'c.toml'
+    p.write_text(base.format(extra='', n=5))
+    with pytest.raises(SystemExit, match='maxfilesperjob must be 1'):
+        O.load_config(p)
+    p.write_text(base.format(extra='allow_multifile_gen = true', n=5))
+    assert O.load_config(p)['stages'][0]['maxfilesperjob'] == 5
+    p.write_text(base.format(extra='', n=1))
+    assert O.load_config(p)['stages'][0]['maxfilesperjob'] == 1
+
+
 def test_parse_location():
     assert O.parse_location('enstore:/pnfs/icarus/archive/a/b(nearline)') == '/pnfs/icarus/archive/a/b'
     assert O.parse_location('dcache:/pnfs/sbn/data_add/x') == '/pnfs/sbn/data_add/x'

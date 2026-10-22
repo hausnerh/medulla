@@ -104,6 +104,14 @@ def load_config(path):
             raise SystemExit(f'config: campaign.{k} is required')
     if not c['stages'] or c['stages'][0]['name'] != 'gen':
         raise SystemExit("config: the first [[stage]] must be 'gen'")
+    if c['stages'][0]['maxfilesperjob'] > 1 and not c.get('allow_multifile_gen'):
+        # Each overlay file is its own art Run. A gen output holding several
+        # runs makes larg4 abort at the first event of the second run
+        # (G4Exception Tracking0011 "ProcessManager is NULL for particle =
+        # proton", after "Geant4 kernel is not PreInit state" warnings) --
+        # seen in the pilot. Production uses one overlay file per gen job.
+        raise SystemExit('config: gen maxfilesperjob must be 1 (one overlay file = one run per gen output; '
+                         'larg4 aborts at a run boundary). Set allow_multifile_gen = true to override.')
     return c
 
 
