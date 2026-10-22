@@ -182,8 +182,10 @@ python batch/ncdeltarad/orchestrate.py status <workdir>
 - Optional external stages after `caf` are `submit_cmd`/`check_cmd` shell
   commands in the config. `check_cmd` exits 0 for done, 1 for running and 2
   for failed. None is configured: SPINE runs separately on a GPU node.
-- State is written atomically and a lock file prevents two instances, so
-  `run` can be killed and restarted. `tick` also works from cron.
+- State is written atomically, so `run` can be killed and restarted. `tick`
+  also works from cron. `run` holds `.runlock` for its lifetime (one loop per
+  workdir) but `.lock` only during each tick, so `reconfig`, `retry`, `adopt`
+  and `recheck` work while the loop runs; they wait for a tick in progress.
 - `retry <stage>` starts a stage over: its fresh submit cleans the stage's
   outputs first.
 - `recheck <stage>` re-runs the check of a stage whose jobs already ran, with

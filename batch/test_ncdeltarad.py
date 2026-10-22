@@ -558,6 +558,24 @@ def test_reconfig_keeps_state_and_input_list(campaign):
     assert json.loads((wd / 'state.json').read_text())['stages']['gen'] == {'status': 'failed', 'attempts': 1}
 
 
+def test_reconfig_while_run_loop_is_alive_updates_xml_memory(campaign):
+    """The run loop holds only .runlock between ticks: a reconfig made while it
+    sleeps must reach the XML that the next makeup reads (pilot: detsim makeup
+    went out at 6000 MB after a reconfig to 20000)."""
+    wd = campaign()
+    toml_path = next(wd.parent.glob('c.toml'))
+    toml_path.write_text(toml_path.read_text().replace('name = "g4"\n', 'name = "g4"\nmemory = 20000\n'))
+    o = O.Orchestrator(wd)
+
+    def reconfig_during_run():
+        O.cmd_reconfig(type('A', (), dict(config=str(toml_path)))())
+        return o.xml_value('g4', 'memory')
+    assert O.with_lock(wd, reconfig_during_run, name='.runlock', wait=0) == '20000'
+    assert o.xml_value('gen', 'memory') == str(O.STAGE_DEFAULTS['memory'])
+    with pytest.raises(SystemExit, match='runlock'):     # still only one run loop
+        O.with_lock(wd, lambda: O.with_lock(wd, lambda: None, name='.runlock', wait=0), name='.runlock', wait=0)
+
+
 def test_nonzero_exit_with_job_id_counts_as_submitted(campaign):
     """project.py --makeup printed 'Use job id ...' then exited 1: no duplicate makeup."""
     wd = campaign()

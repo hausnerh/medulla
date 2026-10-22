@@ -269,6 +269,12 @@ class Orchestrator:
         numjobs = {n: s['numjobs'] for n, s in self.state['stages'].items() if s.get('numjobs')}
         self.xml.write_text(render_xml(self.cfg, numjobs))
 
+    def xml_value(self, stage, tag):
+        """<tag> of a stage as written in the XML project.py reads ('?' if absent)."""
+        m = re.search(rf'<stage name="{re.escape(stage)}">.*?<{tag}>(.*?)</{tag}>.*?</stage>',
+                      self.xml.read_text() if self.xml.exists() else '', re.S)
+        return m.group(1) if m else '?'
+
     def auth_needed(self, what, how):
         if self.state.get('auth_alerted') != what:
             self.notify(f"[{self.cfg['name']}] {what}", f"run: {how}")
@@ -408,7 +414,8 @@ class Orchestrator:
                      f"{self.cfg['fallback_wait_hours']} h")
         s.update(status='running', clusters=clusters, submitted=self.clock(), held={}, errors=0)
         s['attempts'] = s.get('attempts', 0) + 1
-        self.log(f"{st['name']}: --{action} attempt {s['attempts']} submitted {s['numjobs']} jobs {clusters}")
+        self.log(f"{st['name']}: --{action} attempt {s['attempts']} submitted {s['numjobs']} jobs {clusters} "
+                 f"(memory {self.xml_value(st['name'], 'memory')} MB in the XML)")
         return 'submitted'
 
     def poll(self, st, s):
@@ -762,22 +769,38 @@ def cmd_init(a):
           f'XML {wd / (c["name"] + ".xml")}; staged fcl/env/table to {fcldir}')
 
 
-def with_lock(wd, fn):
-    with open(Path(wd) / '.lock', 'w') as lk:
-        try:
-            fcntl.flock(lk, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError:
-            raise SystemExit('another orchestrator instance holds the lock')
+LOCK_WAIT = 900   # s; a tick that submits can take several minutes
+
+
+def with_lock(wd, fn, name='.lock', wait=LOCK_WAIT):
+    """Run fn holding <wd>/<name>. '.lock' guards the state and the XML and is
+    held only for one tick or one command, so reconfig/retry/adopt wait for the
+    running loop's current tick instead of failing; '.runlock' is held by
+    `run` for its lifetime (wait=0) so that only one loop runs."""
+    with open(Path(wd) / name, 'w') as lk:
+        t0 = time.time()
+        while True:
+            try:
+                fcntl.flock(lk, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except BlockingIOError:
+                if time.time() - t0 >= wait:
+                    raise SystemExit(f'another orchestrator instance holds {Path(wd) / name}')
+                time.sleep(5)
         return fn()
 
 
-def cmd_tick(a):
+def tick_once(wd, dry_run=False):
     def go():
-        o = Orchestrator(a.workdir, dry_run=a.dry_run)
+        o = Orchestrator(wd, dry_run=dry_run)
         r = o.tick()
         o.save()
         return r
-    print(with_lock(a.workdir, go))
+    return with_lock(wd, go)
+
+
+def cmd_tick(a):
+    print(tick_once(a.workdir, a.dry_run))
 
 
 def cmd_run(a):
@@ -785,14 +808,12 @@ def cmd_run(a):
 
     def go():
         while True:
-            o = Orchestrator(a.workdir)
-            r = o.tick()
-            o.save()
+            r = tick_once(a.workdir)
             if r in ('done', 'failed'):
                 return r
             # a fresh submission or check usually has follow-up work right away
             time.sleep(60 if r in ('submitted', 'advanced') else a.interval)
-    print(with_lock(a.workdir, go))
+    print(with_lock(a.workdir, go, name='.runlock', wait=0))
 
 
 def cmd_status(a):
@@ -874,7 +895,8 @@ def cmd_reconfig(a):
         (wd / 'config.json').write_text(json.dumps(new, indent=1))
         o = Orchestrator(wd)
         o.write_xml()
-        o.log(f'config reloaded from {a.config} (state kept)')
+        o.log(f'config reloaded from {a.config} (state kept); XML memory (MB): '
+              + ', '.join(f"{st['name']}={o.xml_value(st['name'], 'memory')}" for st in o.cfg['stages']))
     with_lock(load_config(a.config)['workdir'], go)
 
 
