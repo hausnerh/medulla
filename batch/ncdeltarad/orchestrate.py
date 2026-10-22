@@ -33,7 +33,9 @@ killed and restarted at any point.
     orchestrate.py status <workdir>
     orchestrate.py tick   <workdir> [--dry-run]  # one pass of the state machine
     orchestrate.py run    <workdir> [--interval 900]
-    orchestrate.py retry  <workdir> <stage>      # reset a failed stage
+    orchestrate.py retry  <workdir> <stage>      # start a stage over (cleans its outputs)
+    orchestrate.py recheck <workdir> <stage>     # re-run a stage's check, no resubmission
+    orchestrate.py reconfig campaign.toml        # reload the TOML, keep the state
 """
 import argparse
 import fcntl
@@ -626,6 +628,19 @@ def resolve_input_list(sh, c, out_path, threads=8):
     return len(found)
 
 
+def preflight(sh):
+    """project.py must start with the configured paths. `project.py -h`
+    returns 0 only after all its imports (larbatch, ICARUS
+    experiment_utilities, the SAM client) succeed. Without this, a `run` loop
+    started from a shell without the manual exports fails every check and
+    makeup (ModuleNotFoundError: larbatch_posix) and marks the stage failed."""
+    rc, out = sh(['project.py', '-h'], mutating=False, timeout=300)
+    if rc != 0:
+        tail = '\n'.join(out.strip().splitlines()[-4:])
+        raise SystemExit('project.py does not start with this config -- check path_prepend / '
+                         f'pythonpath_prepend (larbatch bin+python, icarusutil lib, sam_web_client):\n{tail}')
+
+
 def cmd_init(a):
     c = load_config(a.config)
     wd = Path(c['workdir'])
@@ -633,6 +648,7 @@ def cmd_init(a):
         raise SystemExit(f'{wd}/state.json exists (use --force to re-initialise)')
     wd.mkdir(parents=True, exist_ok=True)
     sh = Shell(lambda m: print(m), a.dry_run, env=job_env(c))
+    preflight(sh)
     if c.get('input_location_prefer'):
         lst = wd / 'overlay_input.list'
         resolve_input_list(sh, c, lst)
@@ -701,6 +717,8 @@ def cmd_tick(a):
 
 
 def cmd_run(a):
+    preflight(Orchestrator(a.workdir).sh)
+
     def go():
         while True:
             o = Orchestrator(a.workdir)
@@ -741,6 +759,41 @@ def cmd_retry(a):
     with_lock(a.workdir, go)
 
 
+def cmd_recheck(a):
+    """Re-run the check of a stage whose jobs already ran (e.g. the check
+    itself failed), without resubmitting -- `retry` would --clean_one the
+    existing outputs."""
+    def go():
+        o = Orchestrator(a.workdir)
+        s = o.state['stages'][a.stage]
+        if not s.get('attempts'):
+            raise SystemExit(f'{a.stage} was never submitted: nothing to re-check (use tick)')
+        s.update(status='checking', errors=0, last_error='', note='')
+        o.save()
+        o.log(f'{a.stage}: set to checking by user (recheck); the next tick re-runs project.py --check')
+    with_lock(a.workdir, go)
+
+
+def cmd_reconfig(a):
+    """Update config.json and the XML from the TOML without touching the
+    campaign state (unlike init --force). The resolved input list is kept;
+    the stage list must not change."""
+    def go():
+        new = load_config(a.config)
+        wd = Path(new['workdir'])
+        old = json.loads((wd / 'config.json').read_text())
+        if [s['name'] for s in new['stages']] != [s['name'] for s in old['stages']]:
+            raise SystemExit('the stage list changed: that needs init --force')
+        if old.get('overlay_inputlist'):
+            new['overlay_inputlist'] = old['overlay_inputlist']
+        preflight(Shell(lambda m: print(m), env=job_env(new)))
+        (wd / 'config.json').write_text(json.dumps(new, indent=1))
+        o = Orchestrator(wd)
+        o.write_xml()
+        o.log(f'config reloaded from {a.config} (state kept)')
+    with_lock(load_config(a.config)['workdir'], go)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
     sub = ap.add_subparsers(dest='cmd', required=True)
@@ -749,9 +802,15 @@ def main():
     p = sub.add_parser('status'); p.add_argument('workdir')
     p = sub.add_parser('tick'); p.add_argument('workdir'); p.add_argument('--dry-run', action='store_true')
     p = sub.add_parser('run'); p.add_argument('workdir'); p.add_argument('--interval', type=int, default=900)
-    p = sub.add_parser('retry'); p.add_argument('workdir'); p.add_argument('stage')
+    p = sub.add_parser('retry', help='start a stage over (cleans its outputs)')
+    p.add_argument('workdir'); p.add_argument('stage')
+    p = sub.add_parser('recheck', help='re-run the check of an already-run stage, no resubmission')
+    p.add_argument('workdir'); p.add_argument('stage')
+    p = sub.add_parser('reconfig', help='reload the TOML into config.json + XML, keeping the state')
+    p.add_argument('config')
     a = ap.parse_args()
-    dict(init=cmd_init, status=cmd_status, tick=cmd_tick, run=cmd_run, retry=cmd_retry)[a.cmd](a)
+    dict(init=cmd_init, status=cmd_status, tick=cmd_tick, run=cmd_run, retry=cmd_retry,
+         recheck=cmd_recheck, reconfig=cmd_reconfig)[a.cmd](a)
 
 
 if __name__ == '__main__':

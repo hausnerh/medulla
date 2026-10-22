@@ -215,6 +215,14 @@ class FakeGrid:
         return 0, ''
 
 
+@pytest.fixture(autouse=True)
+def no_real_project_py(monkeypatch, request):
+    """There is no project.py on a laptop: stub the startup check, except in
+    the tests of the check itself."""
+    if 'preflight' not in request.node.name:
+        monkeypatch.setattr(O, 'preflight', lambda sh: None)
+
+
 @pytest.fixture
 def campaign(tmp_path):
     def make(stages=('gen', 'g4', 'caf'), gen_numjobs=10, **over):
@@ -458,6 +466,57 @@ def test_status_shows_why_a_stage_failed(campaign, capsys):
     O.cmd_status(type('A', (), dict(workdir=str(wd)))())
     out = capsys.readouterr().out
     assert '--makeup rc 1' in out and 'something about the makeup' in out
+
+
+def test_preflight_reports_missing_python_paths():
+    def sh(cmd, mutating=True, timeout=0):
+        assert cmd == ['project.py', '-h']
+        return 1, 'Traceback (most recent call last):\nModuleNotFoundError: No module named \'larbatch_posix\''
+    with pytest.raises(SystemExit, match='pythonpath_prepend'):
+        O.preflight(sh)
+    O.preflight(lambda cmd, mutating=True, timeout=0: (0, 'usage'))     # passes silently
+
+
+def test_recheck_recovers_a_stage_without_resubmitting(campaign):
+    wd = campaign()
+    cfg = json.loads((wd / 'config.json').read_text())
+    grid = FakeGrid(cfg, good=dict(gen=[10], g4=[10], caf=[10]))
+    o = O.Orchestrator(wd, shell=grid, clock=grid_clock)
+    o.tick(); o.save()                                    # gen submitted
+    st = json.loads((wd / 'state.json').read_text())
+    st['stages']['gen'].update(status='failed', last_error='--makeup rc 1: ModuleNotFoundError')
+    (wd / 'state.json').write_text(json.dumps(st))       # what the broken run loop left behind
+    O.cmd_recheck(type('A', (), dict(workdir=str(wd), stage='gen'))())
+    n_before = len(grid.calls)
+    results, state = _drive(wd, grid)
+    gen_actions = [c[5] for c in grid.calls[n_before:] if isinstance(c, list) and c[0] == 'project.py'
+                   and c[4] == 'gen']
+    assert gen_actions == ['--check']                     # no clean, no resubmit
+    assert state['stages']['gen']['status'] == 'done' and results[-1] == 'done'
+
+
+def test_recheck_refuses_a_never_submitted_stage(campaign):
+    wd = campaign()
+    with pytest.raises(SystemExit, match='never submitted'):
+        O.cmd_recheck(type('A', (), dict(workdir=str(wd), stage='g4'))())
+
+
+def test_reconfig_keeps_state_and_input_list(campaign):
+    wd = campaign()
+    cfg = json.loads((wd / 'config.json').read_text())
+    cfg['overlay_inputlist'] = str(wd / 'overlay_input.list')
+    (wd / 'config.json').write_text(json.dumps(cfg))
+    st = json.loads((wd / 'state.json').read_text())
+    st['stages']['gen'].update(status='failed', attempts=1)
+    (wd / 'state.json').write_text(json.dumps(st))
+    toml_path = next(wd.parent.glob('c.toml'))
+    toml_path.write_text(toml_path.read_text().replace(
+        '[campaign]\n', '[campaign]\npythonpath_prepend = ["/cvmfs/larbatch/python"]\n'))
+    O.cmd_reconfig(type('A', (), dict(config=str(toml_path)))())
+    new = json.loads((wd / 'config.json').read_text())
+    assert new['pythonpath_prepend'] == ['/cvmfs/larbatch/python']
+    assert new['overlay_inputlist'] == str(wd / 'overlay_input.list')
+    assert json.loads((wd / 'state.json').read_text())['stages']['gen'] == {'status': 'failed', 'attempts': 1}
 
 
 def test_waits_for_token(campaign):

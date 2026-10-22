@@ -182,7 +182,16 @@ python batch/ncdeltarad/orchestrate.py status <workdir>
   for failed. None is configured: SPINE runs separately on a GPU node.
 - State is written atomically and a lock file prevents two instances, so
   `run` can be killed and restarted. `tick` also works from cron.
-- `retry <stage>` resets a failed stage.
+- `retry <stage>` starts a stage over: its fresh submit cleans the stage's
+  outputs first.
+- `recheck <stage>` re-runs the check of a stage whose jobs already ran, with
+  no resubmission. Use it when the check itself failed.
+- `reconfig <toml>` reloads the config into `config.json` and the XML without
+  resetting the state. `init --force` resets everything.
+- `init`, `run` and `reconfig` first check that `project.py -h` starts with
+  the configured `path_prepend` / `pythonpath_prepend`. A loop started from a
+  shell without the manual exports otherwise fails every check
+  (`ModuleNotFoundError: larbatch_posix`).
 - `notify_cmd` (e.g. `mail`) fires on stage done/failed and when the token
   needs a refresh.
 
