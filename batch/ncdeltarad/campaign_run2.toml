@@ -63,7 +63,7 @@ pythonpath_prepend = [ "/cvmfs/larsoft.opensciencegrid.org/products/larbatch/v01
 min_good_fraction  = 0.95   # stage done when >= this fraction of jobs produced good output
 max_makeup         = 2      # project.py --makeup rounds before giving up
 accept_fraction    = 0.80   # after the makeups, accept the stage if at least this fraction is good
-held_timeout_hours = 6
+held_timeout_hours = 1      # memory/disk holds never clear by themselves
 # notify_cmd = 'echo {body} | mail -s {subject} FILL_ME@fnal.gov'
 
 # Resource requests are first guesses: take memory/disk/lifetime from the
@@ -108,6 +108,11 @@ fcl      = "larg4_icarus_cosmics_sce.fcl"
 datatier = "simulated"
 memory   = 4000
 lifetime = "24h"
+# From gen on, files carry the decoded data (daqTPCROI:*RAW digits plus the
+# kept raw fragments): pilot g4 was held at the default 20GB of disk. Stream
+# the input instead of copying it, and leave room for the output.
+disk     = "50GB"
+schema   = "root"
 
 [[stage]]
 name     = "detsim"
@@ -115,6 +120,8 @@ fcl      = "detsim_2d_icarus_refactored_yzsim_overlay_Run4.fcl"
 datatier = "detector-simulated"
 memory   = 20000             # pilot: ~16 GB peak (held at 6000)
 lifetime = "12h"
+disk     = "50GB"
+schema   = "root"
 
 # Merges the MC TPC/PMT/CRT products into the overlay data ones (overlayTPCRaw*,
 # overlayOpWaveforms, overlayCRTHit), which stage0_*_overlay reads; the
@@ -126,6 +133,8 @@ fcl      = "overlay_waveforms.fcl"
 datatier = "reconstructed"
 memory   = 16000             # first guess; read MemoryReport in the pilot logs
 lifetime = "12h"
+disk     = "50GB"
+schema   = "root"
 
 [[stage]]
 name     = "stage0"
@@ -133,6 +142,8 @@ fcl      = "stage0_run2_wcdnn_icarus_overlay.fcl"
 datatier = "reconstructed"
 memory   = 20000             # ~16 GB peak, like detsim
 lifetime = "24h"
+disk     = "50GB"
+schema   = "root"
 
 # Every finished stage publishes <stage dir>/files.list (project.py's good
 # outputs) and one <name>_files.list per [[stage.publish]] glob, searched only
