@@ -68,18 +68,38 @@ held_timeout_hours = 6
 
 # Resource requests are first guesses: take memory/disk/lifetime from the
 # production XMLs for the same fcls, or from the pilot's job logs.
+#
+# Overlay production order: decode -> gen -> g4 -> detsim -> overlay -> stage0
+# -> stage1 (-> caf). The first stage reads overlay_inputdef with gen_numjobs
+# jobs; each later stage reads the previous stage's output.
+#
+# The run2 overlay input (..._compressed_data) holds only raw artdaq fragments
+# (DAQEVB04 + ICARUSReprocessRaw). The decoder makes what overlay_waveforms
+# reads from the data side: daqTPCROI:PHYSCRATEDATATPC??RAW, daqPMT,
+# pmtbaselines, crthit, daqTrigger. Without it overlay fails with "Event
+# failed to find raw::RawDigit with label daqTPCROI:PHYSCRATEDATATPCWWRAW".
+[[stage]]
+name     = "decode"
+fcl      = "decoder_run2_icarus.fcl"
+datatier = "decoded-raw"
+memory   = 12000             # first guess; read MemoryReport in the pilot logs
+lifetime = "12h"
+# One overlay file (= one art run, ~38 events) per job up to and including
+# gen: larg4 aborts at the first event of a second run in the same job
+# (pilot: G4Exception Tracking0011). init refuses >1 unless
+# allow_multifile_gen = true. 10x CV signal: ~700 jobs.
+maxfilesperjob = 1
+# Stream the overlay inputs over xrootd: they are 0.8-4.7 GB each, so copying
+# 5 per job (the file-list default) needs ~20 GB of worker disk.
+schema   = "root"
+
 [[stage]]
 name     = "gen"
 fcl      = "simulation_genie_icarus_bnb_overlays_volDetEnclosure_fiducial_ncdeltarad.fcl"
 datatier = "simulated"
 memory   = 3000
 lifetime = "8h"
-# One overlay file (= one art run, ~38 events) per gen job: larg4 aborts at the
-# first event of a second run in the same job (pilot: G4Exception Tracking0011).
-# init refuses >1 unless allow_multifile_gen = true. 10x CV signal: ~700 jobs.
 maxfilesperjob = 1
-# Stream the overlay inputs over xrootd: they are 0.8-4.7 GB each, so copying
-# 5 per job (the file-list default) needs ~20 GB of worker disk.
 schema   = "root"
 
 [[stage]]
@@ -96,21 +116,9 @@ datatier = "detector-simulated"
 memory   = 20000             # pilot: ~16 GB peak (held at 6000)
 lifetime = "12h"
 
-# The run2 overlay input (..._compressed_data) holds only raw artdaq fragments
-# (DAQEVB04 + ICARUSReprocessRaw), which ride through gen/g4/detsim untouched.
-# The data decoder makes what overlay_waveforms reads from the data side:
-# daqTPCROI:PHYSCRATEDATATPC??RAW, daqPMT, pmtbaselines, crthit, daqTrigger.
-# It also drops the fragments, which shrinks the files.
-[[stage]]
-name     = "decode"
-fcl      = "decoder_data_icarus.fcl"
-datatier = "decoded-raw"
-memory   = 12000             # first guess; read MemoryReport in the pilot logs
-lifetime = "12h"
-
 # Merges the MC TPC/PMT/CRT products into the overlay data ones (overlayTPCRaw*,
 # overlayOpWaveforms, overlayCRTHit), which stage0_*_overlay reads; the
-# icaruscode standard/overlay chain is detsim -> overlay -> stage0. Without it
+# icaruscode standard/overlay chain is detsim -> overlay -> stage0. Without it,
 # stage0 throws ProductNotFound overlayOpWaveforms on the first event (pilot).
 [[stage]]
 name     = "overlay"

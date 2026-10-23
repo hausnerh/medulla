@@ -104,16 +104,22 @@ def load_config(path):
     for k in ('name', 'workdir', 'pnfs_base', 'overlay_inputdef', 'gen_numjobs'):
         if not c.get(k):
             raise SystemExit(f'config: campaign.{k} is required')
-    if not c['stages'] or c['stages'][0]['name'] != 'gen':
-        raise SystemExit("config: the first [[stage]] must be 'gen'")
-    if c['stages'][0]['maxfilesperjob'] > 1 and not c.get('allow_multifile_gen'):
+    # The first stage reads the overlay data (overlay_inputdef/list, gen_numjobs
+    # jobs). It is gen, or a data stage before gen (production: decoder_run2
+    # -> gen -> g4 -> detsim -> overlay -> stage0 -> stage1).
+    names = [s['name'] for s in c['stages']]
+    if 'gen' not in names:
+        raise SystemExit("config: a [[stage]] named 'gen' is required")
+    upto_gen = c['stages'][:names.index('gen') + 1]
+    if any(s['maxfilesperjob'] > 1 for s in upto_gen) and not c.get('allow_multifile_gen'):
         # Each overlay file is its own art Run. A gen output holding several
         # runs makes larg4 abort at the first event of the second run
         # (G4Exception Tracking0011 "ProcessManager is NULL for particle =
         # proton", after "Geant4 kernel is not PreInit state" warnings) --
         # seen in the pilot. Production uses one overlay file per gen job.
-        raise SystemExit('config: gen maxfilesperjob must be 1 (one overlay file = one run per gen output; '
-                         'larg4 aborts at a run boundary). Set allow_multifile_gen = true to override.')
+        raise SystemExit(f'config: maxfilesperjob must be 1 for {[s["name"] for s in upto_gen]} (one overlay file = '
+                         f'one run per gen output; larg4 aborts at a run boundary). '
+                         f'Set allow_multifile_gen = true to override.')
     return c
 
 
@@ -153,14 +159,17 @@ def render_xml(c, numjobs):
         if st['name'] == 'gen':
             jobsub += f" -f {fcldir}/ncdeltarad_pdg_table.txt"
         lines += [f'  <stage name="{st["name"]}">', f'    <fcl>{st["fcl"]}</fcl>']
-        if st['name'] == 'gen':
+        first = st is c['stages'][0]
+        if first:
             # An explicit list (input_location_prefer) pins every file to one
             # replica; otherwise SAM delivers the files of the definition.
-            src = (f'    <inputlist>{c["overlay_inputlist"]}</inputlist>' if c.get('overlay_inputlist')
-                   else f'    <inputdef>{c["overlay_inputdef"]}</inputdef>')
-            lines += [src, f'    <initsource>{fcldir}/ncdeltarad_genie_env.sh</initsource>']
+            # Later stages read the previous stage's output (project.py).
+            lines.append(f'    <inputlist>{c["overlay_inputlist"]}</inputlist>' if c.get('overlay_inputlist')
+                         else f'    <inputdef>{c["overlay_inputdef"]}</inputdef>')
+        if st['name'] == 'gen':
+            lines.append(f'    <initsource>{fcldir}/ncdeltarad_genie_env.sh</initsource>')
         lines += [f'    <{k}>{v}</{k}>' for k, v in d.items()]
-        default = c['gen_numjobs'] if st['name'] == 'gen' else 1
+        default = c['gen_numjobs'] if first else 1
         lines += [f'    <numjobs>{numjobs.get(st["name"], default)}</numjobs>',
                   f'    <maxfilesperjob>{st["maxfilesperjob"]}</maxfilesperjob>',
                   f'    <memory>{st["memory"]}</memory>', f'    <disk>{st["disk"]}</disk>',
@@ -368,13 +377,14 @@ class Orchestrator:
             rc, out = self.project(st['name'], 'clean_one')
             if rc != 0 and not self.dry_run:
                 self.log(f"{st['name']}: project.py --clean_one failed (rc {rc}):\n{out[-1000:]}")
-            if st['name'] == 'gen' and self.cfg.get('overlay_inputlist') and Path(self.cfg['overlay_inputlist']).exists():
+            if (st['name'] == self.cfg['stages'][0]['name'] and self.cfg.get('overlay_inputlist')
+                    and Path(self.cfg['overlay_inputlist']).exists()):
                 # dCache may have evicted prestaged files since init; a job
                 # given a tape-only file fails (HTTP 403).
                 paths = Path(self.cfg['overlay_inputlist']).read_text().split()
                 _, off = online_split(paths)
                 if off:
-                    self.notify(f"[{self.cfg['name']}] gen: {len(off)}/{len(paths)} input files are not on disk",
+                    self.notify(f"[{self.cfg['name']}] {st['name']}: {len(off)}/{len(paths)} input files are not on disk",
                                 f"those jobs will fail to read them; prestage (samweb prestage-dataset) "
                                 f"and use retry, e.g. {off[:2]}")
         rc, out = self.project(st['name'], action)
@@ -736,11 +746,11 @@ def cmd_init(a):
             paths = on
             lst.write_text(''.join(p + '\n' for p in paths))
         c['overlay_inputlist'] = str(lst)
-        gen = c['stages'][0]
-        need = c['gen_numjobs'] * gen['maxfilesperjob']
+        first = c['stages'][0]
+        need = c['gen_numjobs'] * first['maxfilesperjob']
         print(f'overlay input: {len(paths)} files of {c["overlay_inputdef"]} under {c["input_location_prefer"]} '
               f'-> {lst}'
-              + (f'  WARNING: gen asks for {need} files ({c["gen_numjobs"]} jobs x {gen["maxfilesperjob"]})'
+              + (f'  WARNING: {first["name"]} asks for {need} files ({c["gen_numjobs"]} jobs x {first["maxfilesperjob"]})'
                  if len(paths) < need else ''))
     (wd / 'config.json').write_text(json.dumps(c, indent=1))
 
@@ -755,7 +765,7 @@ def cmd_init(a):
     env = env.replace('@NCDR_TABLE_PNFS@', f'{fcldir}/ncdeltarad_pdg_table.txt')
     env = env.replace('@NCDR_BR_GAMMA@', f"{c['br_gamma']:g}")
     (wd / 'ncdeltarad_genie_env.sh').write_text(env)
-    gen_fcl = HERE / c['stages'][0]['fcl']
+    gen_fcl = HERE / next(s for s in c['stages'] if s['name'] == 'gen')['fcl']
     if not gen_fcl.exists():
         raise SystemExit(f'{gen_fcl} not found (the gen fcl must live next to orchestrate.py)')
     for src in (wd / 'ncdeltarad_pdg_table.txt', wd / 'ncdeltarad_genie_env.sh', gen_fcl):

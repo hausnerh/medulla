@@ -471,6 +471,36 @@ def test_full_chain_with_makeup(campaign):
     assert any(c[5] == '--checkana' for c in grid.calls if isinstance(c, list) and c[0] == 'project.py')
 
 
+def test_decode_before_gen_production_order(campaign):
+    """Overlay production order: decoder_run2 -> gen -> g4 -> ... The first
+    stage reads the overlay data; gen keeps the GENIE table and the sidecar."""
+    wd = campaign(stages=('decode', 'gen', 'g4', 'caf'))
+    cfg = json.loads((wd / 'config.json').read_text())
+    xml = (wd / 't.xml').read_text()
+    blocks = {m.group(1): m.group(0) for m in re.finditer(r'<stage name="(\w+)">.*?</stage>', xml, re.S)}
+    assert '<inputdef>def</inputdef>' in blocks['decode'] and '<numjobs>10</numjobs>' in blocks['decode']
+    assert '<input' not in blocks['gen'] and '<numjobs>1</numjobs>' in blocks['gen']
+    assert 'initsource' in blocks['gen'] and 'initsource' not in blocks['decode']
+    assert 'ncdeltarad_pdg_table.txt' in blocks['gen'] and 'ncdeltarad_pdg_table.txt' not in blocks['decode']
+    grid = FakeGrid(cfg, good=dict(decode=[10], gen=[10], g4=[10], caf=[10]))
+    results, state = _drive(wd, grid)
+    assert results[-1] == 'done'
+    assert state['stages']['gen']['expected'] == 10                 # follows decode's good count
+    assert any(isinstance(c, list) and any('pilot_check.py' in str(x) for x in c) for c in grid.calls)  # gen's gate ran
+
+
+def test_multifile_refused_for_stages_before_gen(tmp_path):
+    p = tmp_path / 'c.toml'
+    p.write_text('[campaign]\nname = "t"\nworkdir = "/w"\npnfs_base = "/p"\noverlay_inputdef = "d"\ngen_numjobs = 2\n'
+                 '[[stage]]\nname = "decode"\nfcl = "d.fcl"\nmaxfilesperjob = 3\n'
+                 '[[stage]]\nname = "gen"\nfcl = "g.fcl"\nmaxfilesperjob = 1\n')
+    with pytest.raises(SystemExit, match="maxfilesperjob must be 1 for \\['decode', 'gen'\\]"):
+        O.load_config(p)
+    p.write_text(p.read_text().replace('name = "gen"', 'name = "g4"'))
+    with pytest.raises(SystemExit, match="named 'gen' is required"):
+        O.load_config(p)
+
+
 def test_accepts_below_target_then_propagates(campaign):
     wd = campaign(max_makeup=1)
     cfg = json.loads((wd / 'config.json').read_text())

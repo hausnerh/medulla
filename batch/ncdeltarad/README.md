@@ -11,10 +11,10 @@ the generator stage changes:
 
 | Stage | fcl |
 |---|---|
+| decode | `decoder_run2_icarus.fcl` (decodes the overlay data's raw fragments: `daqTPCROI:*RAW`, `daqPMT`, `pmtbaselines`, `crthit`, `daqTrigger`) |
 | gen | `simulation_genie_icarus_bnb_overlays_volDetEnclosure_fiducial_ncdeltarad.fcl` (this directory) |
 | g4 | `larg4_icarus_cosmics_sce.fcl` |
 | detsim | `detsim_2d_icarus_refactored_yzsim_overlay_Run4.fcl` |
-| decode | `decoder_data_icarus.fcl` (decodes the overlay data's raw fragments: `daqTPCROI:*RAW`, `daqPMT`, `pmtbaselines`, `crthit`, `daqTrigger`) |
 | overlay | `overlay_waveforms.fcl` (merges MC into the data waveforms: `overlayTPCRaw*`, `overlayOpWaveforms`, `overlayCRTHit`) |
 | stage0 | `stage0_run2_wcdnn_icarus_overlay.fcl` |
 | stage1 | `stage1_run2_larcv_icarus_overlay.fcl` (its larcv output feeds SPINE) |
@@ -26,10 +26,13 @@ The overlay stage is icaruscode's `standard_overlay_overlay_icarus.fcl` step
 
 The run2 overlay input (`..._offbeambnbminbias_compressed_data`) is compressed
 *raw* data. It holds only artdaq fragments (`DAQEVB04` and
-`ICARUSReprocessRaw`), which gen, g4 and detsim carry through untouched. The
-decode stage runs the data decoder on the detsim output. Without it, overlay
-fails with `Event failed to find raw::RawDigit with label daqTPCROI:PHYSCRATEDATATPCWWRAW`
-(pilot event dumps).
+`ICARUSReprocessRaw`). The production overlay order is decode → gen → g4 →
+detsim → overlay → stage0 → stage1, so the decoder runs first on the data
+files and gen overlays onto its output. Without it, overlay fails with
+`Event failed to find raw::RawDigit with label daqTPCROI:PHYSCRATEDATATPCWWRAW`
+(pilot event dumps). The first stage, whatever its name, reads
+`overlay_inputdef` with `gen_numjobs` jobs. Every stage up to and including
+gen must take one file per job.
 
 The SPINE step (reconstruction on the larcv files, then merging into the CAFs)
 needs a GPU node, so it is not part of this campaign. The campaign's product
@@ -225,7 +228,7 @@ plus the manifest go to `persistent_base`:
 
 ```
 <pnfs_base>/fcl/                     gen fcl, env script, patched table (job inputs)
-<pnfs_base>/{gen,g4,detsim,decode,overlay,stage0}/
+<pnfs_base>/{decode,gen,g4,detsim,overlay,stage0}/
     out/<job>/...                    art outputs
     files.list                       good outputs (project.py --check)
 <persistent_base>/stage1/
