@@ -14,9 +14,14 @@ the generator stage changes:
 | gen | `simulation_genie_icarus_bnb_overlays_volDetEnclosure_fiducial_ncdeltarad.fcl` (this directory) |
 | g4 | `larg4_icarus_cosmics_sce.fcl` |
 | detsim | `detsim_2d_icarus_refactored_yzsim_overlay_Run4.fcl` |
+| overlay | `overlay_waveforms.fcl` (merges MC into the data waveforms: `overlayTPCRaw*`, `overlayOpWaveforms`, `overlayCRTHit`) |
 | stage0 | `stage0_run2_wcdnn_icarus_overlay.fcl` |
 | stage1 | `stage1_run2_larcv_icarus_overlay.fcl` (its larcv output feeds SPINE) |
 | caf | `cafmakerjob_icarus_detsim2d_systtools_and_fluxwgt_overlay.fcl` |
+
+The overlay stage is icaruscode's `standard_overlay_overlay_icarus.fcl` step
+(`fcl/standard/overlay/`). Without it, stage0 fails on the first event with
+`ProductNotFound ... overlayOpWaveforms` (pilot).
 
 The SPINE step (reconstruction on the larcv files, then merging into the CAFs)
 needs a GPU node, so it is not part of this campaign. The campaign's product
@@ -194,7 +199,10 @@ python batch/ncdeltarad/orchestrate.py status <workdir>
   loop as the stage's current attempt, so the next tick polls it instead
   of resubmitting.
 - `reconfig <toml>` reloads the config into `config.json` and the XML without
-  resetting the state. `init --force` resets everything.
+  resetting the state. It also accepts inserted stages: the new stage and
+  every stage after it go back to pending, while earlier stages keep their
+  state. Removing or reordering stages needs `init --force`, which resets
+  everything.
 - `init`, `run` and `reconfig` first check that `project.py -h` starts with
   the configured `path_prepend` / `pythonpath_prepend`. A loop started from a
   shell without the manual exports otherwise fails every check
@@ -209,7 +217,7 @@ plus the manifest go to `persistent_base`:
 
 ```
 <pnfs_base>/fcl/                     gen fcl, env script, patched table (job inputs)
-<pnfs_base>/{gen,g4,detsim,stage0}/
+<pnfs_base>/{gen,g4,detsim,overlay,stage0}/
     out/<job>/...                    art outputs
     files.list                       good outputs (project.py --check)
 <persistent_base>/stage1/

@@ -96,6 +96,17 @@ datatier = "detector-simulated"
 memory   = 20000             # pilot: ~16 GB peak (held at 6000)
 lifetime = "12h"
 
+# Merges the MC TPC/PMT/CRT products into the overlay data ones (overlayTPCRaw*,
+# overlayOpWaveforms, overlayCRTHit), which stage0_*_overlay reads; the
+# icaruscode standard/overlay chain is detsim -> overlay -> stage0. Without it
+# stage0 throws ProductNotFound overlayOpWaveforms on the first event (pilot).
+[[stage]]
+name     = "overlay"
+fcl      = "overlay_waveforms.fcl"
+datatier = "reconstructed"
+memory   = 16000             # first guess; read MemoryReport in the pilot logs
+lifetime = "12h"
+
 [[stage]]
 name     = "stage0"
 fcl      = "stage0_run2_wcdnn_icarus_overlay.fcl"

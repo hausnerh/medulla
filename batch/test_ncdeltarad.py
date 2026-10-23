@@ -558,6 +558,44 @@ def test_reconfig_keeps_state_and_input_list(campaign):
     assert json.loads((wd / 'state.json').read_text())['stages']['gen'] == {'status': 'failed', 'attempts': 1}
 
 
+def test_reconfig_inserts_stage_and_resets_downstream(campaign):
+    """Pilot: overlay_waveforms was missing between g4/detsim and stage0. Inserting
+    it keeps the finished upstream stages and resets the ones after it."""
+    wd = campaign(stages=('gen', 'g4', 'stage0', 'caf'))
+    st = json.loads((wd / 'state.json').read_text())
+    st['stages']['gen'] = dict(status='done', attempts=1, good=2, expected=2)
+    st['stages']['g4'] = dict(status='done', attempts=1, good=2, expected=2)
+    st['stages']['stage0'] = dict(status='failed', attempts=3, good=0, expected=2, note='0/2 good')
+    (wd / 'state.json').write_text(json.dumps(st))
+    toml_path = next(wd.parent.glob('c.toml'))
+    toml_path.write_text(toml_path.read_text().replace(
+        '[[stage]]\nname = "stage0"', '[[stage]]\nname = "overlay"\nfcl = "overlay_waveforms.fcl"\n\n[[stage]]\nname = "stage0"'))
+    O.cmd_reconfig(type('A', (), dict(config=str(toml_path)))())
+    new = json.loads((wd / 'state.json').read_text())['stages']
+    assert list(new) == ['gen', 'g4', 'overlay', 'stage0', 'caf']
+    assert new['g4']['status'] == 'done' and new['g4']['good'] == 2
+    assert new['overlay'] == new['stage0'] == new['caf'] == {'status': 'pending'}
+    xml = (wd / 't.xml').read_text()
+    assert xml.index('<stage name="g4">') < xml.index('<stage name="overlay">') < xml.index('<stage name="stage0">')
+    # removing (or reordering) still needs init --force
+    toml_path.write_text(re.sub(r'\[\[stage\]\]\nname = "g4"\n[^\[]*', '', toml_path.read_text()))
+    with pytest.raises(SystemExit):
+        O.cmd_reconfig(type('A', (), dict(config=str(toml_path)))())
+
+
+def test_reconfig_refuses_insert_before_running_stage(campaign):
+    wd = campaign(stages=('gen', 'g4', 'caf'))
+    st = json.loads((wd / 'state.json').read_text())
+    st['stages']['g4'] = dict(status='running', attempts=1, clusters=['1@jobsub01.fnal.gov'])
+    (wd / 'state.json').write_text(json.dumps(st))
+    toml_path = next(wd.parent.glob('c.toml'))
+    toml_path.write_text(toml_path.read_text().replace(
+        '[[stage]]\nname = "g4"', '[[stage]]\nname = "overlay"\nfcl = "o.fcl"\n\n[[stage]]\nname = "g4"'))
+    with pytest.raises(SystemExit, match='running'):
+        O.cmd_reconfig(type('A', (), dict(config=str(toml_path)))())
+    assert 'overlay' not in json.loads((wd / 'state.json').read_text())['stages']
+
+
 def test_reconfig_while_run_loop_is_alive_updates_xml_memory(campaign):
     """The run loop holds only .runlock between ticks: a reconfig made while it
     sleeps must reach the XML that the next makeup reads (pilot: detsim makeup

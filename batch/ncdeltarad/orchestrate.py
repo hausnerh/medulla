@@ -881,19 +881,33 @@ def cmd_adopt(a):
 
 def cmd_reconfig(a):
     """Update config.json and the XML from the TOML without touching the
-    campaign state (unlike init --force). The resolved input list is kept;
-    the stage list must not change."""
+    campaign state (unlike init --force). The resolved input list is kept.
+    Stages may be inserted but not removed or reordered: each stage reads the
+    previous one's output, so every stage after the first inserted one is
+    reset to pending (its fresh submit cleans its old outputs)."""
     def go():
         new = load_config(a.config)
         wd = Path(new['workdir'])
         old = json.loads((wd / 'config.json').read_text())
-        if [s['name'] for s in new['stages']] != [s['name'] for s in old['stages']]:
-            raise SystemExit('the stage list changed: that needs init --force')
+        names, old_names = [s['name'] for s in new['stages']], [s['name'] for s in old['stages']]
+        if [n for n in names if n in old_names] != old_names:
+            raise SystemExit('stages were removed or reordered: that needs init --force')
+        inserted = [n for n in names if n not in old_names]
+        stale = names[names.index(inserted[0]):] if inserted else []
+        state = json.loads((wd / 'state.json').read_text())
+        busy = [n for n in stale if state['stages'].get(n, {}).get('status') == 'running']
+        if busy:
+            raise SystemExit(f'cannot insert {inserted} before running stage(s) {busy}: '
+                             f'let them finish, or jobsub_rm their clusters first')
         if old.get('overlay_inputlist'):
             new['overlay_inputlist'] = old['overlay_inputlist']
         preflight(Shell(lambda m: print(m), env=job_env(new)))
         (wd / 'config.json').write_text(json.dumps(new, indent=1))
         o = Orchestrator(wd)
+        if inserted:
+            o.state['stages'] = {n: dict(status='pending') if n in stale else o.state['stages'][n] for n in names}
+            o.save()
+            o.log(f'inserted stage(s) {inserted}; reset to pending: {[n for n in stale if n not in inserted]}')
         o.write_xml()
         o.log(f'config reloaded from {a.config} (state kept); XML memory (MB): '
               + ', '.join(f"{st['name']}={o.xml_value(st['name'], 'memory')}" for st in o.cfg['stages']))
