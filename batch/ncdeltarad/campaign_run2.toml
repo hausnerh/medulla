@@ -96,6 +96,18 @@ datatier = "detector-simulated"
 memory   = 20000             # pilot: ~16 GB peak (held at 6000)
 lifetime = "12h"
 
+# The run2 overlay input (..._compressed_data) holds only raw artdaq fragments
+# (DAQEVB04 + ICARUSReprocessRaw), which ride through gen/g4/detsim untouched.
+# The data decoder makes what overlay_waveforms reads from the data side:
+# daqTPCROI:PHYSCRATEDATATPC??RAW, daqPMT, pmtbaselines, crthit, daqTrigger.
+# It also drops the fragments, which shrinks the files.
+[[stage]]
+name     = "decode"
+fcl      = "decoder_data_icarus.fcl"
+datatier = "decoded-raw"
+memory   = 12000             # first guess; read MemoryReport in the pilot logs
+lifetime = "12h"
+
 # Merges the MC TPC/PMT/CRT products into the overlay data ones (overlayTPCRaw*,
 # overlayOpWaveforms, overlayCRTHit), which stage0_*_overlay reads; the
 # icaruscode standard/overlay chain is detsim -> overlay -> stage0. Without it
