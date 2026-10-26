@@ -193,8 +193,9 @@ class FakeGrid:
                     main = jd / (f'{stage}_{i}.flat.caf.root' if st['ana'] else f'{stage}_{i}.root')
                     main.write_text('x')
                     good.append(str(main))
-                    if st['ana']:
+                    if st['ana']:         # checkana lists every ROOT file of the job
                         (jd / f'{stage}_{i}.caf.root').write_text('x')
+                        good.append(str(jd / f'{stage}_{i}.caf.root'))
                     if stage == 'stage1':
                         (jd / f'larcv_{i}.root').write_text('x')
                 # leftovers of a failed job must never be published
@@ -469,6 +470,56 @@ def test_full_chain_with_makeup(campaign):
     assert state['stages']['g4']['expected'] == 10          # follows gen's good count
     assert all(s['status'] == 'done' for s in state['stages'].values())
     assert any(c[5] == '--checkana' for c in grid.calls if isinstance(c, list) and c[0] == 'project.py')
+    # filesana.list names 2 ROOT files per job: good counts jobs (pilot: "6/2 good")
+    assert state['stages']['caf']['good'] == 10
+
+
+def _write_flat_caf(path, keys, rad_prim, nslc):
+    import awkward as ak
+    import uproot
+    with uproot.recreate(path) as f:
+        f['recTree'] = {
+            'rec.hdr.run': np.array([k[0] for k in keys], dtype=np.int32),
+            'rec.hdr.subrun': np.array([k[1] for k in keys], dtype=np.int32),
+            'rec.hdr.evt': np.array([k[2] for k in keys], dtype=np.int32),
+            'rec.nslc': np.array(nslc, dtype=np.int32),
+            'rec.mc.nu.iscc': ak.Array([[0] for _ in keys]),
+            'rec.mc.nu.genie_mode': ak.Array([[1] for _ in keys]),
+            'rec.mc.nu.wgt..length': ak.Array([[189] for _ in keys]),
+        }
+
+
+def test_check_outputs_on_a_synthetic_campaign(tmp_path):
+    pytest.importorskip('uproot')
+    import check_outputs as C
+    base = tmp_path / 'persistent'
+    keys = [(1, 1, e) for e in range(1, 9)]
+    rad = [1, 0, 1, 0, 1, 0, 0, 1]
+    for j, part in enumerate((keys[:4], keys[4:])):
+        d = base / 'caf' / 'out' / f'7_{j}'
+        d.mkdir(parents=True)
+        _write_flat_caf(str(d / f'x_{j}.flat.caf.root'), part, None, [1] * len(part))
+        import uproot
+        with uproot.recreate(str(d / f'Supplemental-x_{j}.root')) as f:
+            f['h'] = np.histogram([1, 2])
+    (base / 'gen_sidecar').mkdir()
+    with open(base / 'gen_sidecar' / 'ncdeltarad_weights.csv', 'w', newline='') as f:
+        w = csv.writer(f)
+        w.writerow(['run', 'subrun', 'event', 'delta_pdg', 'w_delta', 'channel', 'radiative', 'weight'])
+        for k, r in zip(keys, rad):
+            w.writerow([*k, 2214, 1.23, '2212:22' if r else '2212:111', r, 0.01 if r else 1.6])
+    caflist = base / 'caf' / 'flatcaf_files.list'
+    caflist.write_text(''.join(f'{p}\n' for p in sorted(base.glob('caf/out/*/*.flat.caf.root'))))
+    m = dict(name='t', release='r', qual='q', br_gamma=0.663, sidecar={},
+             stages=dict(caf=dict(outdir=str(base / 'caf' / 'out'), good=2, expected=2,
+                                  lists=dict(flatcaf=str(caflist)))))
+    (base / 'manifest.json').write_text(json.dumps(m))
+    C.fails.clear(), C.warns.clear()
+    sys.argv = ['check_outputs.py', str(base)]
+    rc = C.main()
+    # only the larcv list is missing from this campaign
+    assert C.fails == ['stage1 larcv list missing (None)'] and rc == 1, C.fails
+    assert not any('flat' in w_ for w_ in C.warns), C.warns
 
 
 def test_decode_before_gen_production_order(campaign):

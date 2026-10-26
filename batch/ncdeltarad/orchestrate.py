@@ -334,7 +334,10 @@ class Orchestrator:
         lst = book / ('filesana.list' if st['ana'] else 'files.list')
         if not lst.exists():
             return 0
-        return sum(1 for line in lst.read_text().splitlines() if line.strip())
+        files = [line.strip() for line in lst.read_text().splitlines() if line.strip()]
+        # filesana.list names every ROOT file of a good job (pilot caf: the
+        # CAF, a second CAF file and the TFileService file -> "6/2 good").
+        return len({str(Path(f).parent) for f in files}) if st['ana'] else len(files)
 
     # ---- state machine -------------------------------------------------------- #
     def tick(self):
@@ -529,8 +532,8 @@ class Orchestrator:
             local.write_text(''.join(f + '\n' for f in files))
             copy_to_pnfs(self.sh, local, str(root / fname))
             published[name] = dict(list=str(root / fname), n=len(files))
-            if name != 'files' and len(files) < len(good):
-                warn.append(f'{name}: {len(files)} files for {len(good)} good jobs')
+            if name != 'files' and len(files) < len(dirs):
+                warn.append(f'{name}: {len(files)} files for {len(dirs)} good jobs')
         s['published'] = published
         msg = 'published ' + ', '.join(f"{k}={v['n']}" for k, v in published.items()) + f' to {root}'
         if warn:
