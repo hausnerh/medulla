@@ -193,6 +193,10 @@ def check_truth(m, by_kind, uproot, ak, base):
         if absent:
             warn(f'(run, subrun) {sorted(absent)} has CAF events but no sidecar row at all: '
                  f'was its gen file in the sidecar dump? (check gen_sidecar/pilot_check.txt)')
+        else:
+            info(f'{len(miss)}/{len(keys)} = {len(miss) / len(keys):.2f} of the CAF events share subruns with '
+                 f'sidecar rows: NCRES events without a Delta+/Delta0 decay (heavier resonances); '
+                 f'their weight is 1 (pilot: 0.15)')
     if not hit:
         fail('no CAF event joins the sidecar on (run, subrun, event)')
         return a
