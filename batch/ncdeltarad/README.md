@@ -210,6 +210,11 @@ python batch/ncdeltarad/orchestrate.py status <workdir>
   outputs first.
 - `recheck <stage>` re-runs the check of a stage whose jobs already ran, with
   no resubmission. Use it when the check itself failed.
+- `republish <stage>` recounts a done stage and rewrites its published lists
+  and the manifest, with no jobs. Use it after `reconfig` changed the stage's
+  `publish` globs (pilot: the grid renamed the flat CAFs to `<input>_<uuid>.root`).
+- `check_outputs.py <persistent_base>` checks a finished campaign end to end:
+  lists, CAF census, CAF truth against the gen sidecar, larcv entries.
 - `adopt <stage> <jobid>` records a cluster that was submitted outside the
   loop as the stage's current attempt, so the next tick polls it instead
   of resubmitting.

@@ -519,9 +519,11 @@ class Orchestrator:
         lists = {'files': good}
         for p in st['publish']:
             found = set()
+            excl = p.get('exclude') or []
+            excl = [excl] if isinstance(excl, str) else excl
             for d in dirs:
                 for f in Path(d).rglob(p['glob']):
-                    if not (p.get('exclude') and fnmatch.fnmatch(f.name, p['exclude'])):
+                    if not any(fnmatch.fnmatch(f.name, x) for x in excl):
                         found.add(str(f))
             lists[p['name']] = sorted(found)
         published, warn = {}, []
@@ -885,6 +887,23 @@ def cmd_recheck(a):
     with_lock(a.workdir, go)
 
 
+def cmd_republish(a):
+    """Recount and re-publish a done stage's lists (after a `reconfig` that
+    changed its publish globs) and rewrite the manifest -- no grid jobs."""
+    def go():
+        o = Orchestrator(a.workdir)
+        st = next(x for x in o.cfg['stages'] if x['name'] == a.stage)
+        s = o.state['stages'][a.stage]
+        if s['status'] != 'done':
+            raise SystemExit(f"{a.stage} is {s['status']}, not done: nothing to re-publish")
+        s['good'] = o.count_good(st)
+        o.log(f"{a.stage}: re-published by user, {s['good']}/{s['expected']} good: {o.publish(st, s)}")
+        if o.state.get('manifest'):
+            o.write_manifest()
+        o.save()
+    with_lock(a.workdir, go)
+
+
 def cmd_adopt(a):
     """Record a cluster submitted outside the orchestrator's knowledge (e.g. a
     makeup whose project.py exited non-zero after jobsub accepted it) as the
@@ -952,13 +971,15 @@ def main():
     p.add_argument('workdir'); p.add_argument('stage')
     p = sub.add_parser('recheck', help='re-run the check of an already-run stage, no resubmission')
     p.add_argument('workdir'); p.add_argument('stage')
+    p = sub.add_parser('republish', help='recount and re-publish a done stage\'s lists; rewrite the manifest')
+    p.add_argument('workdir'); p.add_argument('stage')
     p = sub.add_parser('reconfig', help='reload the TOML into config.json + XML, keeping the state')
     p.add_argument('config')
     p = sub.add_parser('adopt', help='record an already-submitted cluster as the stage\'s current attempt')
     p.add_argument('workdir'); p.add_argument('stage'); p.add_argument('jobid')
     a = ap.parse_args()
     dict(init=cmd_init, status=cmd_status, tick=cmd_tick, run=cmd_run, retry=cmd_retry,
-         recheck=cmd_recheck, reconfig=cmd_reconfig, adopt=cmd_adopt)[a.cmd](a)
+         recheck=cmd_recheck, republish=cmd_republish, reconfig=cmd_reconfig, adopt=cmd_adopt)[a.cmd](a)
 
 
 if __name__ == '__main__':

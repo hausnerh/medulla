@@ -168,7 +168,11 @@ memory     = 4000
 lifetime   = "8h"
 ana        = true            # CAF output is not an art file: use project.py --checkana
 persistent = true
-publish    = [ { name = "flatcaf", glob = "*.flat.caf.root" },
+# A caf job writes the CAF (*.caf.root), the flat CAF and the TFileService
+# file (Supplemental-*). The grid renaming drops the flat CAF's .flat.caf
+# suffix (pilot: <input>-Overlay_<date>_<uuid>.root), so it is "the other
+# .root". exclude takes one pattern or a list.
+publish    = [ { name = "flatcaf", glob = "*.root", exclude = ["*.caf.root", "Supplemental-*"] },
                { name = "caf",     glob = "*.caf.root", exclude = "*.flat.caf.root" } ]
 
 # When all stages are done: <persistent_base>/manifest.json (stage outdirs,

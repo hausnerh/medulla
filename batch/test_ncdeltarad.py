@@ -474,6 +474,34 @@ def test_full_chain_with_makeup(campaign):
     assert state['stages']['caf']['good'] == 10
 
 
+def test_republish_with_exclude_list_finds_renamed_flat_caf(campaign):
+    """Pilot: the grid renamed the flat CAF to <input>_<uuid>.root, so the
+    *.flat.caf.root glob published nothing. Fix the glob in the TOML,
+    reconfig, then `republish` the done stage -- no jobs."""
+    wd = campaign()
+    cfg = json.loads((wd / 'config.json').read_text())
+    grid = FakeGrid(cfg, good=dict(gen=[10], g4=[10], caf=[10]))
+    results, _ = _drive(wd, grid)
+    assert results[-1] == 'done'
+    st = next(s for s in cfg['stages'] if s['name'] == 'caf')
+    for d in Path(O.stage_dirs(cfg, st)['outdir']).glob('job_[0-9]*'):
+        (d / f'in-Overlay_2026_{d.name}.root').write_text('x')      # the renamed flat CAF
+        (d / f'Supplemental-in_{d.name}.root').write_text('x')
+    st['publish'] = [dict(name='flatcaf', glob='*.root', exclude=['*.caf.root', 'Supplemental-*'])]
+    (wd / 'config.json').write_text(json.dumps(cfg))
+    O.Shell.__call__, real = (lambda self, cmd, mutating=True, timeout=0: (0, '')), O.Shell.__call__
+    try:
+        O.cmd_republish(type('A', (), dict(workdir=str(wd), stage='caf'))())
+    finally:
+        O.Shell.__call__ = real
+    caf = json.loads((wd / 'state.json').read_text())['stages']['caf']
+    assert caf['good'] == 10 and caf['published']['flatcaf']['n'] == 10
+    flat = (wd / 'published' / 'caf' / 'flatcaf_files.list').read_text().split()
+    assert all('Overlay_2026' in f for f in flat)
+    m = json.loads((wd / 'manifest.json').read_text())
+    assert m['stages']['caf']['lists']['flatcaf']['n'] == 10
+
+
 def _write_flat_caf(path, keys, rad_prim, nslc):
     import awkward as ak
     import uproot

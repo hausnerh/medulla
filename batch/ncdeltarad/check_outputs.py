@@ -15,7 +15,7 @@ FAIL lines set a non-zero exit; WARN lines need a look; the rest is a census.
   3. CAF truth (flat CAF preferred): every true neutrino NC and RES; the CAF
      events join to the gen sidecar on (run, subrun, event); the sidecar's
      radiative fraction is enhanced (~0.4) and the weighted one back at the
-     nominal value; a true primary photon exactly in the radiative events.
+     nominal value; a true primary photon in every radiative event.
      Also: events with >= 1 slice; reweight groups per
      neutrino the same everywhere (see batch/diag_caf_weights.py).
   4. larcv (stage1, the SPINE input): files open and hold as many entries as
@@ -181,6 +181,18 @@ def check_truth(m, by_kind, uproot, ak, base):
     hit = [k for k in keys if k in side]
     info(f'sidecar: {len(side)} NC Delta events; {len(hit)}/{len(keys)} CAF events join to it, '
          f'{len(set(side) - set(keys))} sidecar events not in the CAFs (filtered or lost jobs)')
+    miss = [k for k in keys if k not in side]
+    if miss:
+        # An NCRES event without a Δ+/Δ0 (a heavier resonance decaying
+        # straight to Nπ) is legitimately absent; a whole (run, subrun) absent
+        # from the sidecar points at a gen file the sidecar never read.
+        grp = lambda ks: dict(sorted(Counter((k[0], k[1]) for k in ks).items()))
+        info(f'CAF events not in the sidecar, per (run, subrun): {grp(miss)}')
+        info(f'sidecar events per (run, subrun): {grp(side)}')
+        absent = set((k[0], k[1]) for k in miss) - set((k[0], k[1]) for k in side)
+        if absent:
+            warn(f'(run, subrun) {sorted(absent)} has CAF events but no sidecar row at all: '
+                 f'was its gen file in the sidecar dump? (check gen_sidecar/pilot_check.txt)')
     if not hit:
         fail('no CAF event joins the sidecar on (run, subrun, event)')
         return a
@@ -196,10 +208,13 @@ def check_truth(m, by_kind, uproot, ak, base):
         idx = {k: i for i, k in enumerate(keys)}
         prim = a['rec.mc.nu.prim.pdg']
         has_g = np.array([bool(ak.any(ak.flatten(prim[idx[k]], axis=None) == 22)) for k in hit])
-        agree = np.mean(has_g == rad.astype(bool))
-        (info if agree > 0.95 else warn)(
-            f'true primary photon <-> sidecar radiative agree in {agree:.3f} of joined events '
-            f'(photon & !rad {int(np.sum(has_g & ~rad.astype(bool)))}, rad & !photon {int(np.sum(~has_g & rad.astype(bool)))})')
+        r = rad.astype(bool)
+        # Every radiative Δ decay leaves a primary photon. The converse need not
+        # hold: nuclear de-excitation and heavier-resonance photons are primaries
+        # too (pilot: 4 of 50).
+        (fail if np.any(r & ~has_g) else info)(
+            f'radiative events without a true primary photon: {int(np.sum(r & ~has_g))}/{int(r.sum())}; '
+            f'non-radiative events with one (de-excitation etc.): {int(np.sum(has_g & ~r))}/{int((~r).sum())}')
     return a
 
 
