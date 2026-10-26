@@ -175,7 +175,11 @@ python batch/ncdeltarad/orchestrate.py status <workdir>
    fresh submit (new campaign, `init --force`, `retry`) first runs
    `project.py --clean_one` for that stage only, because project.py refuses to
    submit into non-empty out/log/book directories. Makeups keep their outputs.
-4. Polls `jobsub_q`. Any job held for longer than `held_timeout_hours` is
+4. Refreshes the token again, then polls `jobsub_q`. A failed query is logged
+   with its error (`<stage>: jobsub_q failed (N in a row)`), and the third
+   failure in a row sends a notification. Commands run with stdin closed, so an
+   auth prompt fails at once instead of hanging the loop until the 300 s
+   timeout. Any job held for longer than `held_timeout_hours` is
    removed with `jobsub_rm`, even while other jobs of the stage run, and the
    makeup redoes it. A job held for exceeding its memory or disk request never
    runs: raise the request in the TOML and run `reconfig` before the makeup.

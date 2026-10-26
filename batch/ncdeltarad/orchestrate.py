@@ -233,8 +233,10 @@ class Shell:
             return 0, ''
         self.log(f'$ {text}')
         try:
+            # stdin closed: an auth prompt (jobsub/htgettoken) fails at once
+            # instead of waiting on the tmux terminal until the timeout.
             p = subprocess.run(cmd, shell=isinstance(cmd, str), capture_output=True, text=True,
-                               timeout=timeout, env=self.env)
+                               stdin=subprocess.DEVNULL, timeout=timeout, env=self.env)
         except subprocess.TimeoutExpired:
             return 124, f'timeout after {timeout}s'
         return p.returncode, (p.stdout or '') + (p.stderr or '')
@@ -309,12 +311,13 @@ class Orchestrator:
         return True
 
     def cluster_states(self, clusters):
-        """{cluster: [(job id, state letter)] of the jobs still in the queue}."""
+        """({cluster: [(job id, state letter)] of the jobs still in the queue}, '')
+        or (None, error text) when a query failed."""
         out = {}
         for cl in clusters:
             rc, txt = self.sh(['jobsub_q', '-G', self.cfg['experiment'], '--jobid', cl], mutating=False, timeout=300)
             if rc != 0 and 'no matching' not in txt.lower() and txt.strip():
-                return None  # query failed; try again next tick
+                return None, f'rc {rc}: {txt.strip()[-500:]}'
             cid = cl.split('@')[0]
             jobs = []
             for line in txt.splitlines():
@@ -324,7 +327,7 @@ class Orchestrator:
                     if st not in ('C', 'X'):
                         jobs.append((tok[0], st))
             out[cl] = jobs
-        return out
+        return out, ''
 
     def count_good(self, st):
         book = Path(stage_dirs(self.cfg, st)['bookdir'])
@@ -434,9 +437,19 @@ class Orchestrator:
                 return 'waiting'
             s['status'] = 'checking'
             return self.check(st, s)
-        q = self.cluster_states(s['clusters'])
+        # jobsub_q needs a valid bearer token as much as a submit does; a stage
+        # can run longer than the token lives (pilot stage0: every query timed
+        # out from ~2 h after the last refresh, for days, without a word).
+        if not self.ensure_token():
+            return 'auth'
+        q, err = self.cluster_states(s['clusters'])
         if q is None:
+            s['query_failures'] = s.get('query_failures', 0) + 1
+            self.log(f"{st['name']}: jobsub_q failed ({s['query_failures']} in a row), will retry: {err}")
+            if s['query_failures'] == 3:
+                self.notify(f"[{self.cfg['name']}] {st['name']}: queue query failing", err)
             return 'waiting'
+        s['query_failures'] = 0
         jobs = [j for v in q.values() for j in v]
         left = [x for _, x in jobs]
         s['queue'] = {k: ''.join(sorted(x for _, x in v)) for k, v in q.items()}

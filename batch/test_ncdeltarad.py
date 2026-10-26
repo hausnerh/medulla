@@ -725,6 +725,69 @@ def test_waits_for_token(campaign):
     assert not any(isinstance(c, list) and c[0] == 'project.py' for c in grid.calls)
 
 
+def test_failing_queue_query_is_logged_and_notified(campaign):
+    """Pilot: jobsub_q timed out on every poll for 2.6 days (stage0) while the
+    log showed only the commands -- a failed query must say so, and alert."""
+    wd = campaign()
+    cfg = json.loads((wd / 'config.json').read_text())
+    grid = FakeGrid(cfg, good=dict(gen=[10]))
+    real = grid.__call__
+
+    def q_hangs(cmd, mutating=True, timeout=0):
+        if isinstance(cmd, list) and cmd[0] == 'jobsub_q':
+            return 124, 'timeout after 300s'
+        return real(cmd, mutating, timeout)
+    q_hangs.dry_run, q_hangs.log = False, grid.log
+    o = O.Orchestrator(wd, shell=q_hangs, clock=grid_clock)
+    assert o.tick() == 'submitted'
+    o.save()
+    for _ in range(5):
+        o = O.Orchestrator(wd, shell=q_hangs, clock=grid_clock)
+        assert o.tick() == 'waiting'
+        o.save()
+    log = (wd / 'orchestrator.log').read_text()
+    assert log.count('gen: jobsub_q failed') == 5 and 'timeout after 300s' in log
+    assert log.count('NOTIFY') == 1 and 'queue query failing' in log
+    gen = json.loads((wd / 'state.json').read_text())['stages']['gen']
+    assert gen['status'] == 'running' and gen['query_failures'] == 5
+    o = O.Orchestrator(wd, shell=grid, clock=grid_clock)         # query works again
+    o.tick()
+    o.save()
+    assert json.loads((wd / 'state.json').read_text())['stages']['gen'].get('query_failures', 0) == 0
+
+
+def test_poll_refreshes_token_and_waits_for_auth(campaign):
+    """The bearer token outlives no long stage: polling must refresh it too,
+    and stop querying (instead of hanging) when that needs a human."""
+    wd = campaign()
+    cfg = json.loads((wd / 'config.json').read_text())
+    grid = FakeGrid(cfg, good=dict(gen=[10]), queue_ticks=10)
+    o = O.Orchestrator(wd, shell=grid, clock=grid_clock)
+    assert o.tick() == 'submitted'
+    o.save()
+    grid.calls.clear()
+    o = O.Orchestrator(wd, shell=grid, clock=grid_clock)
+    assert o.tick() == 'running'
+    o.save()
+    progs = [c[0] for c in grid.calls if isinstance(c, list)]
+    assert progs.index('htgettoken') < progs.index('jobsub_q')
+    grid.token_ok, grid.krb_ok = False, False
+    grid.calls.clear()
+    o = O.Orchestrator(wd, shell=grid, clock=grid_clock)
+    assert o.tick() == 'auth'
+    o.save()
+    assert not any(isinstance(c, list) and c[0] == 'jobsub_q' for c in grid.calls)
+    assert json.loads((wd / 'state.json').read_text())['stages']['gen']['status'] == 'running'
+
+
+def test_shell_closes_stdin(tmp_path):
+    """An auth prompt from jobsub/htgettoken must fail fast, not wait on the
+    tmux terminal until the timeout."""
+    sh = O.Shell(lambda m: None)
+    rc, out = sh([sys.executable, '-c', 'import sys; print(repr(sys.stdin.read()))'], timeout=10)
+    assert rc == 0 and out.strip() == "''"
+
+
 def test_publishes_lists_and_manifest(tmp_path):
     (tmp_path / 'table.txt').write_text(TABLE)
     cfgp = tmp_path / 'c.toml'
