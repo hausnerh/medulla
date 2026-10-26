@@ -512,7 +512,7 @@ def test_check_outputs_on_a_synthetic_campaign(tmp_path):
     caflist.write_text(''.join(f'{p}\n' for p in sorted(base.glob('caf/out/*/*.flat.caf.root'))))
     m = dict(name='t', release='r', qual='q', br_gamma=0.663, sidecar={},
              stages=dict(caf=dict(outdir=str(base / 'caf' / 'out'), good=2, expected=2,
-                                  lists=dict(flatcaf=str(caflist)))))
+                                  lists=dict(flatcaf=dict(list=str(caflist), n=2)))))   # as publish() writes it
     (base / 'manifest.json').write_text(json.dumps(m))
     C.fails.clear(), C.warns.clear()
     sys.argv = ['check_outputs.py', str(base)]

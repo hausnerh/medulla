@@ -71,7 +71,8 @@ def check_manifest(base):
             warn(f'{line}: {exp - good} jobs lost')
         else:
             info(line)
-        for lname, lpath in (s.get('lists') or {}).items():
+        for lname, entry in (s.get('lists') or {}).items():
+            lpath = entry['list']                # orchestrator writes {list: path, n: count}
             if not os.path.exists(lpath):
                 fail(f'{name}/{lname}: list {lpath} missing')
                 continue
@@ -204,7 +205,7 @@ def check_truth(m, by_kind, uproot, ak, base):
 
 def check_larcv(m, caf_events, uproot):
     print('\n== 4. larcv (SPINE input)')
-    lst = ((m.get('stages') or {}).get('stage1', {}).get('lists') or {}).get('larcv')
+    lst = (((m.get('stages') or {}).get('stage1', {}).get('lists') or {}).get('larcv') or {}).get('list')
     if not lst or not os.path.exists(lst):
         fail(f'stage1 larcv list missing ({lst})')
         return
