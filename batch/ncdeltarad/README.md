@@ -256,6 +256,11 @@ python batch/ncdeltarad/orchestrate.py status <workdir>
   outputs first.
 - `recheck <stage>` re-runs the check of a stage whose jobs already ran, with
   no resubmission. Use it when the check itself failed.
+- With `cleanup_intermediate = true`, a scratch stage's `out/` is removed once
+  the stage that reads it is done. Persistent stages, stages with
+  `keep = true`, logs and file lists stay, and the manifest marks removed
+  stages as `cleaned`. `cleanup <workdir>` applies the same rule to a campaign
+  that ran without it, such as the pilot.
 - `republish <stage>` recounts a done stage and rewrites its published lists
   and the manifest, with no jobs. Use it after `reconfig` changed the stage's
   `publish` globs (pilot: the grid renamed the flat CAFs to `<input>_<uuid>.root`).

@@ -77,6 +77,8 @@ DEFAULTS = dict(experiment='icarus', release='v10_06_00_13', qual='e26:prof', fi
                 # gen sidecar dump (every gen file over xrootd) grow with the
                 # number of jobs; the pilot's fixed 30 min / 6 h do not scale.
                 project_timeout_hours=3.0, sidecar_timeout_hours=24.0,
+                # remove a scratch stage's out/ once the next stage is done
+                cleanup_intermediate=False,
                 notify_cmd='', persistent_base='', numevents=1000000000, delta_sidecar=True,
                 input_location_prefer='',
                 xrootd_prefix='root://fndcadoor.fnal.gov:1094/pnfs/fnal.gov/usr/',
@@ -86,7 +88,7 @@ DEFAULTS = dict(experiment='icarus', release='v10_06_00_13', qual='e26:prof', fi
                 sl7_setup=('source /cvmfs/icarus.opensciencegrid.org/products/icarus/setup_icarus.sh\n'
                            'setup icaruscode {release} -q {qual}'))
 STAGE_DEFAULTS = dict(datatier='', memory=4000, disk='20GB', lifetime='8h', ana=False,
-                      maxfilesperjob=1, persistent=False, jobsub='', publish=[], schema='')
+                      maxfilesperjob=1, persistent=False, jobsub='', publish=[], schema='', keep=False)
 JOBID_RE = re.compile(r'(\d+)\.\d+@(jobsub\d+\.fnal\.gov)')
 # jobsub/condor_vault_storer output when the submission lacks credentials.
 AUTH_FAILURES = ('Authentication needed', 'htgettoken failed', 'Failed to process job credential')
@@ -508,9 +510,44 @@ class Orchestrator:
                 note = f'{note} {msg}'
                 if not ok:
                     s['status'] = status = 'failed'
+            if status == 'done' and self.cfg.get('cleanup_intermediate'):
+                note = f'{note} {self.clean_input_of(st)}'.strip()
         self.notify(f"[{self.cfg['name']}] {st['name']} {status}", f"{s['good']}/{s['expected']} good. {note}".strip())
         # 'done' is reserved for the whole campaign; a finished stage advances.
         return 'advanced' if status == 'done' else status
+
+    def clean_input_of(self, st):
+        """A done stage's input (the previous stage's outputs) is read by no
+        one else: remove it (cleanup_intermediate)."""
+        names = [x['name'] for x in self.cfg['stages']]
+        i = names.index(st['name'])
+        if i == 0:
+            return ''              # the first stage reads the overlay data
+        prev = self.cfg['stages'][i - 1]
+        return self.clean_stage(prev, self.state['stages'][prev['name']])
+
+    def clean_stage(self, st, s):
+        """Remove a scratch stage's out/ (its log/ and file lists stay).
+        Persistent stages (larcv, CAF) and `keep = true` ones are never
+        removed. A retry of the next stage then needs this one redone."""
+        if st['persistent'] or st.get('keep') or s.get('cleaned') or s.get('status') != 'done':
+            return ''
+        out = stage_dirs(self.cfg, st)['outdir']
+        if not (out.startswith(self.cfg['pnfs_base'].rstrip('/') + '/') and out.endswith('/out')):
+            self.log(f"{st['name']}: not removing {out}: not a stage out/ under pnfs_base")
+            return ''
+        if self.dry_run:
+            self.log(f"{st['name']}: [dry-run] would remove {out}")
+            return ''
+        try:
+            if os.path.isdir(out):
+                shutil.rmtree(out)
+        except OSError as e:
+            self.log(f"{st['name']}: removing {out} failed: {e}")
+            return f'removing {st["name"]} outputs failed: {e}'
+        s['cleaned'] = now()
+        self.log(f"{st['name']}: removed {out} (cleanup_intermediate; logs and lists kept)")
+        return f'removed {st["name"]} outputs'
 
     def publish(self, st, s):
         """Write the stage's file lists next to its outdir on /pnfs. Only the
@@ -602,7 +639,7 @@ class Orchestrator:
             s = self.state['stages'][st['name']]
             stages[st['name']] = dict(fcl=st['fcl'], outdir=stage_dirs(self.cfg, st)['outdir'], good=s.get('good'),
                                       expected=s.get('expected'), attempts=s.get('attempts'),
-                                      lists=s.get('published', {}))
+                                      lists=s.get('published', {}), cleaned=s.get('cleaned'))
         m = dict(name=self.cfg['name'], created=self.state['created'], finished=now(),
                  release=self.cfg['release'], qual=self.cfg['qual'], event_generator_list='NCRES',
                  overlay_inputdef=self.cfg['overlay_inputdef'], br_gamma=self.cfg['br_gamma'],
@@ -909,6 +946,23 @@ def cmd_republish(a):
     with_lock(a.workdir, go)
 
 
+def cmd_cleanup(a):
+    """Apply the cleanup_intermediate rule now, e.g. to a campaign that ran
+    without it: remove the scratch outputs of every done stage whose next
+    stage is done too, then rewrite the manifest."""
+    def go():
+        o = Orchestrator(a.workdir)
+        stages = o.cfg['stages']
+        for prev, nxt in zip(stages, stages[1:]):
+            if o.state['stages'][nxt['name']]['status'] == 'done':
+                msg = o.clean_stage(prev, o.state['stages'][prev['name']])
+                print(f"{prev['name']}: {msg or 'kept (persistent, keep, not done, or already removed)'}")
+        if o.state.get('manifest'):
+            o.write_manifest()
+        o.save()
+    with_lock(a.workdir, go)
+
+
 def cmd_adopt(a):
     """Record a cluster submitted outside the orchestrator's knowledge (e.g. a
     makeup whose project.py exited non-zero after jobsub accepted it) as the
@@ -976,6 +1030,8 @@ def main():
     p.add_argument('workdir'); p.add_argument('stage')
     p = sub.add_parser('recheck', help='re-run the check of an already-run stage, no resubmission')
     p.add_argument('workdir'); p.add_argument('stage')
+    p = sub.add_parser('cleanup', help='remove scratch outputs of done stages whose next stage is done')
+    p.add_argument('workdir')
     p = sub.add_parser('republish', help='recount and re-publish a done stage\'s lists; rewrite the manifest')
     p.add_argument('workdir'); p.add_argument('stage')
     p = sub.add_parser('reconfig', help='reload the TOML into config.json + XML, keeping the state')
@@ -984,7 +1040,8 @@ def main():
     p.add_argument('workdir'); p.add_argument('stage'); p.add_argument('jobid')
     a = ap.parse_args()
     dict(init=cmd_init, status=cmd_status, tick=cmd_tick, run=cmd_run, retry=cmd_retry,
-         recheck=cmd_recheck, republish=cmd_republish, reconfig=cmd_reconfig, adopt=cmd_adopt)[a.cmd](a)
+         recheck=cmd_recheck, republish=cmd_republish, reconfig=cmd_reconfig, adopt=cmd_adopt,
+         cleanup=cmd_cleanup)[a.cmd](a)
 
 
 if __name__ == '__main__':

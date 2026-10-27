@@ -64,6 +64,11 @@ min_good_fraction  = 0.95   # stage done when >= this fraction of jobs produced 
 max_makeup         = 2      # project.py --makeup rounds before giving up
 accept_fraction    = 0.80   # after the makeups, accept the stage if at least this fraction is good
 held_timeout_hours = 1      # memory/disk holds never clear by themselves
+# Remove a scratch stage's out/ once the stage reading it is done (decode..stage0
+# carry the decoded raw data: GBs per file). Persistent stages (larcv, CAF) and
+# stages with `keep = true` stay; logs and file lists stay. A `retry` of a stage
+# whose input was removed needs that input stage redone first.
+cleanup_intermediate = true
 # notify_cmd = 'echo {body} | mail -s {subject} FILL_ME@fnal.gov'
 
 # Resource requests are first guesses: take memory/disk/lifetime from the

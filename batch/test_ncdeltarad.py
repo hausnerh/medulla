@@ -460,6 +460,57 @@ def test_xml_sets_project_os_for_start_stop_jobs(campaign):
     assert '--singularity-image' not in xml
 
 
+def _outdir(cfg, name):
+    return Path(O.stage_dirs(cfg, next(s for s in cfg['stages'] if s['name'] == name))['outdir'])
+
+
+def test_cleanup_intermediate_removes_inputs_of_done_stages(campaign):
+    """Only the final outputs matter: a scratch stage's out/ goes once the
+    stage reading it is done; the last stage, logs and lists stay."""
+    wd = campaign(cleanup_intermediate=True)
+    cfg = json.loads((wd / 'config.json').read_text())
+    grid = FakeGrid(cfg, good=dict(gen=[8, 10], g4=[10], caf=[10]))
+    results, state = _drive(wd, grid)
+    assert results[-1] == 'done'
+    assert not _outdir(cfg, 'gen').exists() and not _outdir(cfg, 'g4').exists()
+    assert any(_outdir(cfg, 'caf').iterdir())
+    assert state['stages']['gen']['cleaned'] and state['stages']['g4']['cleaned']
+    assert 'cleaned' not in state['stages']['caf']
+    assert (wd / 'published' / 'gen' / 'files.list').exists()        # the record stays
+    m = json.loads((wd / 'manifest.json').read_text())
+    assert m['stages']['gen']['cleaned'] and m['stages']['caf']['cleaned'] is None
+    log = (wd / 'orchestrator.log').read_text()
+    assert log.index('gen: removed') > log.index('g4: check rc')       # only after g4 consumed gen
+
+
+def test_cleanup_is_off_by_default_and_command_applies_it_later(campaign):
+    wd = campaign()
+    cfg = json.loads((wd / 'config.json').read_text())
+    grid = FakeGrid(cfg, good=dict(gen=[10], g4=[10], caf=[10]))
+    results, _ = _drive(wd, grid)
+    assert results[-1] == 'done' and _outdir(cfg, 'gen').exists() and _outdir(cfg, 'g4').exists()
+    O.Shell.__call__, real = (lambda self, cmd, mutating=True, timeout=0: (0, '')), O.Shell.__call__
+    try:
+        O.cmd_cleanup(type('A', (), dict(workdir=str(wd)))())
+    finally:
+        O.Shell.__call__ = real
+    state = json.loads((wd / 'state.json').read_text())
+    assert not _outdir(cfg, 'gen').exists() and not _outdir(cfg, 'g4').exists() and _outdir(cfg, 'caf').exists()
+    assert json.loads((wd / 'manifest.json').read_text())['stages']['g4']['cleaned'] == state['stages']['g4']['cleaned']
+
+
+def test_cleanup_never_touches_persistent_keep_or_unfinished(campaign):
+    wd = campaign()
+    o = O.Orchestrator(wd, shell=FakeGrid(json.loads((wd / 'config.json').read_text()), good={}), clock=grid_clock)
+    gen = o.cfg['stages'][0]
+    for st, s in ((dict(gen, persistent=True), dict(status='done')),      # larcv / CAF stages
+                  (dict(gen, keep=True), dict(status='done')),
+                  (gen, dict(status='running'))):                          # a makeup may still need it
+        out = Path(O.stage_dirs(o.cfg, st)['outdir'])
+        out.mkdir(parents=True, exist_ok=True)
+        assert o.clean_stage(st, s) == '' and out.exists()
+
+
 def test_full_chain_with_makeup(campaign):
     wd = campaign()
     cfg = json.loads((wd / 'config.json').read_text())

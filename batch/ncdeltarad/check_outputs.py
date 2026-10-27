@@ -80,6 +80,9 @@ def check_manifest(base):
                 fail(f'{name}/{lname}: list {lpath} missing')
                 continue
             files = [x.strip() for x in open(lpath) if x.strip()]
+            if s.get('cleaned'):                 # cleanup_intermediate removed them on purpose
+                info(f'{name}/{lname}: {len(files)} files listed, outputs removed {s["cleaned"]} (cleanup)')
+                continue
             missing = [f for f in files if not os.path.exists(f)]
             (fail if missing or not files else info)(
                 f'{name}/{lname}: {len(files)} files listed, {len(missing)} missing'
