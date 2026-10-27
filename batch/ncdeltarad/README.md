@@ -61,15 +61,16 @@ Requirements and pitfalls:
 
 Copy the HDF5 outputs to `/exp/sbn/data`. Then, on the gpvm, `spine_caf.py`:
 - pairs each caf job with its HDF5 by (run, subrun, event);
-- merges it with sbn_ml_cafmaker's `merge_sources_simulation` (Mueller's
-  build, the one in `tools/manager.py`);
+- merges it with `merge_sources_simulation` from a build of
+  SBNSoftware/sbn_ml_cafmaker, run with the sbnana that build was compiled
+  against (`tools/manager.py` there shows the recipe);
 - runs `flatten_caf`;
 - copies the flat ML CAF and the HDF5 to `<persistent_base>/spine/` with
   `ifdh cp`, and writes the lists and a manifest;
 - runs `check_outputs.py`, whose section 5 checks the ML CAFs.
 
 ```bash
-python3 batch/ncdeltarad/spine_caf.py $WD --h5 '/exp/sbn/data/users/$USER/ncdr/spine/*.h5'
+python3 batch/ncdeltarad/spine_caf.py $WD --h5 '/exp/sbn/data/users/$USER/ncdr/spine/*.h5' --merge-exec <build>/merge_sources_simulation
 ```
 
 ## 1. Physics setup

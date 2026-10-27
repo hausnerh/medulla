@@ -3,7 +3,7 @@
 SPINE outputs -> ML flat CAFs on /pnfs, for a finished ncdeltarad campaign.
 Run on the gpvm (AL9 host, like the orchestrator) after SPINE inference:
 
-    python batch/ncdeltarad/spine_caf.py $WD --h5 '/exp/sbn/data/users/$USER/ncdr/spine/*.h5'
+    python batch/ncdeltarad/spine_caf.py $WD --h5 '/exp/sbn/data/users/$USER/ncdr/spine/*.h5' --merge-exec <build>/merge_sources_simulation
 
 For every caf job of the campaign (<persistent_base>/caf/out/<job>/):
   1. pairs the job with the SPINE HDF5 file holding its events: (run, subrun,
@@ -36,8 +36,6 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import orchestrate as O  # noqa: E402
 
-# Build used for the ICARUS SPINE productions (sbn_ml_cafmaker tools/manager.py).
-MERGE_EXEC = '/exp/icarus/app/users/mueller/spineprod/cafmaker/spine_cafmaker/build/merge_sources_simulation'
 UPS_SETUP = 'source /cvmfs/icarus.opensciencegrid.org/products/icarus/setup_icarus.sh'
 
 
@@ -47,9 +45,13 @@ def setup_from_cmakecache(exe):
     if not cache.exists():
         return None
     text = cache.read_text(errors='replace')
-    ver = re.search(r'/sbnana/(v\d+_\d+_\d+\w*)/', text)
-    qual = re.search(r'/sbnana/v[\w]+/[^/\s]*?(e\d+)[^/\s]*?(prof|debug)', text)
+    ver = re.search(r'/sbnana/(v\d+_\d+_\d+\w*)/', text, re.I)
+    qual = re.search(r'/sbnana/v[\w]+/[^/\s]*?(e\d+)[^/\s]*?(prof|debug)', text, re.I)
     if not ver:
+        obj = sorted(set(re.findall(r'/sbnanaobj/(v\d+_\d+_\d+\w*)/', text, re.I)))
+        if obj:
+            print(f'{cache}: built against sbnanaobj {obj} but names no sbnana: pass --setup with the '
+                  f'sbnana (for flatten_caf) that uses that sbnanaobj')
         return None
     q = f'{qual.group(1)}:{qual.group(2)}' if qual else 'e26:prof'
     return f'{UPS_SETUP}\nsetup sbnana {ver.group(1)} -q {q}'
@@ -108,7 +110,8 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('workdir', help='campaign workdir (config.json, state.json)')
     ap.add_argument('--h5', required=True, nargs='+', help='SPINE HDF5 files or globs (local paths)')
-    ap.add_argument('--merge-exec', default=MERGE_EXEC)
+    ap.add_argument('--merge-exec', required=True,
+                    help='sbn_ml_cafmaker build/merge_sources_simulation (must run with the --setup environment)')
     ap.add_argument('--setup', help='UPS setup lines for merge + flatten_caf (default: from the build CMakeCache)')
     ap.add_argument('--dry-run', action='store_true', help='pair and write the scripts, run nothing')
     a = ap.parse_args()

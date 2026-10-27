@@ -623,7 +623,7 @@ def test_spine_caf_dry_run_pairs_campaign_jobs(campaign, tmp_path, capsys):
         ri = np.array(keys, dtype=[('run', 'i4'), ('subrun', 'i4'), ('event', 'i4')])
         with h5py.File(h5dir / f'larcv_mc_{1 - j}_spine.h5', 'w') as f:   # names say nothing about the job
             f['run_info'] = ri
-    sys.argv = ['spine_caf.py', str(wd), '--h5', str(h5dir / '*.h5'), '--setup', 'setup sbnana v1 -q e26:prof',
+    sys.argv = ['spine_caf.py', str(wd), '--h5', str(h5dir / '*.h5'), '--setup', 'setup sbnana v1 -q e26:prof', '--merge-exec', '/b/merge_sources_simulation',
                 '--dry-run']
     assert S.main() == 0
     log = capsys.readouterr().out
