@@ -6,7 +6,9 @@
 #       /cvmfs/singularity.opensciencegrid.org/fermilab/fnal-dev-sl7:latest \
 #       bash batch/ncdeltarad/build_ml_cafmaker.sh /exp/icarus/app/users/$USER/ml_cafmaker
 #
-# Arguments: <prefix> [icaruscode version, default v10_06_00_13] [qual, default e26:prof] [sbnana version]
+# Arguments: <prefix> [icaruscode version, default v10_06_00_13] [qual, default e26:prof]
+#            [sbnana version, default: searched] [sbn_ml_cafmaker ref, default feature/spine_v0.11.0]
+# ('' skips an argument: build_ml_cafmaker.sh <prefix> '' '' '' main)
 #
 # Steps (each re-run skips what is already built):
 #   1. sbnanaobj version = the one icaruscode <version> depends on (the CAFs
@@ -16,17 +18,18 @@
 #      merge writes;
 #   2. HDF5 1.10.5 with the C++ API from source (UPS hdf5 has no C++ API for
 #      e26 -- sbn_ml_cafmaker README);
-#   3. sbn_ml_cafmaker merge_sources_simulation;
+#   3. sbn_ml_cafmaker merge_sources_simulation at <ref> (rebuilt when the ref moves);
 #   4. <prefix>/setup_ml_cafmaker.sh: the runtime setup, read by
 #      spine_caf.py --cafmaker-dir <prefix>.
 # No `set -e`: the UPS setup scripts return non-zero internally.
 
-PREFIX=${1:?usage: build_ml_cafmaker.sh <prefix> [icaruscode version] [qual] [sbnana version]}
+PREFIX=${1:?usage: build_ml_cafmaker.sh <prefix> [icaruscode version] [qual] [sbnana version] [sbn_ml_cafmaker ref]}
 REL=${2:-v10_06_00_13}
 QUAL=${3:-e26:prof}
 die() { echo "build_ml_cafmaker: FAILED: $*" >&2; exit 1; }
 
 SBNANA=${4:-}
+REF=${5:-feature/spine_v0.11.0}       # sbn_ml_cafmaker branch for SPINE v0.11-v0.15 HDF5
 mkdir -p "$PREFIX" && cd "$PREFIX" || die "cannot use $PREFIX"
 set --      # a sourced script sees our arguments: setup_icarus.sh warned "unsupported setup option"
 source /cvmfs/icarus.opensciencegrid.org/products/icarus/setup_icarus.sh || die "setup_icarus.sh"
@@ -97,11 +100,26 @@ if [ ! -e "$H/install/lib/libhdf5_cpp.so" ]; then
     cmake --build "$H/build" -j 8 --target install >"$H/build.log" 2>&1 || die "hdf5 build (see $H/build.log)"
 fi
 
-# 3. sbn_ml_cafmaker
+# 3. sbn_ml_cafmaker at $REF. The branch must match the SPINE version that
+# wrote the HDF5: main (2026-03) predates the HDF5 format change and fails on
+# SPINE v0.15.1 files ("H5T__path_find_real(): no appropriate function for
+# conversion path"); feature/spine_v0.11.0 carries "Update interface code to
+# be consistent with new HDF5 format" (2026-06-19); feature/schung_spine_v1.4.0
+# reads SPINE v1.4.0.
 S=$PREFIX/sbn_ml_cafmaker
-if [ -d "$S/.git" ]; then git -C "$S" pull -q || die "git pull sbn_ml_cafmaker"
-else git clone -q https://github.com/SBNSoftware/sbn_ml_cafmaker.git "$S" || die "git clone sbn_ml_cafmaker"; fi
-cmake -S "$S" -B "$S/build" -DHDF5_INSTALL="$H/install" >"$S/cmake.log" 2>&1 || die "cmake (see $S/cmake.log)"
+if [ ! -d "$S/.git" ]; then
+    git clone -q https://github.com/SBNSoftware/sbn_ml_cafmaker.git "$S" || die "git clone sbn_ml_cafmaker"
+fi
+git -C "$S" fetch -q origin || die "git fetch sbn_ml_cafmaker"
+git -C "$S" checkout -q --detach "origin/$REF" 2>/dev/null || git -C "$S" checkout -q --detach "$REF" \
+    || die "no ref $REF in sbn_ml_cafmaker"
+[ "$(cat "$S/build/.ncdr_ref" 2>/dev/null)" = "$(git -C "$S" rev-parse HEAD)" ] || rm -rf "$S/build"
+# main finds HDF5 with CONFIG PATHS ${HDF5_INSTALL}; the later branches use
+# CMake's FindHDF5 (HDF5::HDF5) and sbnanaobj_{INCLUDE,LIBRARY}_DIR.
+cmake -S "$S" -B "$S/build" -DHDF5_INSTALL="$H/install" -DHDF5_ROOT="$H/install" \
+      -Dsbnanaobj_INCLUDE_DIR="$SBNANAOBJ_INC" -Dsbnanaobj_LIBRARY_DIR="$SBNANAOBJ_LIB" \
+      >"$S/cmake.log" 2>&1 || { tail -20 "$S/cmake.log" >&2; die "cmake (see $S/cmake.log)"; }
+git -C "$S" rev-parse HEAD > "$S/build/.ncdr_ref"
 cmake --build "$S/build" -j 8 --target merge_sources_simulation >"$S/build.log" 2>&1 \
     || { tail -30 "$S/build.log" >&2; die "build (see $S/build.log)"; }
 
@@ -115,6 +133,6 @@ export LD_LIBRARY_PATH=$H/install/lib:$LD_LIBRARY_PATH
 missing=$(ldd "$S/build/merge_sources_simulation" | grep 'not found')
 [ -z "$missing" ] || die "unresolved libraries: $missing"
 command -v flatten_caf >/dev/null || die "no flatten_caf in sbnana $SBNANA"
-echo "built $S/build/merge_sources_simulation ($(git -C "$S" log -1 --format='%h %ci'))"
+echo "built $S/build/merge_sources_simulation ($REF @ $(git -C "$S" log -1 --format="%h %ci"))"
 echo "sbnana $SBNANA / sbnanaobj ${SBNANAOBJ_VERSION:-?} (CAFs written with $OBJ); runtime setup: $PREFIX/setup_ml_cafmaker.sh"
 echo "use: spine_caf.py <workdir> --h5 '<h5 glob>' --cafmaker-dir $PREFIX"
