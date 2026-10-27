@@ -56,9 +56,16 @@ echo "icaruscode $REL -> sbnanaobj $OBJ -> sbnana $SBNANA"
 setup sbnana "$SBNANA" -q "$QUAL" || die "setup sbnana $SBNANA -q $QUAL"
 echo "sbnana $SBNANA sets up sbnanaobj ${SBNANAOBJ_VERSION:-?}"
 if ! command -v cmake >/dev/null; then
-    # UPS cmake has no "current" chain: name the newest version (-S/-B needs >= 3.13)
-    CMAKE_V=$(ups list -aK VERSION cmake 2>/dev/null | tr -d '"' | sort -uV | tail -1)
-    [ -n "$CMAKE_V" ] && setup cmake "$CMAKE_V" || die "no cmake (ups list -aK+ cmake)"
+    # UPS cmake has no "current" chain, and the newest listed version may not
+    # be built for this flavor (v3_27_4: "has no v3_27_4 version"): try the
+    # versions newest first; else the OS cmake3. -S/-B needs >= 3.13.
+    for v in $(ups list -aK VERSION cmake 2>/dev/null | tr -d '"' | sort -urV); do
+        setup cmake "$v" >/dev/null 2>&1 && command -v cmake >/dev/null && break
+    done
+    if ! command -v cmake >/dev/null && command -v cmake3 >/dev/null; then
+        mkdir -p "$PREFIX/bin" && ln -sf "$(command -v cmake3)" "$PREFIX/bin/cmake" && export PATH=$PREFIX/bin:$PATH
+    fi
+    command -v cmake >/dev/null || die "no cmake (ups list -aK+ cmake; no cmake3)"
 fi
 echo "cmake: $(cmake --version | head -1)"
 [ -f "$SBNANAOBJ_INC/sbnanaobj/StandardRecord/SRInteractionDLP.h" ] \
