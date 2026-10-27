@@ -623,7 +623,11 @@ def test_spine_caf_dry_run_pairs_campaign_jobs(campaign, tmp_path, capsys):
         ri = np.array(keys, dtype=[('run', 'i4'), ('subrun', 'i4'), ('event', 'i4')])
         with h5py.File(h5dir / f'larcv_mc_{1 - j}_spine.h5', 'w') as f:   # names say nothing about the job
             f['run_info'] = ri
-    sys.argv = ['spine_caf.py', str(wd), '--h5', str(h5dir / '*.h5'), '--setup', 'setup sbnana v1 -q e26:prof', '--merge-exec', '/b/merge_sources_simulation',
+    cmk = tmp_path / 'ml_cafmaker'           # as build_ml_cafmaker.sh leaves it
+    cmk.mkdir()
+    (cmk / 'setup_ml_cafmaker.sh').write_text('source /x/setup_icarus.sh\nsetup sbnana v10_06_00_99 -q e26:prof\n'
+                                             'export LD_LIBRARY_PATH=/h5/lib:$LD_LIBRARY_PATH\n')
+    sys.argv = ['spine_caf.py', str(wd), '--h5', str(h5dir / '*.h5'), '--cafmaker-dir', str(cmk),
                 '--dry-run']
     assert S.main() == 0
     log = capsys.readouterr().out
@@ -631,6 +635,8 @@ def test_spine_caf_dry_run_pairs_campaign_jobs(campaign, tmp_path, capsys):
     sc = (wd / 'spine_caf' / 'merge_7_1.sh').read_text()
     assert 'in1-Overlay_2026_v1.caf.root' in sc and 'larcv_mc_0_spine.h5' in sc
     assert 'in1-Overlay_2026_v1.spine.flat.caf.root' in sc
+    assert f'{cmk}/sbn_ml_cafmaker/build/merge_sources_simulation' in sc
+    assert 'setup sbnana v10_06_00_99 -q e26:prof ||' in sc and 'export LD_LIBRARY_PATH=/h5/lib' in sc
 
 
 def test_decode_before_gen_production_order(campaign):

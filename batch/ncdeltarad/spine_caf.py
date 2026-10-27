@@ -3,7 +3,7 @@
 SPINE outputs -> ML flat CAFs on /pnfs, for a finished ncdeltarad campaign.
 Run on the gpvm (AL9 host, like the orchestrator) after SPINE inference:
 
-    python batch/ncdeltarad/spine_caf.py $WD --h5 '/exp/sbn/data/users/$USER/ncdr/spine/*.h5' --merge-exec <build>/merge_sources_simulation
+    python batch/ncdeltarad/spine_caf.py $WD --h5 '/exp/sbn/data/users/$USER/ncdr/spine/*.h5' --cafmaker-dir /exp/icarus/app/users/$USER/ml_cafmaker
 
 For every caf job of the campaign (<persistent_base>/caf/out/<job>/):
   1. pairs the job with the SPINE HDF5 file holding its events: (run, subrun,
@@ -110,11 +110,18 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('workdir', help='campaign workdir (config.json, state.json)')
     ap.add_argument('--h5', required=True, nargs='+', help='SPINE HDF5 files or globs (local paths)')
-    ap.add_argument('--merge-exec', required=True,
-                    help='sbn_ml_cafmaker build/merge_sources_simulation (must run with the --setup environment)')
+    ap.add_argument('--cafmaker-dir', help='prefix given to build_ml_cafmaker.sh: its merge build and setup')
+    ap.add_argument('--merge-exec', help='sbn_ml_cafmaker build/merge_sources_simulation (another build)')
     ap.add_argument('--setup', help='UPS setup lines for merge + flatten_caf (default: from the build CMakeCache)')
     ap.add_argument('--dry-run', action='store_true', help='pair and write the scripts, run nothing')
     a = ap.parse_args()
+    if a.cafmaker_dir:
+        d = Path(a.cafmaker_dir)
+        a.merge_exec = a.merge_exec or str(d / 'sbn_ml_cafmaker' / 'build' / 'merge_sources_simulation')
+        if not a.setup and (d / 'setup_ml_cafmaker.sh').exists():
+            a.setup = (d / 'setup_ml_cafmaker.sh').read_text().strip()
+    if not a.merge_exec:
+        ap.error('give --cafmaker-dir (build_ml_cafmaker.sh prefix) or --merge-exec')
 
     cfg = json.loads((Path(a.workdir) / 'config.json').read_text())
     base = cfg.get('persistent_base') or cfg['pnfs_base']

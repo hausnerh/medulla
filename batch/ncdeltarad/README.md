@@ -69,8 +69,20 @@ Copy the HDF5 outputs to `/exp/sbn/data`. Then, on the gpvm, `spine_caf.py`:
   `ifdh cp`, and writes the lists and a manifest;
 - runs `check_outputs.py`, whose section 5 checks the ML CAFs.
 
+Build the merger once with `build_ml_cafmaker.sh`, in the SL7 container. It:
+- builds against the sbnanaobj of icaruscode v10_06_00_13 and the sbnana
+  built on it, so `flatten_caf` matches;
+- builds HDF5 1.10.5 with the C++ API from source, as the sbn_ml_cafmaker
+  README requires;
+- writes `<prefix>/setup_ml_cafmaker.sh`.
+
+Then run `spine_caf.py`:
+
 ```bash
-python3 batch/ncdeltarad/spine_caf.py $WD --h5 '/exp/sbn/data/users/$USER/ncdr/spine/*.h5' --merge-exec <build>/merge_sources_simulation
+apptainer exec --cleanenv -B /cvmfs,/exp,/nashome,/pnfs/icarus \
+    /cvmfs/singularity.opensciencegrid.org/fermilab/fnal-dev-sl7:latest \
+    bash batch/ncdeltarad/build_ml_cafmaker.sh /exp/icarus/app/users/$USER/ml_cafmaker
+python3 batch/ncdeltarad/spine_caf.py $WD --h5 '/exp/sbn/data/users/$USER/ncdr/spine/*.h5' --cafmaker-dir /exp/icarus/app/users/$USER/ml_cafmaker
 ```
 
 ## 1. Physics setup
