@@ -176,11 +176,20 @@ def main():
             print(f'{job}: FAILED (rc {p.returncode}), log {work / f"merge_{job}.log"}:\n    {tail}')
             continue
         flat_local.unlink(missing_ok=True)
+        # merge_sources prints one "Matched Event" per CAF event found in the
+        # HDF5 and "Found incomplete entry" when reading its products fails
+        # (the event then keeps no SPINE products; rc is still 0).
+        out = p.stdout + p.stderr
+        matched, incomplete = out.count('Matched Event'), out.count('Found incomplete entry')
         flat_list.append(str(dest_flat))
         h5_list.append(str(dest_h5))
         done.append(dict(job=job, caf=str(cafs[job]), hdf5=str(dest_h5), flatcaf=str(dest_flat),
-                         caf_events=n, matched_events=common))
-        print(f'{job}: -> {dest_flat}')
+                         caf_events=n, paired_events=common, merge_matched=matched, merge_incomplete=incomplete))
+        bad = matched < common or incomplete
+        if bad:
+            failed.append(job)
+        print(f'{job}: merge matched {matched}/{n} CAF events, {incomplete} incomplete'
+              f'{"  <-- PROBLEM, see " + str(work / f"merge_{job}.log") if bad else ""} -> {dest_flat}')
     if a.dry_run:
         return 0
 
@@ -193,7 +202,7 @@ def main():
     man.write_text(json.dumps(dict(merge_exec=a.merge_exec, setup=setup, jobs=done, failed=failed,
                                    unpaired=unpaired, unused_hdf5=sorted(set(h5s) - used)), indent=1))
     O.copy_to_pnfs(sh, man, str(dest / man.name))
-    print(f'\n{len(done)} merged, {len(failed)} failed, {len(unpaired)} without SPINE output -> {dest}')
+    print(f'\n{len(done)} merged, {len(failed)} failed or incomplete, {len(unpaired)} without SPINE output -> {dest}')
     rc = subprocess.run([sys.executable, str(HERE / 'check_outputs.py'), base]).returncode
     return 1 if failed or unpaired or rc else 0
 
