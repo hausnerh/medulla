@@ -55,7 +55,12 @@ fi
 echo "icaruscode $REL -> sbnanaobj $OBJ -> sbnana $SBNANA"
 setup sbnana "$SBNANA" -q "$QUAL" || die "setup sbnana $SBNANA -q $QUAL"
 echo "sbnana $SBNANA sets up sbnanaobj ${SBNANAOBJ_VERSION:-?}"
-command -v cmake >/dev/null || setup cmake || die "no cmake"
+if ! command -v cmake >/dev/null; then
+    # UPS cmake has no "current" chain: name the newest version (-S/-B needs >= 3.13)
+    CMAKE_V=$(ups list -aK VERSION cmake 2>/dev/null | tr -d '"' | sort -uV | tail -1)
+    [ -n "$CMAKE_V" ] && setup cmake "$CMAKE_V" || die "no cmake (ups list -aK+ cmake)"
+fi
+echo "cmake: $(cmake --version | head -1)"
 [ -f "$SBNANAOBJ_INC/sbnanaobj/StandardRecord/SRInteractionDLP.h" ] \
     || die "sbnanaobj ${SBNANAOBJ_VERSION:-?} has no SRInteractionDLP (the ML CAF branches)"
 
