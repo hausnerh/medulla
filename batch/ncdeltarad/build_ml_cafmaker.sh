@@ -13,7 +13,8 @@
 # Steps (each re-run skips what is already built):
 #   1. sbnanaobj version = the one icaruscode <version> depends on (the CAFs
 #      were written with it); sbnana = the first, from that sbnanaobj upward,
-#      whose sbnanaobj has the ML classes (SRInteractionDLP). Merge and
+#      whose sbnanaobj has the ML classes (SRInteractionDLP) under a
+#      caf::StandardRecord class version above the CAFs'. Merge and
 #      flatten_caf both run with that sbnana, so flatten_caf reads what the
 #      merge writes;
 #   2. HDF5 1.10.5 with the C++ API from source (UPS hdf5 has no C++ API for
@@ -41,11 +42,12 @@ if [ -n "$SBNANA" ]; then
 else
     # sbnana on the CAFs' own sbnanaobj first, then on each newer sbnanaobj,
     # oldest first. The first whose sbnanaobj has the ML classes
-    # (SRInteractionDLP) wins. Pilot: icaruscode v10_06_00_13 uses sbnanaobj
-    # v10_00_05_03, which no sbnana depends on; the ML classes start at
-    # sbnanaobj v10_00_09 (sbnana v10_01_02_01). A newer StandardRecord reads
-    # the older CAFs by ROOT schema evolution; check_outputs.py section 5
-    # verifies events and POT after the merge.
+    # (SRInteractionDLP) and a StandardRecord class version above the CAFs'
+    # wins. Pilot: icaruscode v10_06_00_13 uses sbnanaobj v10_00_05_03
+    # (StandardRecord v14), which no sbnana depends on; the ML classes start
+    # at v10_00_09, still v14; v10_00_11 (sbnana v10_01_03) has them as v15.
+    # A newer StandardRecord reads the older CAFs by ROOT schema evolution;
+    # check_outputs.py section 5 verifies events, POT and SPINE products.
     cands=$(for v in $(ups list -aK VERSION sbnana -q "$QUAL" 2>/dev/null | tr -d '"' | sort -uV); do
                 o=$(ups depend sbnana "$v" -q "$QUAL" 2>/dev/null | grep -o 'sbnanaobj v[0-9a-z_]*' | head -1 | cut -d' ' -f2)
                 [ -n "$o" ] && echo "$o $v"
@@ -58,6 +60,20 @@ else
         [ "$(printf '%s\n%s\n' "$OBJ" "$o" | sort -V | head -1)" = "$OBJ" ] && echo "    $o $v"
     done | head -8
 fi
+# caf::StandardRecord class version of the set-up sbnanaobj (ROOT autoloads
+# the dictionary through its rootmap).
+sr_version() {
+    root -l -b -q -e 'auto c = TClass::GetClass("caf::StandardRecord"); std::cout << "SRV " << (c ? c->GetClassVersion() : -1) << std::endl;' 2>/dev/null \
+        | sed -n 's/^SRV //p' | tail -1
+}
+# The merge must write StandardRecord under a class version above the CAFs':
+# sbnanaobj v10_00_09 added dlp/dlp_true but kept version 14, the version of
+# the CAFs' v10_00_05_03 layout; ROOT then keeps the input's v14 layout (no
+# dlp) for the output ("same version (=14) as the active class but a
+# different checksum") and the merged CAFs carry no SPINE products (pilot).
+CAF_SRV=$( setup sbnanaobj "$OBJ" -q "$QUAL" >/dev/null 2>&1 && sr_version )    # sets up its root too
+[ -n "$CAF_SRV" ] && [ "$CAF_SRV" -gt 0 ] 2>/dev/null || die "cannot read caf::StandardRecord's version for sbnanaobj $OBJ"
+echo "CAFs: sbnanaobj $OBJ, caf::StandardRecord version $CAF_SRV"
 SBNANA=
 for v in $order; do
     # Each try in a subshell: `unsetup sbnana` leaves its dependencies set up,
@@ -67,7 +83,10 @@ for v in $order; do
                || { echo "setup failed: $(grep -m1 -i error /tmp/ncdr_setup_$$.log)"; exit 1; }
            [ -f "$SBNANAOBJ_INC/sbnanaobj/StandardRecord/SRInteractionDLP.h" ] \
                || { echo "sbnanaobj ${SBNANAOBJ_VERSION:-?}: no SRInteractionDLP"; exit 1; }
-           echo "sbnanaobj ${SBNANAOBJ_VERSION:-?}" ) && { SBNANA=$v; break; }
+           srv=$(sr_version)
+           [ -n "$srv" ] && [ "$srv" -gt "$CAF_SRV" ] 2>/dev/null \
+               || { echo "sbnanaobj ${SBNANAOBJ_VERSION:-?}: StandardRecord version ${srv:-?}, not above the CAFs' $CAF_SRV"; exit 1; }
+           echo "sbnanaobj ${SBNANAOBJ_VERSION:-?}, StandardRecord version $srv" ) && { SBNANA=$v; break; }
     echo "  sbnana $v: $msg"
 done
 rm -f /tmp/ncdr_setup_$$.log
@@ -113,13 +132,14 @@ fi
 git -C "$S" fetch -q origin || die "git fetch sbn_ml_cafmaker"
 git -C "$S" checkout -q --detach "origin/$REF" 2>/dev/null || git -C "$S" checkout -q --detach "$REF" \
     || die "no ref $REF in sbn_ml_cafmaker"
-[ "$(cat "$S/build/.ncdr_ref" 2>/dev/null)" = "$(git -C "$S" rev-parse HEAD)" ] || rm -rf "$S/build"
+STAMP="$(git -C "$S" rev-parse HEAD) sbnana $SBNANA"
+[ "$(cat "$S/build/.ncdr_ref" 2>/dev/null)" = "$STAMP" ] || rm -rf "$S/build"
 # main finds HDF5 with CONFIG PATHS ${HDF5_INSTALL}; the later branches use
 # CMake's FindHDF5 (HDF5::HDF5) and sbnanaobj_{INCLUDE,LIBRARY}_DIR.
 cmake -S "$S" -B "$S/build" -DHDF5_INSTALL="$H/install" -DHDF5_ROOT="$H/install" \
       -Dsbnanaobj_INCLUDE_DIR="$SBNANAOBJ_INC" -Dsbnanaobj_LIBRARY_DIR="$SBNANAOBJ_LIB" \
       >"$S/cmake.log" 2>&1 || { tail -20 "$S/cmake.log" >&2; die "cmake (see $S/cmake.log)"; }
-git -C "$S" rev-parse HEAD > "$S/build/.ncdr_ref"
+echo "$STAMP" > "$S/build/.ncdr_ref"
 cmake --build "$S/build" -j 8 --target merge_sources_simulation >"$S/build.log" 2>&1 \
     || { tail -30 "$S/build.log" >&2; die "build (see $S/build.log)"; }
 

@@ -185,11 +185,17 @@ def main():
         h5_list.append(str(dest_h5))
         done.append(dict(job=job, caf=str(cafs[job]), hdf5=str(dest_h5), flatcaf=str(dest_flat),
                          caf_events=n, paired_events=common, merge_matched=matched, merge_incomplete=incomplete))
-        bad = matched < common or incomplete
+        # Same StandardRecord class version as the input CAF but another
+        # layout: ROOT keeps the input's layout and drops dlp/dlp_true from the
+        # output (pilot, sbnanaobj v10_00_09 on v10_00_05_03 CAFs).
+        clash = 'as the active class but a different checksum' in out
+        bad = matched < common or incomplete or clash
         if bad:
             failed.append(job)
         print(f'{job}: merge matched {matched}/{n} CAF events, {incomplete} incomplete'
-              f'{"  <-- PROBLEM, see " + str(work / f"merge_{job}.log") if bad else ""} -> {dest_flat}')
+              + (', StandardRecord version clash with the input CAF (SPINE products dropped; rebuild '
+                 'with build_ml_cafmaker.sh)' if clash else '')
+              + (f'  <-- PROBLEM, see {work / f"merge_{job}.log"}' if bad else '') + f' -> {dest_flat}')
     if a.dry_run:
         return 0
 
