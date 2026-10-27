@@ -73,6 +73,10 @@ DEFAULTS = dict(experiment='icarus', release='v10_06_00_13', qual='e26:prof', fi
                 run_type='physics', resource='DEDICATED,OPPORTUNISTIC', jobsub_extra='', os='SL7',
                 br_gamma=delta_br.BR_GAMMA_DEFAULT, genie_pdg_table='', min_good_fraction=0.95,
                 max_makeup=2, accept_fraction=0.80, held_timeout_hours=6.0, fallback_wait_hours=12.0,
+                # project.py calls (--check over every job dir on /pnfs) and the
+                # gen sidecar dump (every gen file over xrootd) grow with the
+                # number of jobs; the pilot's fixed 30 min / 6 h do not scale.
+                project_timeout_hours=3.0, sidecar_timeout_hours=24.0,
                 notify_cmd='', persistent_base='', numevents=1000000000, delta_sidecar=True,
                 input_location_prefer='',
                 xrootd_prefix='root://fndcadoor.fnal.gov:1094/pnfs/fnal.gov/usr/',
@@ -274,7 +278,8 @@ class Orchestrator:
 
     # ---- helpers ------------------------------------------------------------ #
     def project(self, stage, action, mutating=True):
-        return self.sh(['project.py', '--xml', str(self.xml), '--stage', stage, f'--{action}'], mutating=mutating)
+        return self.sh(['project.py', '--xml', str(self.xml), '--stage', stage, f'--{action}'], mutating=mutating,
+                       timeout=int(3600 * self.cfg.get('project_timeout_hours', DEFAULTS['project_timeout_hours'])))
 
     def write_xml(self):
         numjobs = {n: s['numjobs'] for n, s in self.state['stages'].items() if s.get('numjobs')}
@@ -565,7 +570,7 @@ class Orchestrator:
             script = pub / 'dump_delta_decays.sh'
             script.write_text(sl7_script(self.cfg['sl7_setup'].format(**self.cfg), root_cmd))
             root_cmd = self.cfg['sl7_exec'].format(script=shlex.quote(str(script)))
-        rc, out = self.sh(root_cmd, mutating=False, timeout=6 * 3600)
+        rc, out = self.sh(root_cmd, mutating=False, timeout=int(3600 * self.cfg.get('sidecar_timeout_hours', DEFAULTS['sidecar_timeout_hours'])))
         (pub / 'dump_delta_decays.log').write_text(out)
         if rc != 0 and not self.dry_run:
             last = '\n'.join(out.strip().splitlines()[-8:])
