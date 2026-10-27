@@ -6,12 +6,13 @@
 #       /cvmfs/singularity.opensciencegrid.org/fermilab/fnal-dev-sl7:latest \
 #       bash batch/ncdeltarad/build_ml_cafmaker.sh /exp/icarus/app/users/$USER/ml_cafmaker
 #
-# Arguments: <prefix> [icaruscode version, default v10_06_00_13] [qual, default e26:prof]
+# Arguments: <prefix> [icaruscode version, default v10_06_00_13] [qual, default e26:prof] [sbnana version]
 #
 # Steps (each re-run skips what is already built):
 #   1. sbnanaobj version = the one icaruscode <version> depends on (the CAFs
-#      were written with it); sbnana = the newest sbnana built on that same
-#      sbnanaobj (flatten_caf must read what the merge writes);
+#      were written with it); sbnana = one built on that sbnanaobj, else on
+#      the oldest sbnanaobj above it. Merge and flatten_caf both run with
+#      that sbnana, so flatten_caf reads what the merge writes;
 #   2. HDF5 1.10.5 with the C++ API from source (UPS hdf5 has no C++ API for
 #      e26 -- sbn_ml_cafmaker README);
 #   3. sbn_ml_cafmaker merge_sources_simulation;
@@ -19,26 +20,44 @@
 #      spine_caf.py --cafmaker-dir <prefix>.
 # No `set -e`: the UPS setup scripts return non-zero internally.
 
-PREFIX=${1:?usage: build_ml_cafmaker.sh <prefix> [icaruscode version] [qual]}
+PREFIX=${1:?usage: build_ml_cafmaker.sh <prefix> [icaruscode version] [qual] [sbnana version]}
 REL=${2:-v10_06_00_13}
 QUAL=${3:-e26:prof}
 die() { echo "build_ml_cafmaker: FAILED: $*" >&2; exit 1; }
 
+SBNANA=${4:-}
 mkdir -p "$PREFIX" && cd "$PREFIX" || die "cannot use $PREFIX"
+set --      # a sourced script sees our arguments: setup_icarus.sh warned "unsupported setup option"
 source /cvmfs/icarus.opensciencegrid.org/products/icarus/setup_icarus.sh || die "setup_icarus.sh"
 
 OBJ=$(ups depend icaruscode "$REL" -q "$QUAL" 2>/dev/null | grep -o 'sbnanaobj v[0-9a-z_]*' | head -1 | cut -d' ' -f2)
 [ -n "$OBJ" ] || die "no sbnanaobj in 'ups depend icaruscode $REL -q $QUAL'"
-SBNANA=
-for v in $(ups list -aK VERSION sbnana -q "$QUAL" 2>/dev/null | tr -d '"' | sort -rV | uniq); do
-    if ups depend sbnana "$v" -q "$QUAL" 2>/dev/null | grep -q "sbnanaobj $OBJ\b"; then SBNANA=$v; break; fi
-done
-[ -n "$SBNANA" ] || die "no sbnana -q $QUAL depends on sbnanaobj $OBJ (ups list -aK+ sbnana)"
+if [ -z "$SBNANA" ]; then
+    # An sbnana on exactly the CAFs' sbnanaobj is preferred; else the one on
+    # the oldest sbnanaobj at or above it (pilot: icaruscode v10_06_00_13 uses
+    # sbnanaobj v10_00_05_03, which no sbnana depends on). A newer
+    # StandardRecord reads the older CAFs by ROOT schema evolution;
+    # check_outputs.py section 5 verifies events and POT after the merge.
+    cands=$(for v in $(ups list -aK VERSION sbnana -q "$QUAL" 2>/dev/null | tr -d '"' | sort -uV); do
+                o=$(ups depend sbnana "$v" -q "$QUAL" 2>/dev/null | grep -o 'sbnanaobj v[0-9a-z_]*' | head -1 | cut -d' ' -f2)
+                [ -n "$o" ] && echo "$o $v"
+            done | sort -V)
+    SBNANA=$(echo "$cands" | awk -v o="$OBJ" '$1 == o {print $2; exit}')
+    if [ -z "$SBNANA" ]; then
+        SBNANA=$(echo "$cands" | while read -r o v; do
+                     [ "$(printf '%s\n%s\n' "$OBJ" "$o" | sort -V | head -1)" = "$OBJ" ] && { echo "$v"; break; }
+                 done)
+    fi
+    echo "sbnana candidates around sbnanaobj $OBJ (sbnanaobj sbnana):"
+    echo "$cands" | grep -B3 -A3 -m1 "${SBNANA:-NONE}\$" | sed 's/^/    /'
+fi
+[ -n "$SBNANA" ] || die "no sbnana -q $QUAL on sbnanaobj >= $OBJ; pass one as the 4th argument"
 echo "icaruscode $REL -> sbnanaobj $OBJ -> sbnana $SBNANA"
 setup sbnana "$SBNANA" -q "$QUAL" || die "setup sbnana $SBNANA -q $QUAL"
+echo "sbnana $SBNANA sets up sbnanaobj ${SBNANAOBJ_VERSION:-?}"
 command -v cmake >/dev/null || setup cmake || die "no cmake"
 [ -f "$SBNANAOBJ_INC/sbnanaobj/StandardRecord/SRInteractionDLP.h" ] \
-    || die "sbnanaobj $OBJ has no SRInteractionDLP (the ML CAF branches)"
+    || die "sbnanaobj ${SBNANAOBJ_VERSION:-?} has no SRInteractionDLP (the ML CAF branches)"
 
 # 2. HDF5 C++
 H=$PREFIX/hdf5
