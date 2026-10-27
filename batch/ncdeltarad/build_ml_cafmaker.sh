@@ -116,5 +116,5 @@ missing=$(ldd "$S/build/merge_sources_simulation" | grep 'not found')
 [ -z "$missing" ] || die "unresolved libraries: $missing"
 command -v flatten_caf >/dev/null || die "no flatten_caf in sbnana $SBNANA"
 echo "built $S/build/merge_sources_simulation ($(git -C "$S" log -1 --format='%h %ci'))"
-echo "sbnana $SBNANA / sbnanaobj $OBJ; runtime setup: $PREFIX/setup_ml_cafmaker.sh"
+echo "sbnana $SBNANA / sbnanaobj ${SBNANAOBJ_VERSION:-?} (CAFs written with $OBJ); runtime setup: $PREFIX/setup_ml_cafmaker.sh"
 echo "use: spine_caf.py <workdir> --h5 '<h5 glob>' --cafmaker-dir $PREFIX"
