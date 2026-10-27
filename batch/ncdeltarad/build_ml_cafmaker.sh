@@ -57,12 +57,19 @@ else
 fi
 SBNANA=
 for v in $order; do
-    setup sbnana "$v" -q "$QUAL" >/dev/null 2>&1 || { echo "  sbnana $v: setup failed"; continue; }
-    if [ -f "$SBNANAOBJ_INC/sbnanaobj/StandardRecord/SRInteractionDLP.h" ]; then SBNANA=$v; break; fi
-    echo "  sbnana $v (sbnanaobj ${SBNANAOBJ_VERSION:-?}): no SRInteractionDLP"
-    unsetup sbnana >/dev/null 2>&1
+    # Each try in a subshell: `unsetup sbnana` leaves its dependencies set up,
+    # and UPS then refuses the next sbnana (pilot: every try after the first
+    # "setup failed").
+    msg=$( setup sbnana "$v" -q "$QUAL" >/tmp/ncdr_setup_$$.log 2>&1 \
+               || { echo "setup failed: $(grep -m1 -i error /tmp/ncdr_setup_$$.log)"; exit 1; }
+           [ -f "$SBNANAOBJ_INC/sbnanaobj/StandardRecord/SRInteractionDLP.h" ] \
+               || { echo "sbnanaobj ${SBNANAOBJ_VERSION:-?}: no SRInteractionDLP"; exit 1; }
+           echo "sbnanaobj ${SBNANAOBJ_VERSION:-?}" ) && { SBNANA=$v; break; }
+    echo "  sbnana $v: $msg"
 done
+rm -f /tmp/ncdr_setup_$$.log
 [ -n "$SBNANA" ] || die "no sbnana -q $QUAL with the ML classes on sbnanaobj >= $OBJ; pass one as the 4th argument"
+setup sbnana "$SBNANA" -q "$QUAL" || die "setup sbnana $SBNANA -q $QUAL"
 echo "icaruscode $REL -> sbnanaobj $OBJ; using sbnana $SBNANA (sbnanaobj ${SBNANAOBJ_VERSION:-?})"
 if ! command -v cmake >/dev/null; then
     # UPS cmake has no "current" chain, and the newest listed version may not
