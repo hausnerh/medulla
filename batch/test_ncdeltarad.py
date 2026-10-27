@@ -502,11 +502,11 @@ def test_republish_with_exclude_list_finds_renamed_flat_caf(campaign):
     assert m['stages']['caf']['lists']['flatcaf']['n'] == 10
 
 
-def _write_flat_caf(path, keys, rad_prim, nslc):
+def _write_flat_caf(path, keys, rad_prim, nslc, ndlp=None, pot=1e18):
     import awkward as ak
     import uproot
     with uproot.recreate(path) as f:
-        f['recTree'] = {
+        tree = {
             'rec.hdr.run': np.array([k[0] for k in keys], dtype=np.int32),
             'rec.hdr.subrun': np.array([k[1] for k in keys], dtype=np.int32),
             'rec.hdr.evt': np.array([k[2] for k in keys], dtype=np.int32),
@@ -515,6 +515,32 @@ def _write_flat_caf(path, keys, rad_prim, nslc):
             'rec.mc.nu.genie_mode': ak.Array([[1] for _ in keys]),
             'rec.mc.nu.wgt..length': ak.Array([[189] for _ in keys]),
         }
+        if ndlp is not None:              # merged ML CAF: SPINE interactions per event
+            tree['rec.dlp..length'] = np.array(ndlp, dtype=np.int32)
+            tree['rec.dlp_true..length'] = np.array(ndlp, dtype=np.int32)
+        f['recTree'] = tree
+        f['TotalPOT'] = (np.array([pot]), np.array([0.0, 1.0]))
+
+
+def test_check_outputs_ml_flat_cafs(tmp_path):
+    pytest.importorskip('uproot')
+    import check_outputs as C
+    base = tmp_path / 'p'
+    keys = [(1, 1, e) for e in range(1, 5)]
+    d = base / 'caf' / 'out' / '7_0'
+    d.mkdir(parents=True)
+    _write_flat_caf(str(d / 'x-Overlay_u.root'), keys, None, [1] * 4)
+    (base / 'spine' / 'flatcaf').mkdir(parents=True)
+    ml = base / 'spine' / 'flatcaf' / 'x.spine.flat.caf.root'
+    _write_flat_caf(str(ml), keys, None, [1] * 4, ndlp=[2, 1, 0, 3])
+    (base / 'spine' / 'flatcaf_files.list').write_text(f'{ml}\n')
+    by_kind = C.census(str(base), __import__('uproot'))
+    import awkward as ak
+    a = C.load_caf([f for f, _ in by_kind['flat']], __import__('uproot'), ak)
+    C.fails.clear(), C.warns.clear()
+    C.check_spine(str(base), a, [f for f, _ in by_kind['flat']], __import__('uproot'), ak)
+    assert not C.fails, C.fails
+    assert C.warns == ['1 events with no SPINE products at all (no HDF5 match in the merge?)']
 
 
 def test_check_outputs_on_a_synthetic_campaign(tmp_path):
@@ -548,6 +574,63 @@ def test_check_outputs_on_a_synthetic_campaign(tmp_path):
     # only the larcv list is missing from this campaign
     assert C.fails == ['stage1 larcv list missing (None)'] and rc == 1, C.fails
     assert not any('flat' in w_ for w_ in C.warns), C.warns
+
+
+def test_spine_caf_pairs_jobs_with_hdf5_by_event_keys():
+    import spine_caf as S
+    jobs = {'7_0': {(1, 1, e) for e in range(9)}, '7_1': {(2, 1, e) for e in range(50)}, '7_2': {(3, 1, 0)}}
+    h5s = {'b.h5': {(2, 1, e) for e in range(50)}, 'a.h5': {(1, 1, e) for e in range(9)}, 'x.h5': {(9, 9, 9)}}
+    pairs, unpaired = S.pair_jobs(jobs, h5s)
+    assert pairs == [('7_0', 'a.h5', 9, 9), ('7_1', 'b.h5', 50, 50)] and unpaired == ['7_2']
+
+
+def test_spine_caf_setup_from_build_cache_and_script_order(tmp_path):
+    import spine_caf as S
+    exe = tmp_path / 'build' / 'merge_sources_simulation'
+    exe.parent.mkdir()
+    assert S.setup_from_cmakecache(str(exe)) is None
+    (exe.parent / 'CMakeCache.txt').write_text(
+        'SBNANAOBJ_DIR:PATH=/cvmfs/sbn.opensciencegrid.org/products/sbn/sbnanaobj/v10_01_02/slf7.x86_64.e26.prof\n'
+        'CMAKE_PREFIX_PATH=/cvmfs/sbn.opensciencegrid.org/products/sbn/sbnana/v10_01_04/slf7.x86_64.e26.prof/lib\n')
+    setup = S.setup_from_cmakecache(str(exe))
+    assert setup.endswith('setup sbnana v10_01_04 -q e26:prof') and 'setup_icarus.sh' in setup
+    sc = S.merge_script(setup, str(exe), '/pnfs/c.caf.root', '/exp/x.h5', '/w/tmp.root', '/w/c.spine.flat.caf.root',
+                        '/pnfs/spine/flatcaf/c.spine.flat.caf.root', '/pnfs/spine/hdf5/x.h5')
+    order = [sc.index(s) for s in ('setup sbnana', 'merge_sources_simulation /w/tmp.root /pnfs/c.caf.root /exp/x.h5',
+                                   'flatten_caf /w/tmp.root /w/c.spine.flat.caf.root',
+                                   'ifdh rm /pnfs/spine/flatcaf/c.spine.flat.caf.root',
+                                   'ifdh cp /w/c.spine.flat.caf.root /pnfs/spine/flatcaf/c.spine.flat.caf.root',
+                                   'ifdh cp /exp/x.h5 /pnfs/spine/hdf5/x.h5')]
+    assert order == sorted(order)
+
+
+def test_spine_caf_dry_run_pairs_campaign_jobs(campaign, tmp_path, capsys):
+    h5py = pytest.importorskip('h5py')
+    pytest.importorskip('uproot')
+    import spine_caf as S
+    wd = campaign()
+    cfg = json.loads((wd / 'config.json').read_text())
+    out = Path(O.stage_dirs(cfg, next(s for s in cfg['stages'] if s['name'] == 'caf'))['outdir'])
+    h5dir = tmp_path / 'h5'
+    h5dir.mkdir()
+    for j, run in enumerate((9532, 9534)):
+        d = out / f'7_{j}'
+        d.mkdir(parents=True)
+        keys = [(run, 1, e) for e in range(1, 4)]
+        _write_flat_caf(str(d / f'in{j}-Overlay_2026_u{j}.root'), keys, None, [1, 1, 1])
+        (d / f'in{j}-Overlay_2026_v{j}.caf.root').write_text('x')
+        (d / f'Supplemental-in{j}.root').write_text('x')
+        ri = np.array(keys, dtype=[('run', 'i4'), ('subrun', 'i4'), ('event', 'i4')])
+        with h5py.File(h5dir / f'larcv_mc_{1 - j}_spine.h5', 'w') as f:   # names say nothing about the job
+            f['run_info'] = ri
+    sys.argv = ['spine_caf.py', str(wd), '--h5', str(h5dir / '*.h5'), '--setup', 'setup sbnana v1 -q e26:prof',
+                '--dry-run']
+    assert S.main() == 0
+    log = capsys.readouterr().out
+    assert '7_0: 3/3 events in larcv_mc_1_spine.h5' in log and '7_1: 3/3 events in larcv_mc_0_spine.h5' in log
+    sc = (wd / 'spine_caf' / 'merge_7_1.sh').read_text()
+    assert 'in1-Overlay_2026_v1.caf.root' in sc and 'larcv_mc_0_spine.h5' in sc
+    assert 'in1-Overlay_2026_v1.spine.flat.caf.root' in sc
 
 
 def test_decode_before_gen_production_order(campaign):

@@ -20,6 +20,9 @@ FAIL lines set a non-zero exit; WARN lines need a look; the rest is a census.
      neutrino the same everywhere (see batch/diag_caf_weights.py).
   4. larcv (stage1, the SPINE input): files open and hold as many entries as
      the CAFs hold events.
+  5. ML flat CAFs (spine/flatcaf_files.list, written by spine_caf.py): flat,
+     with rec.dlp / rec.dlp_true; the same events as the CAFs; how many carry
+     SPINE products; TotalPOT unchanged by the merge.
 """
 import argparse
 import csv
@@ -245,6 +248,56 @@ def check_larcv(m, caf_events, uproot):
         (info if tot == caf_events else warn)(f'larcv entries {tot} vs CAF events {caf_events}')
 
 
+def total_pot(files, uproot):
+    tot = 0.0
+    for f in files:
+        u = uproot.open(f)
+        if 'TotalPOT' in u:
+            tot += float(np.sum(u['TotalPOT'].values()))
+    return tot
+
+
+def check_spine(base, a, caf_flat, uproot, ak):
+    print('\n== 5. ML flat CAFs (SPINE merged, spine_caf.py)')
+    lst = os.path.join(base, 'spine', 'flatcaf_files.list')
+    if not os.path.exists(lst):
+        info(f'none yet ({lst})')
+        return
+    files = [x.strip() for x in open(lst) if x.strip()]
+    if not files:
+        fail(f'{lst} is empty')
+        return
+    parts = []
+    for f in files:
+        try:
+            kind, n = classify(f, uproot)
+            t = uproot.open(f)['recTree']
+            need = [b for b in ('rec.dlp..length', 'rec.dlp_true..length') if b not in t.keys()]
+            if kind != 'flat' or need:
+                fail(f'{os.path.basename(f)}: {kind}, missing {need}')
+                continue
+            parts.append(t.arrays(KEYS + ['rec.dlp..length', 'rec.dlp_true..length'], library='ak'))
+            info(f'{os.path.basename(f)}: {n} events')
+        except Exception as e:                   # noqa: BLE001
+            fail(f'{f}: {e}')
+    if not parts:
+        return
+    s = ak.concatenate(parts)
+    keys = set(zip(*(np.asarray(s[k]).tolist() for k in KEYS)))
+    if a is not None:
+        caf = set(zip(*(np.asarray(a[k]).tolist() for k in KEYS)))
+        (info if keys == caf else fail)(f'ML CAF events {len(keys)} vs CAF events {len(caf)}: '
+                                       f'{len(caf - keys)} missing, {len(keys - caf)} extra')
+    nreco, ntrue = np.asarray(s['rec.dlp..length']), np.asarray(s['rec.dlp_true..length'])
+    info(f'events with >= 1 SPINE reco interaction: {np.mean(nreco > 0):.3f} (mean {nreco.mean():.2f}); '
+         f'with >= 1 SPINE truth interaction: {np.mean(ntrue > 0):.3f}')
+    empty = int(np.sum((nreco == 0) & (ntrue == 0)))
+    (warn if empty else info)(f'{empty} events with no SPINE products at all (no HDF5 match in the merge?)')
+    pot_ml, pot_caf = total_pot(files, uproot), total_pot(caf_flat, uproot)
+    (info if pot_caf and abs(pot_ml / pot_caf - 1) < 1e-6 else warn)(
+        f'TotalPOT {pot_ml:.4g} in the ML CAFs vs {pot_caf:.4g} in the CAFs')
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('base', help='persistent_base of the campaign (holds manifest.json, caf/, stage1/, gen_sidecar/)')
@@ -258,6 +311,7 @@ def main():
     by_kind = census(a.base, uproot)
     arr = check_truth(m, by_kind, uproot, ak, a.base) if m else None
     check_larcv(m, None if arr is None else len(arr), uproot)
+    check_spine(a.base, arr, [f for f, _ in by_kind['flat']], uproot, ak)
     print(f'\n{len(fails)} FAIL, {len(warns)} WARN')
     return 1 if fails else 0
 

@@ -39,6 +39,39 @@ needs a GPU node, so it is not part of this campaign. The campaign's product
 is the stage outputs on `/pnfs`, with file lists and a manifest (section 3a)
 that the SPINE step reads.
 
+**SPINE on EAF (pilot, 2026-10-27).** The Jupyter kernel already runs in the
+SPINE image, so `submit.py` uses the local runtime. `/pnfs` is not mounted, so
+SPINE reads the larcv files over xrootd. Build the list on the gpvm:
+`pnfsToXRootD $(cat <persistent_base>/stage1/larcv_files.list) | tr ' ' '\n' > /exp/sbn/data/...list`.
+Then, in a `%%bash` cell:
+
+```bash
+source /exp/sbn/app/users/drielsma/spine-prod/configure_eaf.sh
+export SPINE_CACHE_DIR=/exp/sbn/data/users/$USER/spine_cache/weights     # weights; spine-prod's is read-only
+export BEARER_TOKEN_FILE=/tmp/bt_u$(id -u)                              # EAF's token
+export X509_CERT_DIR=/cvmfs/oasis.opensciencegrid.org/mis/certificates   # else "[FATAL] TLS error"
+/exp/sbn/app/users/drielsma/spine-prod/submit.py -I --interactive-runtime local \
+    --config infer/icarus/latest --source-list <xrootd list> --set base.world_size=1
+```
+
+Requirements and pitfalls:
+- The kernel's `run_kernel.sh` must bind `/cvmfs`, which holds the
+  calibration databases.
+- A user-site SPINE install shadows the image's version.
+
+Copy the HDF5 outputs to `/exp/sbn/data`. Then, on the gpvm, `spine_caf.py`:
+- pairs each caf job with its HDF5 by (run, subrun, event);
+- merges it with sbn_ml_cafmaker's `merge_sources_simulation` (Mueller's
+  build, the one in `tools/manager.py`);
+- runs `flatten_caf`;
+- copies the flat ML CAF and the HDF5 to `<persistent_base>/spine/` with
+  `ifdh cp`, and writes the lists and a manifest;
+- runs `check_outputs.py`, whose section 5 checks the ML CAFs.
+
+```bash
+python3 batch/ncdeltarad/spine_caf.py $WD --h5 '/exp/sbn/data/users/$USER/ncdr/spine/*.h5'
+```
+
 ## 1. Physics setup
 
 **Process.** The gen fcl includes the production one and sets
