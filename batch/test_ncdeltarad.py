@@ -415,10 +415,28 @@ def test_resolve_input_list_prefers_archive(tmp_path):
     assert lines[0].endswith('/00/00/95/32/a.root') and lines[1].endswith('/00/00/93/80/b.root')
 
 
-def test_resolve_input_list_fails_without_preferred_replica(tmp_path):
+def test_resolve_input_list_drops_files_without_preferred_replica(tmp_path, capsys):
     c = dict(overlay_inputdef='def', input_location_prefer='/pnfs/icarus/archive')
-    with pytest.raises(SystemExit, match='1/3 files'):
-        O.resolve_input_list(_fake_samweb(['a.root', 'b.root', 'c.root']), c, tmp_path / 'in.list')
+    n = O.resolve_input_list(_fake_samweb(['a.root', 'b.root', 'c.root']), c, tmp_path / 'in.list')
+    assert n == 2 and len((tmp_path / 'in.list').read_text().split()) == 2
+    assert '1/3 files have no replica' in capsys.readouterr().out
+    with pytest.raises(SystemExit, match='no file of def'):
+        O.resolve_input_list(_fake_samweb(['c.root']), c, tmp_path / 'in2.list')
+
+
+def test_init_uses_first_on_disk_files_of_a_larger_definition(campaign, monkeypatch):
+    """10x: tape recalls of the archive copies never came (prestage-dataset
+    stages SAM's dead replica); draw more files and keep the on-disk ones."""
+    def resolve(sh, c, out_path, threads=8):
+        Path(out_path).write_text(''.join(f'/pnfs/icarus/archive/f{i}.root\n' for i in range(10)))
+        return 10
+    monkeypatch.setattr(O, 'resolve_input_list', resolve)
+    monkeypatch.setattr(O, 'online_split', lambda ps: ([p for p in ps if int(p[-6]) % 2 == 0],
+                                                       [p for p in ps if int(p[-6]) % 2]))
+    wd = campaign(gen_numjobs=3, input_location_prefer='/pnfs/icarus/archive')
+    used = (wd / 'overlay_input.list').read_text().split()
+    assert used == [f'/pnfs/icarus/archive/f{i}.root' for i in (0, 2, 4)]
+    assert len((wd / 'overlay_input_offline.list').read_text().split()) == 5
 
 
 def test_locality_and_online_split(tmp_path):

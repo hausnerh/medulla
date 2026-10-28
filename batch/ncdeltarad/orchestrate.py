@@ -762,11 +762,15 @@ def resolve_input_list(sh, c, out_path, threads=8):
     with ThreadPoolExecutor(threads) as ex:
         found = list(ex.map(locate, names))
     missing = [n for n, p in found if p is None]
+    if len(missing) == len(names):
+        raise SystemExit(f'no file of {c["overlay_inputdef"]} has a replica under {prefer}, e.g. {missing[:3]}')
     if missing:
-        raise SystemExit(f'{len(missing)}/{len(names)} files of {c["overlay_inputdef"]} have no replica under '
-                         f'{prefer}, e.g. {missing[:3]}')
-    Path(out_path).write_text(''.join(p + '\n' for _, p in found))
-    return len(found)
+        # A large definition drawn to pick on-disk files has a few such files;
+        # dropping them beats refusing the campaign.
+        print(f'overlay input: {len(missing)}/{len(names)} files have no replica under {prefer}; dropped, '
+              f'e.g. {missing[:3]}')
+    Path(out_path).write_text(''.join(p + '\n' for _, p in found if p))
+    return len(found) - len(missing)
 
 
 def preflight(sh):
@@ -804,10 +808,18 @@ def cmd_init(a):
                 raise SystemExit(f'no file of {c["overlay_inputdef"]} is on disk: '
                                  f'samweb -e {c["experiment"]} prestage-dataset --defname={c["overlay_inputdef"]}')
             paths = on
-            lst.write_text(''.join(p + '\n' for p in paths))
         c['overlay_inputlist'] = str(lst)
         first = c['stages'][0]
         need = c['gen_numjobs'] * first['maxfilesperjob']
+        if len(paths) > need:
+            # `samweb prestage-dataset` recalls SAM's preferred replica (the dead
+            # /pnfs/sbn/data_add one), not the archive copy we read, so tape
+            # recalls do not help (pilot 10x: 832/836 still NEARLINE a day on).
+            # Instead draw a larger definition and keep the files already on
+            # disk; the first `need` of them are the campaign's input.
+            print(f'overlay input: {len(paths)} files on disk, using the first {need}')
+            paths = paths[:need]
+        lst.write_text(''.join(p + '\n' for p in paths))
         print(f'overlay input: {len(paths)} files of {c["overlay_inputdef"]} under {c["input_location_prefer"]} '
               f'-> {lst}'
               + (f'  WARNING: {first["name"]} asks for {need} files ({c["gen_numjobs"]} jobs x {first["maxfilesperjob"]})'
