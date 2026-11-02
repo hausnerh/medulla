@@ -105,11 +105,11 @@ def classify(path, uproot):
     return 'nested', t.num_entries
 
 
-def census(base, uproot):
+def census(caf_out, uproot):
     print('\n== 2. CAF directory census')
-    jobs = sorted(d for d in glob.glob(os.path.join(base, 'caf', 'out', '*')) if os.path.isdir(d))
+    jobs = sorted(d for d in glob.glob(os.path.join(caf_out, '*')) if os.path.isdir(d))
     if not jobs:
-        fail(f'no job directories under {base}/caf/out')
+        fail(f'no job directories under {caf_out}')
     by_kind = defaultdict(list)
     for d in jobs:
         kinds = []
@@ -303,7 +303,7 @@ def check_spine(base, a, caf_flat, uproot, ak):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument('base', help='persistent_base of the campaign (holds manifest.json, caf/, stage1/, gen_sidecar/)')
+    ap.add_argument('base', help='persistent_base of the campaign (holds manifest.json, gen_sidecar/, spine/)')
     a = ap.parse_args()
     try:
         import awkward as ak
@@ -311,7 +311,9 @@ def main():
     except ImportError as e:
         raise SystemExit(f'needs uproot + awkward ({e})')
     m = check_manifest(a.base)
-    by_kind = census(a.base, uproot)
+    # The manifest says where the CAFs are: scratch, unless the stage is persistent.
+    caf_out = (m.get('stages', {}).get('caf') or {}).get('outdir') or os.path.join(a.base, 'caf', 'out')
+    by_kind = census(caf_out, uproot)
     arr = check_truth(m, by_kind, uproot, ak, a.base) if m else None
     check_larcv(m, None if arr is None else len(arr), uproot)
     check_spine(a.base, arr, [f for f, _ in by_kind['flat']], uproot, ak)

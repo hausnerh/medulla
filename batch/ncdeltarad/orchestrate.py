@@ -696,9 +696,10 @@ class Orchestrator:
 
     def clean_stage(self, st, s):
         """Remove a scratch stage's out/ (its log/ and file lists stay).
-        Persistent stages (larcv, CAF) and `keep = true` ones are never
+        Persistent stages, `keep = true` ones and stages that publish products
+        for later steps (larcv for SPINE, CAFs for the merge) are never
         removed. A retry of the next stage then needs this one redone."""
-        if st['persistent'] or st.get('keep') or s.get('cleaned') or s.get('status') != 'done':
+        if st['persistent'] or st.get('keep') or st.get('publish') or s.get('cleaned') or s.get('status') != 'done':
             return ''
         out = stage_dirs(self.cfg, st)['outdir']
         if not (out.startswith(self.cfg['pnfs_base'].rstrip('/') + '/') and out.endswith('/out')):
@@ -1138,7 +1139,7 @@ def cmd_cleanup(a):
         for prev, nxt in zip(stages, stages[1:]):
             if o.state['stages'][nxt['name']]['status'] == 'done':
                 msg = o.clean_stage(prev, o.state['stages'][prev['name']])
-                print(f"{prev['name']}: {msg or 'kept (persistent, keep, not done, or already removed)'}")
+                print(f"{prev['name']}: {msg or 'kept (persistent, keep, publishes products, not done, or already removed)'}")
         if o.state.get('manifest'):
             o.write_manifest()
         o.save()

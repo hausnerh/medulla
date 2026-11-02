@@ -42,7 +42,7 @@ that the SPINE step reads.
 **SPINE on EAF (pilot, 2026-10-27).** The Jupyter kernel already runs in the
 SPINE image, so `submit.py` uses the local runtime. `/pnfs` is not mounted, so
 SPINE reads the larcv files over xrootd. Build the list on the gpvm:
-`pnfsToXRootD $(cat <persistent_base>/stage1/larcv_files.list) | tr ' ' '\n' > /exp/sbn/data/...list`.
+`pnfsToXRootD $(cat <pnfs_base>/stage1/larcv_files.list) | tr ' ' '\n' > /exp/sbn/data/...list`.
 Then, in a `%%bash` cell:
 
 ```bash
@@ -65,8 +65,8 @@ Copy the HDF5 outputs to `/exp/sbn/data`. Then, on the gpvm, `spine_caf.py`:
   SBNSoftware/sbn_ml_cafmaker, run with the sbnana that build was compiled
   against (`tools/manager.py` there shows the recipe);
 - runs `flatten_caf`;
-- copies the flat ML CAF and the HDF5 to `<persistent_base>/spine/` with
-  `ifdh cp`, and writes the lists and a manifest;
+- copies the flat ML CAF to `<persistent_base>/spine/flatcaf/` and the HDF5 to
+  `<pnfs_base>/spine/hdf5/` with `ifdh cp`, and writes the lists and a manifest;
 - runs `check_outputs.py`, whose section 5 checks the ML CAFs.
 
 Build the merger once with `build_ml_cafmaker.sh`, in the SL7 container. It:
@@ -275,7 +275,8 @@ python batch/ncdeltarad/orchestrate.py status <workdir>
   no resubmission. Use it when the check itself failed.
 - With `cleanup_intermediate = true`, a scratch stage's `out/` is removed once
   the stage that reads it is done. Persistent stages, stages with
-  `keep = true`, logs and file lists stay, and the manifest marks removed
+  `keep = true`, stages with a `publish` list (their products are read later),
+  logs and file lists stay, and the manifest marks removed
   stages as `cleaned`. `cleanup <workdir>` applies the same rule to a campaign
   that ran without it, such as the pilot.
 - `republish <stage>` recounts a done stage and rewrites its published lists
@@ -300,23 +301,28 @@ python batch/ncdeltarad/orchestrate.py status <workdir>
 
 ## 3a. What ends up on /pnfs
 
-Intermediate stages stay on scratch. `stage1` and `caf` (`persistent = true`)
-plus the manifest go to `persistent_base`:
+Scratch holds what can be deleted later: every stage's outputs, including larcv
+and the unmerged CAFs. `persistent_base` holds only what is needed long term.
+Scratch is purged LRU, so run SPINE and the merge soon after the campaign.
+A 1000-job campaign writes about 5 TB in stage1 alone (art 3 GB, larcv 1.7 GB per
+job).
 
 ```
 <pnfs_base>/fcl/                     gen fcl, env script, patched table (job inputs)
 <pnfs_base>/{decode,gen,g4,detsim,overlay,stage0}/
     out/<job>/...                    art outputs
     files.list                       good outputs (project.py --check)
-<persistent_base>/stage1/
+<pnfs_base>/stage1/
     out/<job>/...                    art + larcv outputs
     files.list                       good art outputs
     larcv_files.list                 larcv files of the good jobs      <- SPINE input
-<persistent_base>/caf/
+<pnfs_base>/caf/
     out/<job>/...
     files.list                       good outputs (project.py --checkana)
     flatcaf_files.list               *.flat.caf.root                   <- merge target / medulla
     caf_files.list                   *.caf.root (non-flat)
+<pnfs_base>/spine/hdf5/              SPINE outputs (spine_caf.py)
+<persistent_base>/spine/flatcaf/     merged flat ML CAFs: the final product (spine_caf.py)
 <persistent_base>/gen_sidecar/
     delta_decays.csv                 every NC Δ decay: run, subrun, event, Δ pdg, Δ mass, channel
     ncdeltarad_weights.csv           per-event weight back to nominal   <- join on (run, subrun, event)
@@ -332,8 +338,7 @@ plus the manifest go to `persistent_base`:
 - If a list has fewer files than there are good jobs (e.g. a larcv file is
   missing), the stage notification says so.
 - The globs are config entries (`[[stage]] publish`). The larcv name comes
-  from `superaMC` with `unique_filename`; confirm it on the pilot. Scratch is
-  purged LRU, so set `persistent = true` on any other stage you want to keep.
+  from `superaMC` with `unique_filename`; confirm it on the pilot.
 
 ## 4. Pilot first (`gen_numjobs = 10`), then scale
 

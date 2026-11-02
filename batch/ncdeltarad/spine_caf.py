@@ -14,7 +14,7 @@ For every caf job of the campaign (<persistent_base>/caf/out/<job>/):
          merge_sources_simulation tmp.root <job's .caf.root> <hdf5>
          flatten_caf tmp.root <caf stem>.spine.flat.caf.root
      then `ifdh cp` of the flat ML CAF and the HDF5 to
-     <persistent_base>/spine/{flatcaf,hdf5}/;
+     <persistent_base>/spine/flatcaf/ and the HDF5 to <pnfs_base>/spine/hdf5/ (scratch);
   3. writes <persistent_base>/spine/{flatcaf,hdf5}_files.list and
      spine_manifest.json, and runs check_outputs.py (section 5 checks them).
 
@@ -160,7 +160,9 @@ def main():
     for job, h5, n, common in pairs:
         stem = cafs[job].name[:-len('.caf.root')]
         flat_local = work / f'{stem}.spine.flat.caf.root'
-        dest_flat, dest_h5 = dest / 'flatcaf' / flat_local.name, dest / 'hdf5' / os.path.basename(h5)
+        # Only the flat ML CAF is kept long term; the HDF5 can be remade from larcv.
+        dest_flat = dest / 'flatcaf' / flat_local.name
+        dest_h5 = Path(cfg['pnfs_base']) / 'spine' / 'hdf5' / os.path.basename(h5)
         script = work / f'merge_{job}.sh'
         script.write_text(merge_script(setup, a.merge_exec, str(cafs[job]), h5, str(work / f'{job}_tmp.root'),
                                        str(flat_local), str(dest_flat), str(dest_h5)))

@@ -530,6 +530,7 @@ def test_cleanup_never_touches_persistent_keep_or_unfinished(campaign):
     gen = o.cfg['stages'][0]
     for st, s in ((dict(gen, persistent=True), dict(status='done')),      # larcv / CAF stages
                   (dict(gen, keep=True), dict(status='done')),
+                  (dict(gen, publish=[dict(name='larcv', glob='*larcv*.root')]), dict(status='done')),
                   (gen, dict(status='running'))):                          # a makeup may still need it
         out = Path(O.stage_dirs(o.cfg, st)['outdir'])
         out.mkdir(parents=True, exist_ok=True)
@@ -610,7 +611,7 @@ def test_check_outputs_ml_flat_cafs(tmp_path):
     ml = base / 'spine' / 'flatcaf' / 'x.spine.flat.caf.root'
     _write_flat_caf(str(ml), keys, None, [1] * 4, ndlp=[2, 1, 0, 3])
     (base / 'spine' / 'flatcaf_files.list').write_text(f'{ml}\n')
-    by_kind = C.census(str(base), __import__('uproot'))
+    by_kind = C.census(str(base / 'caf' / 'out'), __import__('uproot'))
     import awkward as ak
     a = C.load_caf([f for f, _ in by_kind['flat']], __import__('uproot'), ak)
     C.fails.clear(), C.warns.clear()
@@ -623,10 +624,12 @@ def test_check_outputs_on_a_synthetic_campaign(tmp_path):
     pytest.importorskip('uproot')
     import check_outputs as C
     base = tmp_path / 'persistent'
+    base.mkdir()
+    scratch = tmp_path / 'scratch'                # the CAFs are found through the manifest
     keys = [(1, 1, e) for e in range(1, 9)]
     rad = [1, 0, 1, 0, 1, 0, 0, 1]
     for j, part in enumerate((keys[:4], keys[4:])):
-        d = base / 'caf' / 'out' / f'7_{j}'
+        d = scratch / 'caf' / 'out' / f'7_{j}'
         d.mkdir(parents=True)
         _write_flat_caf(str(d / f'x_{j}.flat.caf.root'), part, None, [1] * len(part))
         import uproot
@@ -638,10 +641,10 @@ def test_check_outputs_on_a_synthetic_campaign(tmp_path):
         w.writerow(['run', 'subrun', 'event', 'delta_pdg', 'w_delta', 'channel', 'radiative', 'weight'])
         for k, r in zip(keys, rad):
             w.writerow([*k, 2214, 1.23, '2212:22' if r else '2212:111', r, 0.01 if r else 1.6])
-    caflist = base / 'caf' / 'flatcaf_files.list'
-    caflist.write_text(''.join(f'{p}\n' for p in sorted(base.glob('caf/out/*/*.flat.caf.root'))))
+    caflist = scratch / 'caf' / 'flatcaf_files.list'
+    caflist.write_text(''.join(f'{p}\n' for p in sorted(scratch.glob('caf/out/*/*.flat.caf.root'))))
     m = dict(name='t', release='r', qual='q', br_gamma=0.663, sidecar={},
-             stages=dict(caf=dict(outdir=str(base / 'caf' / 'out'), good=2, expected=2,
+             stages=dict(caf=dict(outdir=str(scratch / 'caf' / 'out'), good=2, expected=2,
                                   lists=dict(flatcaf=dict(list=str(caflist), n=2)))))   # as publish() writes it
     (base / 'manifest.json').write_text(json.dumps(m))
     C.fails.clear(), C.warns.clear()
@@ -1339,3 +1342,12 @@ def test_whole_cluster_removed_at_one_go(campaign):
     grid.calls.clear()
     o.remove_jobs({cl: [(jobs[0], 'H'), (jobs[1], 'H'), (jobs[2], 'R')]}, set(jobs[:2]))
     assert [c[c.index('--jobid') + 1] for c in _rm_calls(grid)] == jobs[:2]
+
+
+def test_template_keeps_stage_outputs_on_scratch_and_their_products_through_cleanup():
+    cfg = O.load_config(str(Path(O.__file__).parent / 'campaign_run2.toml'))
+    assert cfg['cleanup_intermediate']
+    assert not [s['name'] for s in cfg['stages'] if s['persistent']]
+    assert [s['name'] for s in cfg['stages'] if s['publish']] == ['stage1', 'caf']
+    stage1 = next(s for s in cfg['stages'] if s['name'] == 'stage1')
+    assert O.stage_root(cfg, stage1).startswith(cfg['pnfs_base'])

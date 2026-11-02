@@ -8,9 +8,11 @@
 name             = "ncdeltarad_run2_pilot"
 # Local state, rendered XML, project.py book directories and the log.
 workdir          = "/exp/icarus/data/users/FILL_ME/ncdeltarad/ncdeltarad_run2_pilot"
-# Intermediate outputs (scratch is LRU-purged: fine for gen/g4/detsim/stage0).
+# Every stage's outputs (scratch is LRU-purged: run SPINE and the merge soon after
+# the campaign, they read stage1's larcv and caf's CAFs from here).
 pnfs_base        = "/pnfs/icarus/scratch/users/FILL_ME/ncdeltarad/ncdeltarad_run2_pilot"
-# Stages flagged `persistent = true` (larcv, CAF) write here instead.
+# Only what is needed long term: the manifest, the gen weights and spine_caf's
+# merged flat ML CAFs. A stage with `persistent = true` would write here too.
 persistent_base  = "/pnfs/icarus/persistent/users/FILL_ME/ncdeltarad/ncdeltarad_run2_pilot"
 # SAM definition of the run2 overlay input (data) files the production gen
 # stage reads; one GENIE NC RES interaction is added to each overlay event.
@@ -159,15 +161,15 @@ schema   = "root"
 
 # Every finished stage publishes <stage dir>/files.list (project.py's good
 # outputs) and one <name>_files.list per [[stage.publish]] glob, searched only
-# in the good jobs' output directories. stage1 and caf are the inputs of the
-# GPU SPINE step, so they go to persistent_base.
+# in the good jobs' output directories. stage1 and caf hold the inputs of the
+# GPU SPINE step and of the merge, so cleanup_intermediate leaves any stage with
+# a publish list in place; they stay on scratch (about 5 GB per stage1 job).
 [[stage]]
 name       = "stage1"
 fcl        = "stage1_run2_larcv_icarus_overlay.fcl"
 datatier   = "reconstructed"
 memory     = 6000
 lifetime   = "12h"
-persistent = true
 # superaMC (icarus_analysis_superaMC) writes the larcv file with
 # unique_filename; check the name on the pilot and adjust the glob.
 publish    = [ { name = "larcv", glob = "*larcv*.root" } ]
@@ -179,7 +181,6 @@ datatier   = "caf"
 memory     = 4000
 lifetime   = "8h"
 ana        = true            # CAF output is not an art file: use project.py --checkana
-persistent = true
 # A caf job writes the CAF (*.caf.root), the flat CAF and the TFileService
 # file (Supplemental-*). The grid renaming drops the flat CAF's .flat.caf
 # suffix (pilot: <input>-Overlay_<date>_<uuid>.root), so it is "the other
