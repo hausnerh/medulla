@@ -401,6 +401,9 @@ class Orchestrator:
             if rc != 0 and 'no matching' not in txt.lower() and txt.strip():
                 return None, f'rc {rc}: {txt.strip()[-500:]}'
             self.last_query = f'rc {rc}: {txt.strip()[-300:]}'
+            # A real answer ends with "N total; ...", also for an empty cluster.
+            if rc == 0 and not re.search(r'\d+ total;', txt):
+                return None, f'no summary line: {self.last_query}'
             cid = cl.split('@')[0]
             jobs = []
             for line in txt.splitlines():
@@ -1150,14 +1153,30 @@ def cmd_republish(a):
     with_lock(a.workdir, go)
 
 
-def dedupe_by_input(files, prefer):
-    """One output per input. Output names differ only in the UUID the job adds
-    to the input's name; job directories are <cluster>_<proc>. Takes the output
-    of cluster `prefer`, else the first by path. Returns (kept, dropped)."""
+def input_stem(name):
+    """An output's name without the UUID the job adds to the input's name."""
+    return re.sub(r'_[0-9a-f]{8}-[0-9a-f-]+\.root$', '', name)
+
+
+def single_attempt(f):
+    """Whether f's job directory holds one attempt. A restarted job writes a
+    second art and larcv file there (same events, maybe a truncated first copy)."""
+    names = [x.name for x in Path(f).parent.iterdir()]
+    return (sum(input_stem(n) == input_stem(Path(f).name) for n in names) == 1
+            and sum('larcv' in n and n.endswith('.root') for n in names) == 1)
+
+
+def dedupe_by_input(files, prefer, clean=single_attempt):
+    """One output per input, from a job directory passing `clean`. Job directories
+    are <cluster>_<proc>: takes cluster `prefer`, else the first by path. An input
+    with no clean output is dropped, not double counted. Returns (kept, dropped)."""
     groups = {}
     for f in sorted(files):
-        groups.setdefault(re.sub(r'_[0-9a-f]{8}-[0-9a-f-]+\.root$', '', Path(f).name), []).append(f)
-    kept = [next((f for f in g if Path(f).parent.name.split('_')[0] == prefer), g[0]) for g in groups.values()]
+        groups.setdefault(input_stem(Path(f).name), []).append(f)
+    kept = []
+    for g in groups.values():
+        ordered = sorted(g, key=lambda f: Path(f).parent.name.split('_')[0] != prefer)
+        kept += [f for f in ordered if clean(f)][:1]
     return sorted(kept), sorted(set(files) - set(kept))
 
 
@@ -1176,7 +1195,9 @@ def cmd_dedupe(a):
         lst = Path(stage_dirs(o.cfg, st)['bookdir']) / 'files.list'
         files = [x.strip() for x in lst.read_text().splitlines() if x.strip()]
         kept, dropped = dedupe_by_input(files, a.prefer_cluster)
-        print(f'{a.stage}: {len(files)} outputs -> {len(kept)} inputs; dropping {len(dropped)}')
+        inputs = len({input_stem(Path(f).name) for f in files})
+        print(f'{a.stage}: {len(files)} outputs of {inputs} inputs -> keeping {len(kept)}, dropping {len(dropped)}; '
+              f'{inputs - len(kept)} inputs have no output with a single attempt')
         if a.dry_run:
             return
         backup = lst.with_name('files.list.with_duplicates')

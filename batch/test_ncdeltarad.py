@@ -150,6 +150,7 @@ class FakeGrid:
         self.krb_ok = krb_ok
         self.calls, self.next_id, self.live, self.removed = [], 100, {}, set()
         self.hold_ad = None               # ClassAd text of the held jobs, for jobsub_q --long
+        self.summary = '0 total; 0 completed, 0 removed, 0 idle, 0 running, 0 held, 0 suspended\n'
         self.dry_run = False
 
     def log(self, msg):
@@ -224,12 +225,12 @@ class FakeGrid:
                     rows += row.format(cid, 0, 'R')
                 if f'{cid}.1@jobsub01.fnal.gov' not in self.removed:
                     rows += row.format(cid, 1, 'H')
-                return 0, head + rows
+                return 0, head + rows + self.summary
             if self.live.get(cl, 0) > 0:
                 if not self.held:
                     self.live[cl] -= 1
-                return 0, head + row.format(cid, 0, 'H' if self.held else 'R')
-            return 0, head
+                return 0, head + row.format(cid, 0, 'H' if self.held else 'R') + self.summary
+            return 0, head + self.summary
         if prog == 'jobsub_rm':
             jid = cmd[cmd.index('--jobid') + 1]
             self.removed.add(jid)
@@ -783,12 +784,43 @@ def test_one_empty_queue_answer_does_not_finish_the_stage(campaign):
     assert s['status'] == 'running' and s['attempts'] == 1
 
 
+def test_queue_answer_without_summary_line_is_a_failed_query(campaign):
+    wd = campaign()
+    cfg = json.loads((wd / 'config.json').read_text())
+    grid = FakeGrid(cfg, good=dict(gen=[10]))
+    grid.summary = ''
+    O.Shell.__call__, real = (lambda self, cmd, mutating=True, timeout=0: grid(cmd)), O.Shell.__call__
+    try:
+        o = O.Orchestrator(wd)
+        q, err = o.cluster_states(['7@jobsub01.fnal.gov'])
+    finally:
+        O.Shell.__call__ = real
+    assert q is None and 'no summary line' in err
+
+
 def test_dedupe_keeps_one_output_per_input():
     u1, u2 = 'ac977456-ac9d-444d-ba2e-08f1246f0e71', '2fe109a2-4d31-492b-8ecd-ae3c1e478d37'
     both_a, both_b = f'/o/30_0/a-Overlay_2026_{u1}.root', f'/o/72_5/a-Overlay_2026_{u2}.root'
     only_old, only_new = f'/o/72_6/b-Overlay_2026_{u1}.root', f'/o/30_1/c-Overlay_2026_{u2}.root'
-    kept, dropped = O.dedupe_by_input([both_a, both_b, only_old, only_new], prefer='72')
+    files = [both_a, both_b, only_old, only_new]
+    kept, dropped = O.dedupe_by_input(files, prefer='72', clean=lambda f: True)
     assert kept == sorted([both_b, only_old, only_new]) and dropped == [both_a]
+    # a restarted job's directory is passed over; an input with nothing else is dropped
+    kept, dropped = O.dedupe_by_input(files, prefer='72', clean=lambda f: f not in (both_b, only_old))
+    assert kept == sorted([both_a, only_new]) and dropped == sorted([both_b, only_old])
+
+
+def test_single_attempt_spots_a_restarted_job(tmp_path):
+    u1, u2 = 'ac977456-ac9d-444d-ba2e-08f1246f0e71', '2fe109a2-4d31-492b-8ecd-ae3c1e478d37'
+    one, two = tmp_path / '72_0', tmp_path / '72_1'
+    one.mkdir(), two.mkdir()
+    for d, uuids in ((one, [u1]), (two, [u1, u2])):
+        for i, u in enumerate(uuids):
+            (d / f'in-Overlay_2026_{u}.root').write_text('x')
+            (d / f'larcv_mc_{i}.root').write_text('x')
+            (d / f'Supplemental-in_{u}.root').write_text('x')
+    assert O.single_attempt(str(one / f'in-Overlay_2026_{u1}.root'))
+    assert not O.single_attempt(str(two / f'in-Overlay_2026_{u1}.root'))
 
 
 def test_dedupe_command_republishes_the_reduced_list(campaign, capsys):
@@ -803,7 +835,12 @@ def test_dedupe_command_republishes_the_reduced_list(campaign, capsys):
         book = Path(O.stage_dirs(cfg, st)['bookdir'])
         book.mkdir(parents=True, exist_ok=True)
         u1, u2 = 'ac977456-ac9d-444d-ba2e-08f1246f0e71', '2fe109a2-4d31-492b-8ecd-ae3c1e478d37'
-        names = [f'/o/72_{i}/in{i}_{u1}.root' for i in range(3)] + [f'/o/30_0/in0_{u2}.root']
+        out = wd.parent / 'o'
+        names = [str(out / f'72_{i}' / f'in{i}_{u1}.root') for i in range(3)] + [str(out / '30_0' / f'in0_{u2}.root')]
+        for n in names:
+            Path(n).parent.mkdir(parents=True)
+            Path(n).write_text('x')
+            (Path(n).parent / 'larcv_mc.root').write_text('x')
         (book / 'files.list').write_text('\n'.join(names) + '\n')
         args = dict(workdir=str(wd), stage='gen', prefer_cluster='72')
         O.cmd_dedupe(type('A', (), dict(args, dry_run=True))())
