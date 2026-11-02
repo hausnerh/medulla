@@ -69,7 +69,8 @@ def check_manifest(base):
         if good is None or exp is None:
             fail(f'{line}: no counts')
         elif good > exp:
-            warn(f'{line}: more good outputs than jobs -- the stage counts files, not jobs')
+            fail(f'{line}: more good outputs than expected -- inputs processed twice? '
+                 'Duplicate events would inflate the stats')
         elif good < exp:
             warn(f'{line}: {exp - good} jobs lost')
         else:

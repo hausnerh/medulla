@@ -282,6 +282,12 @@ python batch/ncdeltarad/orchestrate.py status <workdir>
 - `republish <stage>` recounts a done stage and rewrites its published lists
   and the manifest, with no jobs. Use it after `reconfig` changed the stage's
   `publish` globs (pilot: the grid renamed the flat CAFs to `<input>_<uuid>.root`).
+- A stage with more good outputs than expected fails before publishing: inputs
+  were probably processed twice. `retry` the next stage, then
+  `dedupe <workdir> <stage> --prefer-cluster <cluster>` keeps one output per input
+  and republishes (the old list stays as `files.list.with_duplicates`). The queue
+  must also read empty `empty_polls_to_finish` polls in a row before a check (10x
+  stage1: one empty `jobsub_q` with the jobs running led to a makeup of all of them).
 - `check_outputs.py <persistent_base>` checks a finished campaign end to end:
   lists, CAF census, CAF truth against the gen sidecar, larcv entries.
 - `adopt <stage> <jobid>` records a cluster that was submitted outside the

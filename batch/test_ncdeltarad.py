@@ -249,6 +249,7 @@ def no_real_project_py(monkeypatch, request):
 @pytest.fixture
 def campaign(tmp_path):
     def make(stages=('gen', 'g4', 'caf'), gen_numjobs=10, **over):
+        over.setdefault('empty_polls_to_finish', 1)
         st = '\n'.join(f'[[stage]]\nname = "{s}"\nfcl = "{"simulation_genie_icarus_bnb_overlays_volDetEnclosure_fiducial_ncdeltarad.fcl" if s == "gen" else s + ".fcl"}"\n'
                        + ('ana = true\n' if s == 'caf' else '') for s in stages)
         extra = '\n'.join(f'{k} = {json.dumps(v)}' for k, v in over.items())
@@ -763,6 +764,67 @@ def test_fails_below_accept_fraction(campaign):
     grid = FakeGrid(cfg, good=dict(gen=[5, 6]))
     results, state = _drive(wd, grid)
     assert results[-1] == 'failed' and state['stages']['gen']['status'] == 'failed'
+    assert state['stages']['g4']['status'] == 'pending'
+
+
+def test_one_empty_queue_answer_does_not_finish_the_stage(campaign):
+    """10x stage1: jobsub_q came back empty with the jobs still running; the
+    check found 2/971 and the makeup processed every input a second time."""
+    wd = campaign(empty_polls_to_finish=3)
+    o = O.Orchestrator(wd)
+    s = o.state['stages']['gen']
+    st = next(x for x in o.cfg['stages'] if x['name'] == 'gen')
+    s.update(status='running', clusters=['7@jobsub01.fnal.gov'], submitted=0, expected=10, numjobs=10, attempts=1)
+    answers = iter([[], [], [('7.0@jobsub01.fnal.gov', 'R')]])
+    o.ensure_token = lambda: True
+    o.cluster_states = lambda clusters: ({clusters[0]: next(answers)}, '')
+    assert o.poll(st, s) == 'waiting' and o.poll(st, s) == 'waiting'
+    assert o.poll(st, s) == 'running' and s['empty_polls'] == 0       # the jobs were there after all
+    assert s['status'] == 'running' and s['attempts'] == 1
+
+
+def test_dedupe_keeps_one_output_per_input():
+    u1, u2 = 'ac977456-ac9d-444d-ba2e-08f1246f0e71', '2fe109a2-4d31-492b-8ecd-ae3c1e478d37'
+    both_a, both_b = f'/o/30_0/a-Overlay_2026_{u1}.root', f'/o/72_5/a-Overlay_2026_{u2}.root'
+    only_old, only_new = f'/o/72_6/b-Overlay_2026_{u1}.root', f'/o/30_1/c-Overlay_2026_{u2}.root'
+    kept, dropped = O.dedupe_by_input([both_a, both_b, only_old, only_new], prefer='72')
+    assert kept == sorted([both_b, only_old, only_new]) and dropped == [both_a]
+
+
+def test_dedupe_command_republishes_the_reduced_list(campaign, capsys):
+    wd = campaign()
+    cfg = json.loads((wd / 'config.json').read_text())
+    O.Shell.__call__, real = (lambda self, cmd, mutating=True, timeout=0: (0, '')), O.Shell.__call__
+    try:
+        o = O.Orchestrator(wd)
+        st = next(x for x in o.cfg['stages'] if x['name'] == 'gen')
+        o.state['stages']['gen'].update(status='done', good=4, expected=3)
+        o.save()
+        book = Path(O.stage_dirs(cfg, st)['bookdir'])
+        book.mkdir(parents=True, exist_ok=True)
+        u1, u2 = 'ac977456-ac9d-444d-ba2e-08f1246f0e71', '2fe109a2-4d31-492b-8ecd-ae3c1e478d37'
+        names = [f'/o/72_{i}/in{i}_{u1}.root' for i in range(3)] + [f'/o/30_0/in0_{u2}.root']
+        (book / 'files.list').write_text('\n'.join(names) + '\n')
+        args = dict(workdir=str(wd), stage='gen', prefer_cluster='72')
+        O.cmd_dedupe(type('A', (), dict(args, dry_run=True))())
+        assert len((book / 'files.list').read_text().split()) == 4       # dry run changes nothing
+        O.cmd_dedupe(type('A', (), dict(args, dry_run=False))())
+    finally:
+        O.Shell.__call__ = real
+    assert (book / 'files.list').read_text().split() == sorted(names[:3])
+    assert len((book / 'files.list.with_duplicates').read_text().split()) == 4
+    assert O.Orchestrator(wd).state['stages']['gen']['good'] == 3
+
+
+def test_more_good_outputs_than_expected_stops_the_chain(campaign):
+    """10x stage1: 1912/971 passed the >= 95% test and caf then got 1912 jobs."""
+    wd = campaign()
+    cfg = json.loads((wd / 'config.json').read_text())
+    grid = FakeGrid(cfg, good=dict(gen=[11]))
+    results, state = _drive(wd, grid)
+    assert results[-1] == 'failed' and state['stages']['gen']['status'] == 'failed'
+    assert 'duplicate events' in state['stages']['gen']['note']
+    assert 'published' not in state['stages']['gen']
     assert state['stages']['g4']['status'] == 'pending'
 
 

@@ -78,6 +78,8 @@ DEFAULTS = dict(experiment='icarus', release='v10_06_00_13', qual='e26:prof', fi
                 # gen sidecar dump (every gen file over xrootd) grow with the
                 # number of jobs; the pilot's fixed 30 min / 6 h do not scale.
                 project_timeout_hours=3.0, sidecar_timeout_hours=24.0,
+                # polls in a row that must find the queue empty before the check
+                empty_polls_to_finish=3,
                 # remove a scratch stage's out/ once the next stage is done
                 cleanup_intermediate=False,
                 # a hold for exceeding a request raises it for the makeup, up to the caps
@@ -398,6 +400,7 @@ class Orchestrator:
             rc, txt = self.sh(['jobsub_q', '-G', self.cfg['experiment'], '--jobid', cl], mutating=False, timeout=300)
             if rc != 0 and 'no matching' not in txt.lower() and txt.strip():
                 return None, f'rc {rc}: {txt.strip()[-500:]}'
+            self.last_query = f'rc {rc}: {txt.strip()[-300:]}'
             cid = cl.split('@')[0]
             jobs = []
             for line in txt.splitlines():
@@ -538,8 +541,19 @@ class Orchestrator:
         s['queue'] = {k: ''.join(sorted(x for _, x in v)) for k, v in q.items()}
         s['polled'] = now()
         if not jobs:
+            # An empty answer can be wrong (10x stage1: empty 16 min after the
+            # submit, jobs still running -> makeup of 969 -> every input processed
+            # twice), so it has to repeat before the stage counts as finished.
+            s['empty_polls'] = s.get('empty_polls', 0) + 1
+            need = self.cfg.get('empty_polls_to_finish', 3)
+            self.log(f"{st['name']}: queue query empty ({s['empty_polls']}/{need}), "
+                     f"jobsub_q said {getattr(self, 'last_query', '')}")
+            if s['empty_polls'] < need:
+                return 'waiting'
+            s['empty_polls'] = 0
             s['status'] = 'checking'
             return self.check(st, s)
+        s['empty_polls'] = 0
         # Held jobs are handled one by one, so they do not stall a stage whose
         # other jobs still run; a removed job's output is redone by the makeup.
         # A job over its request or restarted too often goes at once. Any other
@@ -657,6 +671,13 @@ class Orchestrator:
         s['good'] = good
         exp = max(s['expected'], 1)
         self.log(f"{st['name']}: check rc {rc}: {good}/{s['expected']} good outputs")
+        if good > s['expected']:
+            # More outputs than inputs: inputs processed twice or files per job
+            # miscounted. Either way the next stage would inherit the count and
+            # duplicate events would pass for extra stats, so stop before
+            # publishing or cleaning up the input stage.
+            return self.finish(st, s, 'failed', note=f'{good}/{s["expected"]} good: more outputs than '
+                                                     f'expected, look for duplicate events')
         if good >= math.ceil(self.cfg['min_good_fraction'] * exp):
             return self.finish(st, s, 'done')
         if s['attempts'] - s.get('raise_rounds', 0) <= self.cfg['max_makeup']:
@@ -745,7 +766,7 @@ class Orchestrator:
             local.write_text(''.join(f + '\n' for f in files))
             copy_to_pnfs(self.sh, local, str(root / fname))
             published[name] = dict(list=str(root / fname), n=len(files))
-            if name != 'files' and len(files) < len(dirs):
+            if name != 'files' and len(files) != len(dirs):
                 warn.append(f'{name}: {len(files)} files for {len(dirs)} good jobs')
         s['published'] = published
         msg = 'published ' + ', '.join(f"{k}={v['n']}" for k, v in published.items()) + f' to {root}'
@@ -1129,6 +1150,45 @@ def cmd_republish(a):
     with_lock(a.workdir, go)
 
 
+def dedupe_by_input(files, prefer):
+    """One output per input. Output names differ only in the UUID the job adds
+    to the input's name; job directories are <cluster>_<proc>. Takes the output
+    of cluster `prefer`, else the first by path. Returns (kept, dropped)."""
+    groups = {}
+    for f in sorted(files):
+        groups.setdefault(re.sub(r'_[0-9a-f]{8}-[0-9a-f-]+\.root$', '', Path(f).name), []).append(f)
+    kept = [next((f for f in g if Path(f).parent.name.split('_')[0] == prefer), g[0]) for g in groups.values()]
+    return sorted(kept), sorted(set(files) - set(kept))
+
+
+def cmd_dedupe(a):
+    """Reduce a done stage to one output per input after it processed inputs
+    twice (a makeup while the first cluster still ran). The next stage must be
+    pending, since it reads this list; `retry` it first. Nothing is deleted."""
+    def go():
+        o = Orchestrator(a.workdir)
+        names = [x['name'] for x in o.cfg['stages']]
+        st = next(x for x in o.cfg['stages'] if x['name'] == a.stage)
+        s = o.state['stages'][a.stage]
+        nxt = names[names.index(a.stage) + 1:][:1]
+        if st['ana'] or s['status'] != 'done' or (nxt and o.state['stages'][nxt[0]]['status'] != 'pending'):
+            raise SystemExit(f'{a.stage} must be a done art stage and its next stage {nxt} pending (use retry)')
+        lst = Path(stage_dirs(o.cfg, st)['bookdir']) / 'files.list'
+        files = [x.strip() for x in lst.read_text().splitlines() if x.strip()]
+        kept, dropped = dedupe_by_input(files, a.prefer_cluster)
+        print(f'{a.stage}: {len(files)} outputs -> {len(kept)} inputs; dropping {len(dropped)}')
+        if a.dry_run:
+            return
+        backup = lst.with_name('files.list.with_duplicates')
+        if not backup.exists():
+            backup.write_text(lst.read_text())
+        lst.write_text(''.join(f + '\n' for f in kept))
+        s['good'] = o.count_good(st)
+        o.log(f"{a.stage}: deduped by user, {len(files)} -> {s['good']}/{s['expected']} good: {o.publish(st, s)}")
+        o.save()
+    with_lock(a.workdir, go)
+
+
 def cmd_cleanup(a):
     """Apply the cleanup_intermediate rule now, e.g. to a campaign that ran
     without it: remove the scratch outputs of every done stage whose next
@@ -1217,6 +1277,9 @@ def main():
     p.add_argument('workdir')
     p = sub.add_parser('republish', help='recount and re-publish a done stage\'s lists; rewrite the manifest')
     p.add_argument('workdir'); p.add_argument('stage')
+    p = sub.add_parser('dedupe', help='reduce a done stage to one output per input (it ran its inputs twice)')
+    p.add_argument('workdir'); p.add_argument('stage'); p.add_argument('--prefer-cluster', required=True)
+    p.add_argument('--dry-run', action='store_true')
     p = sub.add_parser('reconfig', help='reload the TOML into config.json + XML, keeping the state')
     p.add_argument('config')
     p = sub.add_parser('adopt', help='record an already-submitted cluster as the stage\'s current attempt')
@@ -1224,7 +1287,7 @@ def main():
     a = ap.parse_args()
     dict(init=cmd_init, status=cmd_status, tick=cmd_tick, run=cmd_run, retry=cmd_retry,
          recheck=cmd_recheck, republish=cmd_republish, reconfig=cmd_reconfig, adopt=cmd_adopt,
-         cleanup=cmd_cleanup)[a.cmd](a)
+         cleanup=cmd_cleanup, dedupe=cmd_dedupe)[a.cmd](a)
 
 
 if __name__ == '__main__':
