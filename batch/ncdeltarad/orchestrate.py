@@ -12,8 +12,9 @@ larbatch stage it:
   1. renders the project.py XML (numjobs follows the previous stage's good
      output, so no input file is silently dropped),
   2. refreshes the token and submits (`project.py --submit`),
-  3. watches the submitted clusters with `jobsub_q`, removing jobs held
-     longer than `held_timeout_hours`,
+  3. watches the submitted clusters with `jobsub_q`. A job held for its memory,
+     disk or lifetime request is removed at once and the request raised for
+     the makeup; other holds are removed after `held_timeout_hours`,
   4. runs `project.py --check` (or `--checkana`) once the clusters are gone,
   5. resubmits failures with `project.py --makeup` up to `max_makeup` times,
      then accepts the stage (>= accept_fraction good) or marks it failed,
@@ -79,6 +80,8 @@ DEFAULTS = dict(experiment='icarus', release='v10_06_00_13', qual='e26:prof', fi
                 project_timeout_hours=3.0, sidecar_timeout_hours=24.0,
                 # remove a scratch stage's out/ once the next stage is done
                 cleanup_intermediate=False,
+                # a hold for exceeding a request raises it for the makeup, up to the caps
+                hold_raise_factor=1.5, max_memory_mb=40000, max_disk_gb=100, max_lifetime_hours=96,
                 notify_cmd='', persistent_base='', numevents=1000000000, delta_sidecar=True,
                 input_location_prefer='',
                 xrootd_prefix='root://fndcadoor.fnal.gov:1094/pnfs/fnal.gov/usr/',
@@ -93,10 +96,74 @@ JOBID_RE = re.compile(r'(\d+)\.\d+@(jobsub\d+\.fnal\.gov)')
 # jobsub/condor_vault_storer output when the submission lacks credentials.
 AUTH_FAILURES = ('Authentication needed', 'htgettoken failed', 'Failed to process job credential')
 STATE_TOKENS = {'I', 'R', 'H', 'X', 'C', 'S'}
+# Holds a bigger request cures -> the campaign setting that caps the request.
+REQUEST_CAPS = dict(memory='max_memory_mb', disk='max_disk_gb', lifetime='max_lifetime_hours')
+# These never clear by themselves, so waiting out held_timeout_hours only delays the makeup.
+HOLDS_REMOVED_AT_ONCE = {*REQUEST_CAPS, 'restarts'}
 
 
 def now():
     return datetime.now(timezone.utc).isoformat(timespec='seconds')
+
+
+# --------------------------------------------------------------------------- #
+# held jobs
+# --------------------------------------------------------------------------- #
+def classify_hold(code, subcode):
+    """Causes of a hold, from HoldReasonCode / HoldReasonSubCode. Code 26 is the
+    FermiGrid system policy, whose subcode is a bitmask (1 memory, 2 disk,
+    4 restarted too often, 8 lifetime); 34 is HTCondor's JobOutOfResources
+    (102 memory, 104 disk); 46/47 are HTCondor's duration limits."""
+    if code == 1:
+        return ['manual']
+    if code == 34:
+        return ['disk' if subcode == 104 else 'memory']
+    if code in (46, 47):
+        return ['lifetime']
+    if code == 26:
+        kinds = [k for bit, k in ((1, 'memory'), (2, 'disk'), (4, 'restarts'), (8, 'lifetime')) if subcode & bit]
+        return kinds or ['other']
+    return ['other']
+
+
+def parse_hold_ads(txt):
+    """{'<cluster>.<proc>': hold info} from `jobsub_q --long` ClassAds; only the
+    ads carrying a HoldReasonCode. Peaks are in the request's units (MB, GB)."""
+    out = {}
+    for block in re.split(r'\n\s*\n', txt):
+        ad = dict(re.findall(r'^\s*(\w+)\s*=\s*(.*?)\s*$', block, re.M))
+        try:
+            job, code = f"{int(ad['ClusterId'])}.{int(ad['ProcId'])}", int(ad['HoldReasonCode'])
+        except (KeyError, ValueError):
+            continue
+
+        def number(name):
+            try:
+                return float(ad.get(name, ''))
+            except ValueError:   # MemoryUsage is usually an expression, not a value
+                return 0.0
+        subcode = int(number('HoldReasonSubCode'))
+        out[job] = dict(code=code, subcode=subcode, kinds=classify_hold(code, subcode),
+                        reason=ad.get('HoldReason', '').strip('"')[:200],
+                        peak=dict(memory=max(number('MemoryUsage'), number('ResidentSetSize') / 1024),
+                                  disk=number('DiskUsage') / 1024 ** 2))
+    return out
+
+
+def request_value(kind, text):
+    """A stage's memory (MB), disk (GB) or lifetime (h) as a number; None if it
+    is not in a form that can be scaled (jobsub's named lifetimes)."""
+    if kind == 'memory':
+        return float(text)
+    units = dict(KB=1e-6, MB=1e-3, GB=1, TB=1e3) if kind == 'disk' else dict(S=1 / 3600, M=1 / 60, H=1, D=24)
+    m = re.fullmatch(r'(\d+(?:\.\d+)?)\s*([A-Za-z]+)', str(text).strip())
+    return float(m.group(1)) * units[m.group(2).upper()] if m and m.group(2).upper() in units else None
+
+
+def request_text(kind, value):
+    if kind == 'memory':
+        return int(math.ceil(value / 1000) * 1000)
+    return f"{math.ceil(value)}{'GB' if kind == 'disk' else 'h'}"
 
 
 # --------------------------------------------------------------------------- #
@@ -254,6 +321,12 @@ class Orchestrator:
         self.cfg = json.loads((self.dir / 'config.json').read_text())
         self.state_path = self.dir / 'state.json'
         self.state = json.loads(self.state_path.read_text())
+        # Requests raised after holds outlive a reconfig, unless the TOML asks for more.
+        for st in self.cfg['stages']:
+            for kind, v in self.state['stages'].get(st['name'], {}).get('raised', {}).items():
+                cur = request_value(kind, st[kind])
+                if cur is None or request_value(kind, v) > cur:
+                    st[kind] = v
         self.xml = self.dir / f"{self.cfg['name']}.xml"
         self.sh = shell or Shell(self.log, dry_run, env=job_env(self.cfg))
         self.dry_run = dry_run
@@ -435,7 +508,7 @@ class Orchestrator:
         if not clusters and not self.dry_run:
             self.log(f"{st['name']}: no job id in project.py output; will check after "
                      f"{self.cfg['fallback_wait_hours']} h")
-        s.update(status='running', clusters=clusters, submitted=self.clock(), held={}, errors=0)
+        s.update(status='running', clusters=clusters, submitted=self.clock(), held={}, hold_info={}, errors=0)
         s['attempts'] = s.get('attempts', 0) + 1
         self.log(f"{st['name']}: --{action} attempt {s['attempts']} submitted {s['numjobs']} jobs {clusters} "
                  f"(memory {self.xml_value(st['name'], 'memory')} MB in the XML)")
@@ -467,21 +540,116 @@ class Orchestrator:
         if not jobs:
             s['status'] = 'checking'
             return self.check(st, s)
-        # Held jobs are timed one by one: a job held for exceeding its memory or
-        # disk request never runs, and must not stall a stage whose other jobs
-        # still run. A removed job's output is redone by the makeup.
+        # Held jobs are handled one by one, so they do not stall a stage whose
+        # other jobs still run; a removed job's output is redone by the makeup.
+        # A job over its request or restarted too often goes at once. Any other
+        # hold, or one whose reason could not be read, may clear: it gets
+        # held_timeout_hours. A hold the user placed stays.
         prev = s.get('held') or {}
         s['held'] = {j: prev.get(j, self.clock()) for j, x in jobs if x == 'H'}
-        stale = [j for j, t0 in s['held'].items() if self.clock() - t0 > 3600 * self.cfg['held_timeout_hours']]
-        for j in stale:
-            self.sh(['jobsub_rm', '-G', self.cfg['experiment'], '--jobid', j])
+        new = self.read_holds(st, s, q)
+        if new:
+            self.act_on_new_holds(st, s, new)
+        info = s['hold_info']
+        at_once = [j for j in s['held'] if HOLDS_REMOVED_AT_ONCE & set(info.get(j, {}).get('kinds', []))]
+        stale = [j for j, t0 in s['held'].items() if j not in at_once
+                 and 'manual' not in info.get(j, {}).get('kinds', [])
+                 and self.clock() - t0 > 3600 * self.cfg['held_timeout_hours']]
+        self.remove_jobs(q, set(at_once + stale))
+        for j in at_once + stale:
             del s['held'][j]
+        if at_once:
+            self.log(f"{st['name']}: removed {len(at_once)} jobs over a request or restarted too often")
         if stale:
-            self.log(f"{st['name']}: removed {len(stale)} jobs held > {self.cfg['held_timeout_hours']} h "
-                     f"(if held for memory/disk: raise the stage's request and reconfig before the makeup)")
+            self.log(f"{st['name']}: removed {len(stale)} jobs held > {self.cfg['held_timeout_hours']} h")
+        gone = set(at_once + stale)
+        left = [x for j, x in jobs if j not in gone]
         self.log(f"{st['name']}: {len(left)} jobs in queue "
                  f"({sum(x == 'R' for x in left)} R, {sum(x == 'I' for x in left)} I, {sum(x == 'H' for x in left)} H)")
         return 'running'
+
+    def read_holds(self, st, s, q):
+        """Fill s['hold_info'] for the held jobs and return the newly read ones.
+        Only clusters with a job not read yet are queried: --long is heavy."""
+        info = {j: v for j, v in (s.get('hold_info') or {}).items() if j in s['held']}
+        new, tail = {}, ''
+        for cl, v in q.items():
+            unread = [j for j, x in v if x == 'H' and j not in info]
+            if not unread:
+                continue
+            ads = {}
+            for flag in ('--long', '-long'):
+                _, txt = self.sh(['jobsub_q', '-G', self.cfg['experiment'], '--jobid', cl, flag],
+                                 mutating=False, timeout=300)
+                ads = parse_hold_ads(txt)
+                if ads:
+                    break
+            else:
+                tail = txt.strip()[-300:]
+            new.update({j: ads[j.split('@')[0]] for j in unread if j.split('@')[0] in ads})
+        s['hold_info'] = {**info, **new}
+        missing = len(s['held']) - len(s['hold_info'])
+        if missing:
+            self.log(f"{st['name']}: no hold reason for {missing} held jobs (they wait for the timeout); "
+                     f"jobsub_q --long said: {tail}")
+        return new
+
+    def act_on_new_holds(self, st, s, new):
+        """Log why jobs were held, then once per submission round and cause raise
+        the request or, if nothing can be raised, notify."""
+        groups = {}
+        for v in new.values():
+            groups.setdefault((tuple(v['kinds']), v['code'], v['subcode']), []).append(v['reason'])
+        for (kinds, code, subcode), reasons in sorted(groups.items()):
+            self.log(f"{st['name']}: {len(reasons)} jobs newly held: {'+'.join(kinds)} "
+                     f"(code {code}/{subcode}), e.g. {reasons[0]}")
+        alerted, raised = s.setdefault('hold_alerted', {}), False
+        for kind in sorted({k for v in new.values() for k in v['kinds']}):
+            if kind == 'manual' or alerted.get(kind) == s.get('attempts'):
+                continue
+            alerted[kind] = s.get('attempts')
+            jobs = [v for v in new.values() if kind in v['kinds']]
+            if kind in REQUEST_CAPS:
+                peak = max(v['peak'].get(kind, 0.0) for v in jobs)
+                raised = self.raise_request(st, s, kind, peak) or raised
+            else:
+                self.notify(f"[{self.cfg['name']}] {st['name']}: {len(jobs)} jobs held ({kind})", jobs[0]['reason'])
+        if raised:
+            # Paid for by the resource, not by the jobs: this round must not use
+            # up a makeup. The caps bound how often it can happen.
+            s['raise_rounds'] = s.get('raise_rounds', 0) + 1
+            if not self.dry_run:
+                self.write_xml()
+
+    def raise_request(self, st, s, kind, peak):
+        """Raise the stage's request for its next makeup: by hold_raise_factor,
+        or to 20% over the peak the job reached if that is more."""
+        name, cap_key = st['name'], REQUEST_CAPS[kind]
+        cur = request_value(kind, st[kind])
+        cap = self.cfg.get(cap_key, DEFAULTS[cap_key])
+        factor = self.cfg.get('hold_raise_factor', DEFAULTS['hold_raise_factor'])
+        if cur is None or cur >= cap:
+            why = f'{kind} request {st[kind]} is at the cap {cap_key}={cap}' if cur is not None \
+                else f'cannot scale {kind} request {st[kind]!r}'
+            self.notify(f"[{self.cfg['name']}] {name}: jobs held for {kind}, request not raised",
+                        f'{why}; the makeup uses the same request')
+            return False
+        new = request_text(kind, min(cap, max(cur * factor, peak * 1.2)))
+        self.notify(f"[{self.cfg['name']}] {name}: jobs held for {kind}",
+                    f'raising the request from {st[kind]} to {new} for the makeup')
+        st[kind] = new
+        s.setdefault('raised', {})[kind] = new
+        return True
+
+    def remove_jobs(self, q, jobs):
+        """jobsub_rm the jobs, a whole cluster at one go when all its queued jobs
+        are listed: a call per job over 1000 jobs would hold the state lock for long."""
+        for cl, v in q.items():
+            mine = [j for j, _ in v if j in jobs]
+            for target in [cl] if len(mine) > 1 and len(mine) == len(v) else mine:
+                rc, out = self.sh(['jobsub_rm', '-G', self.cfg['experiment'], '--jobid', target])
+                if rc != 0:
+                    self.log(f'jobsub_rm {target} failed (rc {rc}), next poll retries: {out.strip()[-300:]}')
 
     def check(self, st, s):
         rc, out = self.project(st['name'], 'checkana' if st['ana'] else 'check', mutating=False)
@@ -491,7 +659,7 @@ class Orchestrator:
         self.log(f"{st['name']}: check rc {rc}: {good}/{s['expected']} good outputs")
         if good >= math.ceil(self.cfg['min_good_fraction'] * exp):
             return self.finish(st, s, 'done')
-        if s['attempts'] <= self.cfg['max_makeup']:
+        if s['attempts'] - s.get('raise_rounds', 0) <= self.cfg['max_makeup']:
             if not self.ensure_token():
                 return 'auth'
             return self.submit(st, s, 'makeup')
@@ -913,6 +1081,8 @@ def cmd_status(a):
               f"{s.get('expected', ''):>6}  {polled:25s}  {q}")
         if s['status'] == 'failed' and (s.get('last_error') or s.get('note')):
             print(f"{'':10s} -> {s.get('last_error') or s.get('note')}")
+        if s.get('raised'):
+            print(f"{'':10s} -> raised after holds: " + ', '.join(f'{k}={v}' for k, v in s['raised'].items()))
     print(f"details: {o.dir / 'orchestrator.log'}")
 
 
@@ -920,7 +1090,7 @@ def cmd_retry(a):
     def go():
         o = Orchestrator(a.workdir)
         s = o.state['stages'][a.stage]
-        s.update(status='pending', attempts=0, errors=0, clusters=[], queue={})
+        s.update(status='pending', attempts=0, errors=0, clusters=[], queue={}, hold_alerted={}, raise_rounds=0)
         o.save()
         o.log(f'{a.stage}: reset to pending by user')
     with_lock(a.workdir, go)

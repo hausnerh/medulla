@@ -63,7 +63,14 @@ pythonpath_prepend = [ "/cvmfs/larsoft.opensciencegrid.org/products/larbatch/v01
 min_good_fraction  = 0.95   # stage done when >= this fraction of jobs produced good output
 max_makeup         = 2      # project.py --makeup rounds before giving up
 accept_fraction    = 0.80   # after the makeups, accept the stage if at least this fraction is good
-held_timeout_hours = 1      # memory/disk holds never clear by themselves
+held_timeout_hours = 1      # for holds not cured by a bigger request (those are removed at once)
+# A job held for its memory, disk or lifetime request is removed at once and the
+# request raised for the makeup, by this factor or to 1.2 x the job's peak, up
+# to the caps. Such a round does not count towards max_makeup.
+hold_raise_factor  = 1.5
+max_memory_mb      = 40000
+max_disk_gb        = 100
+max_lifetime_hours = 96
 # Remove a scratch stage's out/ once the stage reading it is done (decode..stage0
 # carry the decoded raw data: GBs per file). Persistent stages (larcv, CAF) and
 # stages with `keep = true` stay; logs and file lists stay. A `retry` of a stage

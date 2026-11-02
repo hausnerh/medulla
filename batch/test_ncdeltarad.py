@@ -149,6 +149,7 @@ class FakeGrid:
         self.sl7_scripts = []
         self.krb_ok = krb_ok
         self.calls, self.next_id, self.live, self.removed = [], 100, {}, set()
+        self.hold_ad = None               # ClassAd text of the held jobs, for jobsub_q --long
         self.dry_run = False
 
     def log(self, msg):
@@ -208,6 +209,12 @@ class FakeGrid:
         if prog == 'jobsub_q':
             cl = cmd[cmd.index('--jobid') + 1]
             cid = cl.split('@')[0]
+            if '--long' in cmd:
+                if self.hold_ad is None:
+                    return 1, 'unknown option --long'
+                return 0, '\n\n'.join(f'ClusterId = {cid}\nProcId = {i}\n{self.hold_ad}' for i in (0, 1)) + '\n'
+            if '-long' in cmd:
+                return 1, 'unknown option -long'
             head = 'JOBSUBJOBID OWNER SUBMITTED RUNTIME ST PRI SIZE CMD\n'
             row = '{}.{}@jobsub01.fnal.gov me 10/20 12:00 0+01:00:00 {} 0 0.0 condor_lar.sh\n'
             if self.held == 'mixed':      # job 0 runs to completion, job 1 stays held until removed
@@ -1173,3 +1180,162 @@ def test_held_job_beside_running_jobs_is_removed_and_made_up(campaign):
     assert rm and all(c[c.index('--jobid') + 1].endswith('.1@jobsub01.fnal.gov') for c in rm)
     assert o.state['stages']['gen']['attempts'] == 2       # removed job redone by the makeup
     assert any(isinstance(c, list) and c[:1] == ['project.py'] and '--makeup' in c for c in grid.calls)
+
+
+@pytest.mark.parametrize('code,subcode,kinds', [
+    (1, 0, ['manual']), (26, 1, ['memory']), (26, 2, ['disk']), (26, 4, ['restarts']), (26, 8, ['lifetime']),
+    (26, 3, ['memory', 'disk']), (26, 0, ['other']), (34, 0, ['memory']), (34, 102, ['memory']), (34, 104, ['disk']),
+    (46, 0, ['lifetime']), (47, 0, ['lifetime']), (12, 256, ['other']), (3, 0, ['other'])])
+def test_classify_hold(code, subcode, kinds):
+    assert O.classify_hold(code, subcode) == kinds
+
+
+def test_parse_hold_ads():
+    txt = ('ClusterId = 7\nProcId = 3\nHoldReasonCode = 26\nHoldReasonSubCode = 1\n'
+           'HoldReason = "Memory usage exceeded"\nResidentSetSize = 10240000\n'
+           'MemoryUsage = ((ResidentSetSize + 1023) / 1024)\nDiskUsage = 3145728\n\n'
+           'ClusterId = 7\nProcId = 4\nJobStatus = 2\n')
+    ads = O.parse_hold_ads(txt)
+    assert list(ads) == ['7.3']
+    assert ads['7.3']['kinds'] == ['memory'] and ads['7.3']['reason'] == 'Memory usage exceeded'
+    assert ads['7.3']['peak']['memory'] == pytest.approx(10000) and ads['7.3']['peak']['disk'] == pytest.approx(3)
+
+
+@pytest.mark.parametrize('kind,text,value,raised', [
+    ('memory', 6000, 6000, 9000), ('disk', '50GB', 50, '75GB'), ('disk', '500MB', 0.5, '1GB'),
+    ('lifetime', '8h', 8, '12h'), ('lifetime', '2d', 48, '72h')])
+def test_request_value_and_text(kind, text, value, raised):
+    assert O.request_value(kind, text) == pytest.approx(value)
+    assert O.request_text(kind, value * 1.5) == raised
+
+
+def test_named_lifetime_cannot_be_scaled():
+    assert O.request_value('lifetime', 'long') is None
+
+
+def _held_grid(wd, ad, **kw):
+    cfg = json.loads((wd / 'config.json').read_text())
+    grid = FakeGrid(cfg, **kw)
+    grid.hold_ad = ad
+    return grid, O.Orchestrator(wd, shell=grid, clock=grid_clock)
+
+
+MEMORY_AD = 'HoldReasonCode = 26\nHoldReasonSubCode = 1\nHoldReason = "memory usage exceeded"'
+
+
+def _rm_calls(grid):
+    return [c for c in grid.calls if isinstance(c, list) and c[0] == 'jobsub_rm']
+
+
+def test_memory_hold_raises_the_request_for_the_makeup(campaign):
+    wd = campaign(held_timeout_hours=1000.0)
+    grid, o = _held_grid(wd, MEMORY_AD, good=dict(gen=[0, 10], g4=[10], caf=[10]), held=True)
+    o.tick()                  # submit
+    o.tick()                  # held: removed at once, not after the 1000 h
+    assert _rm_calls(grid)
+    assert o.state['stages']['gen']['raised'] == dict(memory=6000)
+    assert '<memory>6000</memory>' in o.xml.read_text()
+    grid.held = False
+    o.tick()                  # queue empty -> check -> makeup
+    s = o.state['stages']['gen']
+    assert s['attempts'] == 2 and s['raise_rounds'] == 1
+    assert 'code 26/1' in (wd / 'orchestrator.log').read_text()
+    assert 'memory usage exceeded' in (wd / 'orchestrator.log').read_text()
+
+
+def test_raise_rounds_do_not_use_up_makeups(campaign):
+    """max_makeup = 0: a stage with no makeups left still gets the round that
+    follows a raise, and a later failure with no hold ends it."""
+    wd = campaign(held_timeout_hours=1000.0, max_makeup=0, accept_fraction=1.0)
+    grid, o = _held_grid(wd, MEMORY_AD, good=dict(gen=[0, 0]), held=True)
+    o.tick()
+    o.tick()
+    grid.held = False
+    o.tick()
+    assert o.state['stages']['gen']['status'] == 'running' and o.state['stages']['gen']['attempts'] == 2
+    for _ in range(4):
+        o.tick()
+    assert o.state['stages']['gen']['status'] == 'failed'
+
+
+def test_request_raised_once_per_round(campaign):
+    """Jobs of one round held on different polls all ran at the same request."""
+    wd = campaign(held_timeout_hours=1000.0)
+    grid, o = _held_grid(wd, MEMORY_AD, good=dict(gen=[10], g4=[10], caf=[10]), held=True)
+    o.tick()
+    s = o.state['stages']['gen']
+    st = o.cfg['stages'][0]
+    new = O.parse_hold_ads(f'ClusterId = 1\nProcId = 0\n{MEMORY_AD}\n')
+    o.act_on_new_holds(st, s, new)
+    o.act_on_new_holds(st, s, new)
+    assert st['memory'] == 6000 and s['raise_rounds'] == 1
+
+
+def test_raise_follows_the_peak_when_it_is_larger(campaign):
+    wd = campaign()
+    grid, o = _held_grid(wd, None, good=dict(gen=[10]))
+    st, s = o.cfg['stages'][0], o.state['stages']['gen']
+    assert o.raise_request(st, s, 'memory', 10000.0)
+    assert st['memory'] == 12000
+
+
+def test_raise_stops_at_the_cap(campaign):
+    wd = campaign(max_memory_mb=5000)
+    grid, o = _held_grid(wd, None, good=dict(gen=[10]))
+    st, s = o.cfg['stages'][0], o.state['stages']['gen']
+    assert o.raise_request(st, s, 'memory', 0.0)
+    assert st['memory'] == 5000
+    assert not o.raise_request(st, s, 'memory', 0.0)
+    assert st['memory'] == 5000
+    assert 'at the cap' in (wd / 'orchestrator.log').read_text()
+
+
+def test_raised_request_survives_a_restart_unless_the_config_asks_for_more(campaign):
+    wd = campaign()
+    grid, o = _held_grid(wd, None, good=dict(gen=[10]))
+    o.state['stages']['gen']['raised'] = dict(memory=9000)
+    o.save()
+    assert O.Orchestrator(wd, shell=grid, clock=grid_clock).cfg['stages'][0]['memory'] == 9000
+    cfg = json.loads((wd / 'config.json').read_text())
+    cfg['stages'][0]['memory'] = 12000
+    (wd / 'config.json').write_text(json.dumps(cfg))
+    assert O.Orchestrator(wd, shell=grid, clock=grid_clock).cfg['stages'][0]['memory'] == 12000
+
+
+def test_other_hold_waits_for_the_timeout_and_notifies(campaign):
+    wd = campaign(held_timeout_hours=1000.0)
+    ad = 'HoldReasonCode = 12\nHoldReasonSubCode = 256\nHoldReason = "output transfer failed"'
+    grid, o = _held_grid(wd, ad, good=dict(gen=[10]), held=True)
+    o.tick()
+    o.tick()
+    assert not _rm_calls(grid) and 'raised' not in o.state['stages']['gen']
+    assert 'jobs held (other) output transfer failed' in (wd / 'orchestrator.log').read_text()
+
+
+def test_manual_hold_is_left_alone(campaign):
+    wd = campaign(held_timeout_hours=0.001)
+    grid, o = _held_grid(wd, 'HoldReasonCode = 1\nHoldReason = "via condor_hold"', good=dict(gen=[10]), held=True)
+    for _ in range(4):
+        o.tick()
+    assert not _rm_calls(grid)
+
+
+def test_hold_reason_is_read_once_per_job(campaign):
+    wd = campaign(held_timeout_hours=1000.0)
+    ad = 'HoldReasonCode = 12\nHoldReason = "output transfer failed"'
+    grid, o = _held_grid(wd, ad, good=dict(gen=[10]), held=True)
+    for _ in range(4):
+        o.tick()
+    assert sum(isinstance(c, list) and '--long' in c for c in grid.calls) == 1
+
+
+def test_whole_cluster_removed_at_one_go(campaign):
+    wd = campaign()
+    grid, o = _held_grid(wd, None, good=dict(gen=[10]))
+    cl = '7@jobsub01.fnal.gov'
+    jobs = [f'7.{i}@jobsub01.fnal.gov' for i in range(3)]
+    o.remove_jobs({cl: [(j, 'H') for j in jobs]}, set(jobs))
+    assert [c[c.index('--jobid') + 1] for c in _rm_calls(grid)] == [cl]
+    grid.calls.clear()
+    o.remove_jobs({cl: [(jobs[0], 'H'), (jobs[1], 'H'), (jobs[2], 'R')]}, set(jobs[:2]))
+    assert [c[c.index('--jobid') + 1] for c in _rm_calls(grid)] == jobs[:2]

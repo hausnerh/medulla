@@ -225,10 +225,27 @@ python batch/ncdeltarad/orchestrate.py status <workdir>
    with its error (`<stage>: jobsub_q failed (N in a row)`), and the third
    failure in a row sends a notification. Commands run with stdin closed, so an
    auth prompt fails at once instead of hanging the loop until the 300 s
-   timeout. Any job held for longer than `held_timeout_hours` is
-   removed with `jobsub_rm`, even while other jobs of the stage run, and the
-   makeup redoes it. A job held for exceeding its memory or disk request never
-   runs: raise the request in the TOML and run `reconfig` before the makeup.
+   timeout. Held jobs are removed with `jobsub_rm` even while other jobs of the
+   stage run, and the makeup redoes them. What happens depends on the
+   `HoldReasonCode`/`HoldReasonSubCode`, read from `jobsub_q --long` and logged
+   with an example `HoldReason`:
+
+   | Hold | Codes | Action |
+   |---|---|---|
+   | memory | 26 (subcode bit 1), 34 (not 104) | remove at once, raise `memory` |
+   | disk | 26 (bit 2), 34/104 | remove at once, raise `disk` |
+   | lifetime | 26 (bit 8), 46, 47 | remove at once, raise `lifetime` |
+   | restarted too often | 26 (bit 4) | remove at once, notify |
+   | placed by you | 1 | leave it |
+   | anything else, or reason unreadable | | notify if read, remove after `held_timeout_hours` |
+
+   A raise multiplies the request by `hold_raise_factor` (or goes to 1.2 x the
+   job's peak if higher), once per submission round and up to `max_memory_mb`,
+   `max_disk_gb` and `max_lifetime_hours`. It sends a notification and does not
+   use up a `max_makeup` round. At a cap the request stays, so the stage runs
+   out of makeups and fails. Raised requests survive `reconfig` and `retry`
+   (`status` lists them) unless the TOML asks for more; `init --force` forgets
+   them.
 5. When the queue is empty, runs `--check` (`--checkana` for the CAF stage)
    and counts `files.list` / `filesana.list`.
 6. Decides:
