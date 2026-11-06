@@ -59,14 +59,22 @@ Requirements and pitfalls:
   calibration databases.
 - A user-site SPINE install shadows the image's version.
 
-Copy the HDF5 outputs to `/exp/sbn/data`. Then, on the gpvm, `spine_caf.py`:
-- pairs each caf job with its HDF5 by (run, subrun, event);
+Larcv names repeat across jobs and SPINE overwrites an HDF5 of the same name, so
+run SPINE in passes with no repeated name within a pass, each with its own output
+directory. The HDF5 files may stay on `/exp/sbn/data` or sit under
+`<pnfs_base>/spine/`; those are read in place and not copied. Then, on the gpvm,
+`spine_caf.py`:
+- reads only the good caf jobs, from the stage's `files.list`;
+- pairs each caf job with its HDF5 by (run, subrun, event), and merges nothing
+  unless every event is in one HDF5 only, every job's events are all in one HDF5 of
+  its own, and no HDF5 is left over (jobs with no events are listed, not failed);
 - merges it with `merge_sources_simulation` from a build of
   SBNSoftware/sbn_ml_cafmaker, run with the sbnana that build was compiled
   against (`tools/manager.py` there shows the recipe);
 - runs `flatten_caf`;
-- copies the flat ML CAF to `<persistent_base>/spine/flatcaf/` and the HDF5 to
-  `<pnfs_base>/spine/hdf5/` with `ifdh cp`, and writes the lists and a manifest;
+- copies the flat ML CAF to `<persistent_base>/spine/flatcaf/` and any HDF5 not
+  yet on scratch to `<pnfs_base>/spine/hdf5/<job>_<name>` with `ifdh cp`, and writes
+  the lists and a manifest;
 - runs `check_outputs.py`, whose section 5 checks the ML CAFs.
 
 Build the merger once with `build_ml_cafmaker.sh`, in the SL7 container. It:
@@ -82,8 +90,13 @@ Then run `spine_caf.py`:
 apptainer exec --cleanenv -B /cvmfs,/exp,/nashome,/pnfs/icarus \
     /cvmfs/singularity.opensciencegrid.org/fermilab/fnal-dev-sl7:latest \
     bash batch/ncdeltarad/build_ml_cafmaker.sh /exp/icarus/app/users/$USER/ml_cafmaker
-python3 batch/ncdeltarad/spine_caf.py $WD --h5 '/exp/sbn/data/users/$USER/ncdr/spine/*.h5' --cafmaker-dir /exp/icarus/app/users/$USER/ml_cafmaker
+H5='<pnfs_base>/spine/hdf5_incoming/pass*/*.h5'
+python3 batch/ncdeltarad/spine_caf.py $WD --h5 "$H5" --cafmaker-dir /exp/icarus/app/users/$USER/ml_cafmaker --dry-run
+python3 batch/ncdeltarad/spine_caf.py $WD --h5 "$H5" --cafmaker-dir /exp/icarus/app/users/$USER/ml_cafmaker
 ```
+
+The dry run prints the job, HDF5 and event counts. A merge is one pass, because
+each run rewrites the lists.
 
 ## 1. Physics setup
 

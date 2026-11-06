@@ -659,10 +659,40 @@ def test_check_outputs_on_a_synthetic_campaign(tmp_path):
 
 def test_spine_caf_pairs_jobs_with_hdf5_by_event_keys():
     import spine_caf as S
-    jobs = {'7_0': {(1, 1, e) for e in range(9)}, '7_1': {(2, 1, e) for e in range(50)}, '7_2': {(3, 1, 0)}}
+    jobs = {'7_0': {(1, 1, e) for e in range(9)}, '7_1': {(2, 1, e) for e in range(50)}, '7_2': {(3, 1, 0)},
+            '7_3': set()}
     h5s = {'b.h5': {(2, 1, e) for e in range(50)}, 'a.h5': {(1, 1, e) for e in range(9)}, 'x.h5': {(9, 9, 9)}}
-    pairs, unpaired = S.pair_jobs(jobs, h5s)
-    assert pairs == [('7_0', 'a.h5', 9, 9), ('7_1', 'b.h5', 50, 50)] and unpaired == ['7_2']
+    pairs, unpaired, empty = S.pair_jobs(jobs, h5s)
+    assert pairs == [('7_0', 'a.h5', 9, 9), ('7_1', 'b.h5', 50, 50)] and unpaired == ['7_2'] and empty == ['7_3']
+
+
+def test_spine_caf_pairing_problems():
+    import spine_caf as S
+    a, b = {(1, 1, e) for e in range(3)}, {(2, 1, e) for e in range(3)}
+    assert S.pairing_problems([('j0', 'a.h5', 3, 3), ('j1', 'b.h5', 3, 3)], [], {'a.h5': a, 'b.h5': b}) == []
+    # the same event in two HDF5 files is double processing, whatever the pairing says
+    dup = S.pairing_problems([('j0', 'a.h5', 3, 3), ('j1', 'b.h5', 3, 3)], [], {'a.h5': a, 'b.h5': b | {(1, 1, 0)}})
+    assert dup == ['event (1, 1, 0) is in both a.h5 and b.h5']
+    assert S.pairing_problems([('j0', 'a.h5', 5, 3)], [], {'a.h5': a}) == ['j0: only 3/5 events in a.h5']
+    assert S.pairing_problems([], ['j2'], {}) == ['j2: NO SPINE output holds its events']
+    assert S.pairing_problems([('j0', 'a.h5', 3, 3)], [], {'a.h5': a, 'b.h5': b}) == ['unused HDF5: b.h5']
+    shared = S.pairing_problems([('j0', 'a.h5', 1, 1), ('j1', 'a.h5', 2, 2)], [], {'a.h5': a})
+    assert shared == ["a.h5 holds events of several jobs: ['j0', 'j1']"]
+
+
+def test_spine_caf_h5_destination_never_overwrites_a_source():
+    import spine_caf as S
+    base = '/pnfs/icarus/scratch/x'
+    # already on scratch: no copy, since the merge removes its destination first
+    assert S.h5_destination(base, f'{base}/spine/hdf5_incoming/pass1/a.h5', '7_0') is None
+    assert S.h5_destination(base, f'{base}/spine/hdf5/a.h5', '7_0') is None
+    # larcv names repeat across jobs, so the job goes in the name
+    assert S.h5_destination(base, '/exp/d/pass1/a.h5', '7_0') == f'{base}/spine/hdf5/7_0_a.h5'
+    assert S.h5_destination(base, '/exp/d/pass2/a.h5', '7_1') == f'{base}/spine/hdf5/7_1_a.h5'
+    sc = S.merge_script('setup sbnana', '/b/merge', '/c.caf.root', f'{base}/spine/hdf5_incoming/pass1/a.h5', '/w/t.root',
+                        '/w/c.flat.root', '/pnfs/flat/c.flat.root', None)
+    assert 'ifdh cp /w/c.flat.root /pnfs/flat/c.flat.root' in sc
+    assert 'hdf5_incoming/pass1/a.h5' in sc and 'ifdh rm ' + base not in sc and 'ifdh cp ' + base not in sc
 
 
 def test_spine_caf_setup_from_build_cache_and_script_order(tmp_path):
@@ -694,16 +724,25 @@ def test_spine_caf_dry_run_pairs_campaign_jobs(campaign, tmp_path, capsys):
     out = Path(O.stage_dirs(cfg, next(s for s in cfg['stages'] if s['name'] == 'caf'))['outdir'])
     h5dir = tmp_path / 'h5'
     h5dir.mkdir()
+    good = []
     for j, run in enumerate((9532, 9534)):
         d = out / f'7_{j}'
         d.mkdir(parents=True)
         keys = [(run, 1, e) for e in range(1, 4)]
         _write_flat_caf(str(d / f'in{j}-Overlay_2026_u{j}.root'), keys, None, [1, 1, 1])
+        good.append(str(d / f'in{j}-Overlay_2026_v{j}.caf.root'))
         (d / f'in{j}-Overlay_2026_v{j}.caf.root').write_text('x')
         (d / f'Supplemental-in{j}.root').write_text('x')
         ri = np.array(keys, dtype=[('run', 'i4'), ('subrun', 'i4'), ('event', 'i4')])
         with h5py.File(h5dir / f'larcv_mc_{1 - j}_spine.h5', 'w') as f:   # names say nothing about the job
             f['run_info'] = ri
+    stale = out / '6_0'                      # a failed attempt, not in files.list, with the same events
+    stale.mkdir()
+    _write_flat_caf(str(stale / 'in0-Overlay_2026_u9.root'), [(9532, 1, e) for e in range(1, 4)], None, [1, 1, 1])
+    (stale / 'in0-Overlay_2026_v9.caf.root').write_text('x')
+    book = Path(O.stage_dirs(cfg, next(s for s in cfg['stages'] if s['name'] == 'caf'))['bookdir'])
+    book.mkdir(parents=True, exist_ok=True)
+    (book / 'filesana.list').write_text(''.join(g + '\n' for g in good))
     cmk = tmp_path / 'ml_cafmaker'           # as build_ml_cafmaker.sh leaves it
     cmk.mkdir()
     (cmk / 'setup_ml_cafmaker.sh').write_text('source /x/setup_icarus.sh\nsetup sbnana v10_06_00_99 -q e26:prof\n'
@@ -718,6 +757,16 @@ def test_spine_caf_dry_run_pairs_campaign_jobs(campaign, tmp_path, capsys):
     assert 'in1-Overlay_2026_v1.spine.flat.caf.root' in sc
     assert f'{cmk}/sbn_ml_cafmaker/build/merge_sources_simulation' in sc
     assert 'setup sbnana v10_06_00_99 -q e26:prof ||' in sc and 'export LD_LIBRARY_PATH=/h5/lib' in sc
+    assert '2 jobs with 6 CAF events, 2 HDF5 files with 6 events, 0 jobs without events' in log
+    assert not (wd / 'spine_caf' / 'merge_6_0.sh').exists()
+    # the same events in another HDF5: nothing is merged
+    for old in (wd / 'spine_caf').glob('merge_*.sh'):
+        old.unlink()
+    with h5py.File(h5dir / 'again.h5', 'w') as f:
+        f['run_info'] = np.array([(9532, 1, 1)], dtype=[('run', 'i4'), ('subrun', 'i4'), ('event', 'i4')])
+    assert S.main() == 1
+    log = capsys.readouterr().out
+    assert 'is in both' in log and 'nothing merged' in log and not list((wd / 'spine_caf').glob('merge_*.sh'))
 
 
 def test_decode_before_gen_production_order(campaign):
