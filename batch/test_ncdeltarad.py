@@ -1621,6 +1621,32 @@ def test_cut_opt_sigma_x_fom_is_one_over_the_scale_factor_error():
     assert G.Optimizer(None, None, 'ssb').fom(10.0, 20.0, 45.0) == pytest.approx(10 / np.sqrt(30))
 
 
+def test_sample_subset_toml_enables_only_the_named_samples(tmp_path):
+    import tomllib
+    sys.path.insert(0, str(NCDR.parent))
+    import sample_subset_toml as T
+    src_path = NCDR.parent.parent / 'selection' / 'toml' / 'gOre_1g1p_signal_osc_run2.toml'
+    out = tmp_path / 'dirt.toml'
+    assert T.main([str(src_path), '--keep', 'dirt', '--output', 'only_dirt', '--out', str(out)]) == 0
+    src, got = tomllib.loads(src_path.read_text()), tomllib.loads(out.read_text())
+    assert [s['name'] for s in got['sample'] if not s['disable']] == ['dirt']
+    assert [s['name'] for s in got['sample']] == [s['name'] for s in src['sample']]
+    assert [s['path'] for s in got['sample']] == [s['path'] for s in src['sample']]
+    assert got['general']['output'] == 'only_dirt'
+    for k in ('parameters', 'category', 'tree'):
+        assert got[k] == src[k]
+    with pytest.raises(SystemExit, match='no \\[\\[sample\\]\\] named'):
+        T.subset(src_path.read_text(), {'nope'}, 'x')
+
+
+def test_run2_configs_include_the_run2_dirt_background():
+    import tomllib
+    for name in ('gOre_1g1p_signal_osc_run2.toml', 'gOre_1g1p_sidebands_osc_run2.toml'):
+        cfg = tomllib.loads((NCDR.parent.parent / 'selection' / 'toml' / name).read_text())
+        dirt = next(s for s in cfg['sample'] if s['name'] == 'dirt')
+        assert not dirt['disable'] and 'run2_dirt' in dirt['path'] and 'Run4' not in dirt['path']
+
+
 def test_sample_check_rejects_duplicate_sidecar_keys(tmp_path):
     import sample_check as S
     p = tmp_path / 'w.csv'

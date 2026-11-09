@@ -36,6 +36,9 @@ Usage
   python batch/gore_cut_opt.py ... --fom purity   # sqrt(purity)*S/sqrt(S+B)
   python batch/gore_cut_opt.py ... --ncdr gOre_1g1p_signal_ncdeltarad_run2.root \\
       --ncdr-weights <persistent_base>/gen_sidecar/ncdeltarad_weights.csv
+
+The dirt (out-of-FV) MC is required background: --dirt <medulla output of the
+dirt sample> (batch/sample_subset_toml.py --keep dirt), or --no-dirt-ok.
 """
 import argparse
 import json
@@ -47,7 +50,8 @@ import uproot
 
 CATS = ['NC Δ→Nγ (1γ1p)', 'NC Δ→Nγ (other topo)', 'Other NC 1γXp post-FSI',
         'NC π0 (Δ res)', 'NC π0 (other)', 'NC π±', 'Other NC', 'CC νe',
-        'Other CC', 'Cosmic']
+        'Other CC', 'Cosmic', 'Dirt']
+DIRT = CATS.index('Dirt')       # every row of the dirt MC (--dirt) is background
 
 # (name, branch, kind, current threshold, analysisTools scan range);
 # kind 'lo' passes x > t, 'hi' passes x < t. Order = analysisTools order.
@@ -104,8 +108,8 @@ def load(path):
 
 
 def load_ncdr(path, key='ncdeltarad'):
-    """stage1 rows of the ncdeltarad medulla output (sample_check.py's input), its
-    POT and its stage2/3 tree sizes (for the emulation check)."""
+    """stage1 rows of sample `key` in a medulla output (the ncdeltarad sample, or
+    the dirt MC), its POT and its stage2/3 tree sizes (for the emulation check)."""
     f = uproot.open(path)
     d = f[f'events/{key}']
     t = d['selected_1g1p_stage1']
@@ -318,6 +322,9 @@ def main():
     ap.add_argument('--ncdr', help='medulla output of the ncdeltarad sample: mixed into the CV NC RES rows')
     ap.add_argument('--ncdr-weights', help='gen_sidecar/ncdeltarad_weights.csv (required with --ncdr)')
     ap.add_argument('--ncdr-key', default='ncdeltarad')
+    ap.add_argument('--dirt', help='medulla output with the dirt MC (sample_subset_toml.py --keep dirt)')
+    ap.add_argument('--dirt-key', default='dirt')
+    ap.add_argument('--no-dirt-ok', action='store_true', help='run without the dirt background')
     ap.add_argument('--pot', type=float,
                     help='quote yields (and FOM values) at this POT instead of the onbeam exposure; '
                          'the ssb/purity optima do not change, the sigma_x optimum does')
@@ -357,6 +364,22 @@ def main():
               f'ncdr rows x (1 - alpha):')
         print(tab_mix[tab_mix['ncdr_rows'] > 0].to_string(index=False, float_format=lambda v: f'{v:.3f}'))
         mc = pd.concat([mc, nd], ignore_index=True)
+    if a.dirt:
+        dr, pot_dr, (n2, n3) = load_ncdr(a.dirt, a.dirt_key)
+        e2, e3 = int(passes(dr, NOMINAL, STAGE2).sum()), int(passes(dr, NOMINAL).sum())
+        ok = (e2, e3) == (n2, n3)
+        print(f'  emulation dirt    : stage1 {len(dr)}, stage2 {e2}/{n2}, stage3 {e3}/{n3}  {"OK" if ok else "MISMATCH"}')
+        if not ok:
+            raise SystemExit('cut emulation does not reproduce the dirt stage trees')
+        # Out-of-FV interactions are background whatever their truth topology,
+        # and so is cosmic activity in those spills: one category for all rows.
+        dr['true_category'] = DIRT
+        dr['w'] = pot_on / pot_dr
+        print(f'  dirt: {len(dr)} stage1 rows, POT {pot_dr:.4g}')
+        mc = pd.concat([mc, dr], ignore_index=True)
+    elif not a.no_dirt_ok:
+        raise SystemExit('no --dirt: the background lacks the out-of-FV (dirt) MC. '
+                         'Pass --dirt <medulla output>, or --no-dirt-ok to run without it.')
     ev = pd.concat([mc, d['offbeam']], ignore_index=True)
     sig = (ev['true_category'] == 0).to_numpy()
     pot_q = a.pot or pot_on

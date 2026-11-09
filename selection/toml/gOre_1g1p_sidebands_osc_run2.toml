@@ -150,7 +150,8 @@ cuts = [
 # `cv` is the osc central value (nominal POT; there is no 10x-POT cvext).
 # onbeam is run2's 10% subsample only: run4's BeamOn dir has no '10p' tag and may
 # be the full box -> held out (onbeam_run4, disabled) until blinding is confirmed.
-# dirt + the unisim detvars are defined but disabled (detvar detsys not wired yet).
+# dirt (run2) is enabled for the background accounting; the unisim detvars are
+# defined but disabled (detvar detsys not wired yet).
 # -----------------------------------------------------------------------------
 [[sample]]
 name = "cv"
@@ -177,13 +178,10 @@ ismc = false
 disable = true
 
 [[sample]]
-name = "dirt"
-path = [
-  "/pnfs/sbn/persistent/users/mueller/osc/icarus/flatcaf/ICARUS_Run4_DirtMC_ReCAF2026_BNB/*/*/*.root",
-  "/pnfs/sbn/persistent/users/mueller/osc/icarus/flatcaf/icarus_run2_dirt/*/*/*.root",
-]
+name = "dirt"  # run2 dirt only (osc.toml icarus_dirt_run2): out-of-FV neutrino background
+path = "/pnfs/sbn/persistent/users/mueller/osc/icarus/flatcaf/icarus_run2_dirt/*/*/*.root"
 ismc = true
-disable = true
+disable = false
 
 # --- unisim detector variations (per run; for the detvar detsys, not wired yet) ---
 [[sample]]
