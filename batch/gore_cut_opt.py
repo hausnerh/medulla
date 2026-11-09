@@ -362,6 +362,11 @@ def main():
 
     tab.to_csv(f'{a.out}/thresholds.csv', index=False)
     json.dump({'fom': a.fom, 'sets': sets, 'split_gain': gains}, open(f'{a.out}/thresholds.json', 'w'), indent=1)
+    try:
+        import matplotlib  # noqa: F401
+    except ImportError:
+        print(f'\nwrote {a.out}/thresholds.csv, thresholds.json (no matplotlib: plots skipped)')
+        return
     plots(opt, w, sets, a.out)
     print(f'\nwrote {a.out}/thresholds.csv, thresholds.json, nm1_scans_*.png, fom2d_softmax_dmass.png')
 
