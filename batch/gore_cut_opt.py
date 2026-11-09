@@ -179,7 +179,10 @@ class Optimizer:
     def summary(self, w, thr):
         m = passes(self.ev, thr)
         S, B = float((w * self.sig)[m].sum()), float((w * ~self.sig)[m].sum())
-        return dict(S=S, B=B, fom=float(self.fom(S, B)), eff=S / float((w * self.sig).sum()),
+        # MC statistical errors on the expected yields: sqrt(sum of w^2).
+        S_err = float(np.sqrt(((w * self.sig)[m] ** 2).sum()))
+        B_err = float(np.sqrt(((w * ~self.sig)[m] ** 2).sum()))
+        return dict(S=S, S_err=S_err, B=B, B_err=B_err, fom=float(self.fom(S, B)), eff=S / float((w * self.sig).sum()),
                     purity=S / (S + B) if S + B else 0.0,
                     nS=int((self.sig & m & (w > 0)).sum()), nB=int((~self.sig & m & (w > 0)).sum()))
 
@@ -298,6 +301,9 @@ def main():
     ap.add_argument('--ncdr', help='medulla output of the ncdeltarad sample: mixed into the CV NC RES rows')
     ap.add_argument('--ncdr-weights', help='gen_sidecar/ncdeltarad_weights.csv (required with --ncdr)')
     ap.add_argument('--ncdr-key', default='ncdeltarad')
+    ap.add_argument('--pot', type=float,
+                    help='quote yields (and FOM values) at this POT instead of the onbeam exposure; '
+                         'the optimal thresholds do not change')
     a = ap.parse_args()
     if a.ncdr and not a.ncdr_weights:
         ap.error('--ncdr needs --ncdr-weights')
@@ -336,12 +342,14 @@ def main():
         mc = pd.concat([mc, nd], ignore_index=True)
     ev = pd.concat([mc, d['offbeam']], ignore_index=True)
     sig = (ev['true_category'] == 0).to_numpy()
-    w = ev['w'].to_numpy()
+    pot_q = a.pot or pot_on
+    w = ev['w'].to_numpy() * (pot_q / pot_on)       # the thresholds do not depend on this scale
     opt = Optimizer(ev, sig, a.fom)
 
     sets = {'nominal': dict(NOMINAL), 'seq': opt.seq(w), 'iter': opt.iter(w), 'two_d': opt.two_d(w)}
     tab = pd.DataFrame([{'set': k, **t, **opt.summary(w, t)} for k, t in sets.items()])
-    print(f'\nthresholds and yields at {pot_on:.3g} POT (FOM = {a.fom}):')
+    print(f'\nthresholds and expected yields at {pot_q:.3g} POT (FOM = {a.fom}); '
+          f'S/B ± MC stat error; nS/nB = raw MC rows behind them:')
     print(tab.to_string(index=False, float_format=lambda v: f'{v:.5g}'))
     print('\ncomposition, weighted (raw MC):')
     for k, t in sets.items():
