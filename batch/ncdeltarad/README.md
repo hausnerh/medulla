@@ -186,6 +186,8 @@ you want it.
 | `orchestrate.py` | campaign orchestrator around larbatch `project.py` |
 | `dump_delta_decays.C` | gallery macro: every NC Δ decay in gen files → sidecar CSV |
 | `pilot_check.py` | sidecar validation: the gen-stage gate (also runnable by hand) |
+| `selection_toml.py` | medulla config for the sample: the gOre signal config with only the samples swapped |
+| `sample_check.py` | sample vs CV per truth category: weighted closure and effective statistics gain |
 | `../test_ncdeltarad.py` | tests: branching-ratio emulation, weight closure, patcher, pilot check, orchestrator state machine, /pnfs publishing + manifest |
 
 ## 3. Running
@@ -420,12 +422,37 @@ from a laptop:
   peak at ~16 GB, so they request 20000 MB (detsim was held at 6000).
 - **The overlay SAM definition** that matches the run2 production.
 
-## 6. Still needed in medulla
+## 6. In medulla
 
-- **The weight join:** join `gen_sidecar/ncdeltarad_weights.csv` on (Run,
-  Subrun, Evt). The medulla trees already carry these.
+**Run the selection on the sample.** `selection_toml.py` writes the gOre
+signal config with its samples replaced by one `ncdeltarad` sample reading
+`<persistent_base>/spine/flatcaf`. Cuts, categories and trees stay identical,
+so regenerate it whenever the signal config changes. It gets its own output
+file: never put it next to `cv` in one spineplot run, which would count NC
+resonant events twice.
+
+```bash
+B=/pnfs/icarus/persistent/users/$USER/ncdeltarad/ncdeltarad_run2_10x
+python3 batch/ncdeltarad/selection_toml.py $B --out build/gOre_1g1p_signal_ncdeltarad_run2.toml
+cd build && ./selection/medulla gOre_1g1p_signal_ncdeltarad_run2.toml   # SL7 + sbnana, as for the CV
+```
+
+**Check the sample against the CV.** `sample_check.py` joins
+`gen_sidecar/ncdeltarad_weights.csv` on (Run, Subrun, Evt), with weight 1 for
+NC RES events without a Δ+/Δ0 decay. It drops the overlay's cosmic rows, then
+compares each truth category with the CV's NC RES rows: the weighted
+prediction at CV POT (closure) and the effective statistics gain,
+POT_ncdr · Σw / Σw² over POT_cv.
+
+```bash
+python3 batch/ncdeltarad/sample_check.py --ncdr build/gOre_1g1p_signal_ncdeltarad_run2.root \
+    --cv build/output_gOre_1g1p_signal_osc_run2.root --weights $B/gen_sidecar/ncdeltarad_weights.csv
+```
+
+**Still needed:**
 - **A per-event weight in spineplot.** Today it only applies one POT scale per
   sample. `batch/gore_cut_opt.py` already takes explicit weights, so the cut
   re-tune can use the sample first.
-- **The replacement logic:** drop CV NC `resnum == 0` events and add this
-  sample's `resnum == 0` events with the sidecar weight.
+- **The replacement logic:** drop the CV's NC RES events (`true_cc == 0`,
+  `true_interaction_mode == 1`) and add this sample's neutrino rows with the
+  sidecar weight scaled by POT_cv / POT_ncdr.

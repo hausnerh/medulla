@@ -1499,3 +1499,78 @@ def test_template_keeps_stage_outputs_on_scratch_and_their_products_through_clea
     assert [s['name'] for s in cfg['stages'] if s['publish']] == ['stage1', 'caf']
     stage1 = next(s for s in cfg['stages'] if s['name'] == 'stage1')
     assert O.stage_root(cfg, stage1).startswith(cfg['pnfs_base'])
+
+
+# --- selection_toml.py / sample_check.py -------------------------------------
+
+def test_selection_toml_keeps_the_signal_selection_and_swaps_only_the_samples(tmp_path):
+    import tomllib
+    import selection_toml as T
+    out = tmp_path / 'ncdr.toml'
+    assert T.main(['/pnfs/base', '--out', str(out)]) == 0
+    src = tomllib.loads(open(T.SIGNAL_TOML).read())
+    got = tomllib.loads(out.read_text())
+    assert [s['name'] for s in got['sample']] == ['ncdeltarad']
+    assert got['sample'][0]['path'] == '/pnfs/base/spine/flatcaf/*.flat.caf.root'
+    assert got['sample'][0]['ismc'] and not got['sample'][0]['disable']
+    assert got['general']['output'] == 'gOre_1g1p_signal_ncdeltarad_run2'
+    for k in ('parameters', 'category', 'tree'):
+        assert got[k] == src[k]
+    assert {k: v for k, v in got['general'].items() if k != 'output'} == \
+        {k: v for k, v in src['general'].items() if k != 'output'}
+
+
+def _rows(cat, cc=0, mode=1, res=0, keys=None):
+    n = len(cat)
+    keys = keys if keys is not None else [(1, 1, i) for i in range(n)]
+    return {'Run': np.array([k[0] for k in keys], float), 'Subrun': np.array([k[1] for k in keys], float),
+            'Evt': np.array([k[2] for k in keys], float), 'true_category': np.array(cat, float),
+            'true_cc': np.full(n, cc, float), 'true_interaction_mode': np.full(n, mode, float),
+            'true_baryon_res_code': np.array(res if np.ndim(res) else [res] * n, float)}
+
+
+def test_sample_check_closes_on_a_consistent_sample_and_counts_effective_statistics():
+    import sample_check as S
+    # CV: 4 signal rows (NC RES) and 6 NC pi0 rows of which 3 are NC RES, at POT 10.
+    cv = _rows([0] * 4 + [3] * 6)
+    cv['true_interaction_mode'][7:] = 0
+    # ncdr at POT 5: signal 100 rows of weight 0.02 (pred 100*0.02*2 = 4),
+    # NC pi0 3 rows of weight 0.5 (pred 3), 2 cosmic rows (dropped).
+    nd = _rows([0] * 100 + [3] * 3 + [9] * 2)
+    side = {(1, 1, i): (0.02, 1) for i in range(100)}
+    side.update({(1, 1, i): (0.5, 0) for i in range(100, 103)})
+    w, joined, rad = S.join(nd, side)
+    assert joined[:103].all() and not joined[103:].any() and (w[103:] == 1).all()
+    rows = {r['category']: r for r in S.summarize(cv, nd, w, pot_cv=10.0, pot_nd=5.0)}
+    assert rows[0]['cv'] == 4 and rows[0]['cv_res'] == 4 and rows[0]['ncdr'] == 100
+    assert rows[0]['pred'] == pytest.approx(4.0) and rows[0]['pull'] == pytest.approx(0.0)
+    # effective nominal exposure 5 * sum(w)/sum(w^2) = 5 / 0.02 = 250 POT vs 10 -> 25x
+    assert rows[0]['gain'] == pytest.approx(25.0)
+    assert rows[3]['cv'] == 6 and rows[3]['cv_res'] == 3 and rows[3]['pred'] == pytest.approx(3.0)
+    assert rows[3]['gain'] == pytest.approx(1.0)
+    assert rows[9]['ncdr'] == 0 and rows[9]['pred'] == 0
+    ratio, err, chi2, ndf = S.closure(list(rows.values()))
+    assert ratio == pytest.approx(1.0) and chi2 == pytest.approx(0.0) and ndf == 2
+    assert S.consistency(nd, joined, rad) == []
+
+
+def test_sample_check_flags_unjoined_delta_rows_and_non_ncres_rows():
+    import sample_check as S
+    nd = _rows([0, 3, 6, 9], res=[0, 0, 2, 0])
+    nd['true_cc'][1] = 1                     # a CC row cannot be in an NCRES sample
+    side = {(1, 1, 0): (0.02, 1), (1, 1, 2): (1.0, 0)}
+    w, joined, rad = S.join(nd, side)
+    msgs = S.consistency(nd, joined, rad)
+    assert ('FAIL', '1 neutrino rows are not NC RES (the sample is NCRES only)') in msgs
+    assert any(lv == 'FAIL' and 'no sidecar row' in m for lv, m in msgs)     # row 1: Δ, unjoined
+    assert any(lv == 'WARN' and 'not Δ(1232)' in m for lv, m in msgs)         # row 2: resnum 2, joined
+    assert [m[0] for m in msgs].count('FAIL') == 2
+
+
+def test_sample_check_rejects_duplicate_sidecar_keys(tmp_path):
+    import sample_check as S
+    p = tmp_path / 'w.csv'
+    p.write_text('run,subrun,event,delta_pdg,w_delta,channel,radiative,weight\n'
+                 '1,1,1,2214,1.2,gamma,1,0.01\n1,1,1,2214,1.2,gamma,1,0.01\n')
+    with pytest.raises(SystemExit, match='not unique'):
+        S.read_weights(p)
