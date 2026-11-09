@@ -1605,6 +1605,22 @@ def test_cut_opt_mix_keeps_the_cv_yield_and_drops_unmatched_rows():
     assert cv2['w'].to_numpy()[0] == pytest.approx(0.1 * a0)
 
 
+def test_cut_opt_sigma_x_fom_is_one_over_the_scale_factor_error():
+    pytest.importorskip('pandas')
+    pytest.importorskip('uproot')
+    sys.path.insert(0, str(NCDR.parent))
+    import gore_cut_opt as G
+    o = G.Optimizer(None, None, 'sigma_x', bkg_syst=0.25)
+    # S 10, B 20: sigma_x^2 = (10 + 20 + 25) / 100
+    assert o.fom(10.0, 20.0) == pytest.approx(1 / np.sqrt(0.55))
+    # without a background systematic it is S/sqrt(S+B), and it prefers less background as f_B grows
+    assert G.Optimizer(None, None, 'sigma_x', 0.0).fom(10.0, 20.0) == pytest.approx(10 / np.sqrt(30))
+    assert o.fom(6.0, 4.0) > o.fom(10.0, 20.0) > G.Optimizer(None, None, 'sigma_x', 1.0).fom(10.0, 20.0)
+    # the background's MC statistical variance adds in quadrature
+    assert o.fom(10.0, 20.0, 45.0) == pytest.approx(1.0)
+    assert G.Optimizer(None, None, 'ssb').fom(10.0, 20.0, 45.0) == pytest.approx(10 / np.sqrt(30))
+
+
 def test_sample_check_rejects_duplicate_sidecar_keys(tmp_path):
     import sample_check as S
     p = tmp_path / 'w.csv'

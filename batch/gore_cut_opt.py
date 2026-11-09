@@ -166,15 +166,28 @@ def passes(df, thr, names=NAMES):
 
 
 class Optimizer:
-    def __init__(self, ev, sig, fom_kind):
-        self.ev, self.sig, self.kind = ev, sig, fom_kind
+    def __init__(self, ev, sig, fom_kind, bkg_syst=0.0):
+        self.ev, self.sig, self.kind, self.bkg_syst = ev, sig, fom_kind, bkg_syst
 
-    def fom(self, s, b):
+    def fom(self, s, b, b2=0.0):
         s, b = np.asarray(s, float), np.asarray(b, float)
+        if self.kind == 'sigma_x':
+            # 1 / sigma(x) for the signal scale factor x at x = 1: N = x S + B,
+            # sigma_x^2 = (S + B + (f_B B)^2 + b2) / S^2 with a fractional
+            # background normalisation uncertainty f_B and the MC statistical
+            # variance of the background prediction b2 = sum(w^2).
+            v = s + b + (self.bkg_syst * b) ** 2 + np.asarray(b2, float)
+            return np.where(v > 0, s / np.sqrt(np.maximum(v, 1e-300)), 0.0)
         f = np.where(s + b > 0, s / np.sqrt(np.maximum(s + b, 1e-300)), 0.0)
         if self.kind == 'purity':
             f = f * np.sqrt(np.where(s + b > 0, s / np.maximum(s + b, 1e-300), 0.0))
         return f
+
+    def b2_floor(self, w):
+        """One average background MC event's weight, squared: with no background
+        MC left after the cuts the background is unknown, not zero."""
+        m = ~self.sig & (w > 0)
+        return float(np.mean(w[m])) ** 2 if m.any() else 0.0
 
     def summary(self, w, thr):
         m = passes(self.ev, thr)
@@ -182,7 +195,7 @@ class Optimizer:
         # MC statistical errors on the expected yields: sqrt(sum of w^2).
         S_err = float(np.sqrt(((w * self.sig)[m] ** 2).sum()))
         B_err = float(np.sqrt(((w * ~self.sig)[m] ** 2).sum()))
-        return dict(S=S, S_err=S_err, B=B, B_err=B_err, fom=float(self.fom(S, B)), eff=S / float((w * self.sig).sum()),
+        return dict(S=S, S_err=S_err, B=B, B_err=B_err, fom=float(self.fom(S, B, B_err ** 2 + self.b2_floor(w))), eff=S / float((w * self.sig).sum()),
                     purity=S / (S + B) if S + B else 0.0,
                     nS=int((self.sig & m & (w > 0)).sum()), nB=int((~self.sig & m & (w > 0)).sum()))
 
@@ -196,7 +209,7 @@ class Optimizer:
         P &= base[None, :]
         S = P @ (w * self.sig)
         B = P @ (w * ~self.sig)
-        return grid, S, B, self.fom(S, B)
+        return grid, S, B, self.fom(S, B, P @ (w ** 2 * ~self.sig) + self.b2_floor(w))
 
     @staticmethod
     def best(grid, F):
@@ -232,7 +245,7 @@ class Optimizer:
         with np.errstate(invalid='ignore'):
             P = base[None, None, :] & (gps[None, None, :] > G2D[:, None, None]) & (dmd[None, None, :] < H2D[None, :, None])
         S, B = P @ (w * self.sig), P @ (w * ~self.sig)
-        return S, B, self.fom(S, B)
+        return S, B, self.fom(S, B, P @ (w ** 2 * ~self.sig) + self.b2_floor(w))
 
     def two_d(self, w):
         F = self.grid2d(w)[2]
@@ -295,15 +308,19 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
     ap.add_argument('sysroot', help='merged signal output (events/{full,offbeam,onbeam}/selected_1g1p_stage*)')
     ap.add_argument('--out', default='cutopt')
-    ap.add_argument('--fom', choices=['ssb', 'purity'], default='ssb',
-                    help="ssb: S/sqrt(S+B); purity: sqrt(purity)*S/sqrt(S+B) (last analysisTools get_fom)")
+    ap.add_argument('--fom', choices=['ssb', 'purity', 'sigma_x'], default='ssb',
+                    help="ssb: S/sqrt(S+B); purity: sqrt(purity)*S/sqrt(S+B) (last analysisTools get_fom); "
+                         "sigma_x: 1/sigma(x) for the signal scale factor, S/sqrt(S+B+(f_B*B)^2+MC stat var of B) "
+                         "(depends on the exposure: set --pot to the analysis POT)")
+    ap.add_argument('--bkg-syst', type=float, default=0.2,
+                    help='f_B, fractional background normalisation uncertainty for --fom sigma_x (default 0.2)')
     ap.add_argument('--nsplit', type=int, default=20, help='random split-halves for validation')
     ap.add_argument('--ncdr', help='medulla output of the ncdeltarad sample: mixed into the CV NC RES rows')
     ap.add_argument('--ncdr-weights', help='gen_sidecar/ncdeltarad_weights.csv (required with --ncdr)')
     ap.add_argument('--ncdr-key', default='ncdeltarad')
     ap.add_argument('--pot', type=float,
                     help='quote yields (and FOM values) at this POT instead of the onbeam exposure; '
-                         'the optimal thresholds do not change')
+                         'the ssb/purity optima do not change, the sigma_x optimum does')
     a = ap.parse_args()
     if a.ncdr and not a.ncdr_weights:
         ap.error('--ncdr needs --ncdr-weights')
@@ -344,7 +361,9 @@ def main():
     sig = (ev['true_category'] == 0).to_numpy()
     pot_q = a.pot or pot_on
     w = ev['w'].to_numpy() * (pot_q / pot_on)       # the thresholds do not depend on this scale
-    opt = Optimizer(ev, sig, a.fom)
+    opt = Optimizer(ev, sig, a.fom, a.bkg_syst)
+    if a.fom == 'sigma_x':
+        print(f'FOM sigma_x: f_B = {a.bkg_syst}, at {pot_q:.3g} POT (the optimum depends on both)')
 
     sets = {'nominal': dict(NOMINAL), 'seq': opt.seq(w), 'iter': opt.iter(w), 'two_d': opt.two_d(w)}
     tab = pd.DataFrame([{'set': k, **t, **opt.summary(w, t)} for k, t in sets.items()])
