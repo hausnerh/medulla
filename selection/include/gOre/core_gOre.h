@@ -41,6 +41,7 @@
 #define GORE_FID_THRESH_Z_POS 50.0
 #define GORE_FID_THRESH_Z_NEG 50.0
 
+#include <limits>
 #include <optional>
 
 #include "include/utilities.h"
@@ -215,9 +216,18 @@ namespace core::gOre
         // init thresholds
         energy_thresholds = (params.size() < 4) ? std::vector({GORE_MIN_GORE_ENERGY, GORE_MIN_MUON_ENERGY, GORE_MIN_PROTON_ENERGY, GORE_MIN_PION_ENERGY}) : std::vector({params.at(0), params.at(1), params.at(2), params.at(3)});
         fiducial_thresholds = (params.size() < 10) ? std::vector({GORE_FID_THRESH_X_POS, GORE_FID_THRESH_X_NEG, GORE_FID_THRESH_Y_POS, GORE_FID_THRESH_Y_NEG, GORE_FID_THRESH_Z_POS, GORE_FID_THRESH_Z_NEG}) : std::vector({params.at(4), params.at(5), params.at(6), params.at(7), params.at(8), params.at(9)});
-        // verify non-empty vector
+        // A neutrino with no stored primaries (e.g. a dirt interaction outside
+        // the detector) has an empty topology: no particles, not fiducial, not
+        // contained, no vertex. Every category/variable then falls through to
+        // its non-signal branch instead of aborting the whole job.
         if (particle_vec.size() == 0)
-          throw std::runtime_error("mc_topology: cannot initialize from empty vector.");
+        {
+          const double nan = std::numeric_limits<double>::quiet_NaN();
+          fiducial = false;
+          contained = false;
+          vertex = std::make_tuple(nan, nan, nan);
+          return;
+        }
         // first particle is the lepton. Use for fiducialization
         // caf::Proxy is annoying so we can't use first
         mc_topo_particle lepton(particle_vec[0]);
