@@ -1567,6 +1567,17 @@ def test_sample_check_flags_unjoined_delta_rows_and_non_ncres_rows():
     assert [m[0] for m in msgs].count('FAIL') == 2
 
 
+def test_sample_check_treats_rows_without_a_truth_match_as_not_neutrino():
+    import sample_check as S
+    nd = _rows([0, 9, 0])
+    for k in ('true_category', 'true_cc', 'true_interaction_mode', 'true_baryon_res_code'):
+        nd[k][2] = np.nan                   # a reco interaction matched to nothing
+    side = {(1, 1, 0): (0.02, 1)}
+    w, joined, rad = S.join(nd, side)
+    assert S.neutrino(nd).tolist() == [True, False, False]
+    assert S.consistency(nd, joined, rad) == []
+
+
 def test_sample_check_rejects_duplicate_sidecar_keys(tmp_path):
     import sample_check as S
     p = tmp_path / 'w.csv'

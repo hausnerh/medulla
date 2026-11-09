@@ -93,10 +93,17 @@ def join(d, side):
     return w, joined, rad
 
 
+def neutrino(d):
+    """Rows matched to a true neutrino. Cosmic rows have category 9; reco
+    interactions with no truth match at all have NaN truth (category included)."""
+    c = d['true_category']
+    return np.isfinite(c) & (c != COSMIC)
+
+
 def consistency(d, joined, rad):
     """Problems with the ncdeltarad rows' truth and the sidecar join (list of (level, message))."""
     out = []
-    nu = d['true_category'] != COSMIC
+    nu = neutrino(d)
     n_bad = int(np.sum(nu & ~nc_res(d)))
     if n_bad:
         out.append(('FAIL', f'{n_bad} neutrino rows are not NC RES (the sample is NCRES only)'))
@@ -183,8 +190,11 @@ def main(argv=None):
             continue
         d = nd['trees'][t]
         w, joined, rad = join(d, side)
-        nu = d['true_category'] != COSMIC
-        print(f'\n{t}: ncdeltarad {len(w)} rows ({int(np.sum(~nu))} cosmic, dropped); '
+        nu = neutrino(d)
+        n_nan = int(np.sum(~np.isfinite(d['true_category'])))
+        n_cv_nan = int(np.sum(~np.isfinite(cv['trees'][t]['true_category'])))
+        print(f'\n{t}: ncdeltarad {len(w)} rows ({int(np.sum(~nu)) - n_nan} cosmic + {n_nan} without any truth '
+              f'match, dropped; the CV has {n_cv_nan} without a match, not counted either); '
               f'{int(np.sum(joined & nu))}/{int(nu.sum())} neutrino rows join the sidecar')
         for level, msg in consistency(d, joined, rad):
             nfail += level == 'FAIL'
