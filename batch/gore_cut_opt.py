@@ -27,9 +27,15 @@ evaluate on the other, relative to the current cuts on the same half. With
 O(100) stage1 signal MC events this is what separates real gain from
 overtraining.
 
+With --ncdr the dedicated NC Δ radiative sample (batch/ncdeltarad) is mixed
+into the CV's NC RES rows category by category (see combine()): ~18x the CV
+signal statistics, ~1.2x for the NC π0 background, unbiased at every cut.
+
 Usage
   python batch/gore_cut_opt.py output_gOre_1g1p_sys.root --out cutopt
   python batch/gore_cut_opt.py ... --fom purity   # sqrt(purity)*S/sqrt(S+B)
+  python batch/gore_cut_opt.py ... --ncdr gOre_1g1p_signal_ncdeltarad_run2.root \\
+      --ncdr-weights <persistent_base>/gen_sidecar/ncdeltarad_weights.csv
 """
 import argparse
 import json
@@ -67,12 +73,21 @@ def hist_sum(f, key):
     return float(f[key].values().sum())
 
 
+WANT = {c[1] for c in CUTS if c[1] != 'dm_dev'} | {
+    'reco_delta_mass_P', 'reco_subleading_primary_gOre_shower_ke', 'true_category',
+    'true_cc', 'true_interaction_mode'}
+
+
+def derived(df):
+    df['dm_dev'] = (df['reco_delta_mass_P'] - 1232.0).abs()
+    df['no_sub'] = ~(df['reco_subleading_primary_gOre_shower_ke'] > 0)
+
+
 def load(path):
     f = uproot.open(path)
     pot_on = hist_sum(f, 'events/onbeam/POT')
     lt_on = hist_sum(f, 'events/onbeam/Livetime')
-    want = {c[1] for c in CUTS if c[1] != 'dm_dev'} | {
-        'reco_delta_mass_P', 'reco_subleading_primary_gOre_shower_ke', 'true_category'}
+    want = WANT
     out = {}
     for s, scale in (('full', pot_on / hist_sum(f, 'events/full/POT')),
                      ('offbeam', lt_on / hist_sum(f, 'events/offbeam/Livetime')),
@@ -82,11 +97,61 @@ def load(path):
         if s != 'full':
             df['true_category'] = 9 if s == 'offbeam' else -1
         df['true_category'] = df['true_category'].fillna(9).astype(int)
-        df['dm_dev'] = (df['reco_delta_mass_P'] - 1232.0).abs()
-        df['no_sub'] = ~(df['reco_subleading_primary_gOre_shower_ke'] > 0)
+        derived(df)
         df['w'] = scale
         out[s] = df
     return f, out, pot_on
+
+
+def load_ncdr(path, key='ncdeltarad'):
+    """stage1 rows of the ncdeltarad medulla output (sample_check.py's input), its
+    POT and its stage2/3 tree sizes (for the emulation check)."""
+    f = uproot.open(path)
+    d = f[f'events/{key}']
+    t = d['selected_1g1p_stage1']
+    have = set(t.keys())
+    want = WANT | {'Run', 'Subrun', 'Evt', 'true_baryon_res_code'}
+    miss = sorted(b for b in want if b not in have)
+    if miss:
+        raise SystemExit(f'{path}: {key}/selected_1g1p_stage1 lacks {miss}')
+    df = t.arrays(sorted(want), library='pd')
+    derived(df)
+    n23 = tuple(d[f'selected_1g1p_stage{k}'].num_entries for k in (2, 3))
+    return df, float(np.sum(d['POT'].values())), n23
+
+
+def combine(cv, nd, side, pot_cv, pot_nd, pot_on):
+    """Mix the CV's NC RES rows with the ncdeltarad rows, category by category.
+
+    CV NC RES rows in category c get weight x alpha_c; the ncdeltarad neutrino
+    rows get sidecar weight x POT_on / POT_ncdr x (1 - alpha_c). Both samples
+    estimate the same nominal NC RES rows, so any alpha fixed before the scan
+    keeps every yield unbiased; alpha_c = 1 / (1 + gain_c) (gain_c = the
+    sample's effective statistics relative to the CV, as in sample_check.py)
+    roughly minimises the variance. ncdeltarad rows without a neutrino match
+    are dropped: the CV and off-beam samples already carry those.
+    Returns (cv, nd, per-category table)."""
+    import sample_check as SC
+    cols = {k: nd[k].to_numpy(dtype=float) for k in SC.BRANCHES}
+    w_side, _, _ = SC.join(cols, side)
+    nu = SC.neutrino(cols)
+    nd = nd[nu].copy()
+    w_side = w_side[nu]
+    cat = nd['true_category'].to_numpy().astype(int)
+    alpha, table = np.ones(len(CATS)), []
+    for c in range(len(CATS)):
+        m = cat == c
+        gain = pot_nd * w_side[m].sum() / (w_side[m] ** 2).sum() / pot_cv if m.any() else 0.0
+        alpha[c] = 1.0 / (1.0 + gain)
+        table.append({'category': CATS[c], 'ncdr_rows': int(m.sum()), 'gain': gain, 'alpha': alpha[c],
+                      'combined_stats_vs_cv': 1.0 + gain})
+    cv = cv.copy()
+    res = ((cv['true_cc'] == 0) & (cv['true_interaction_mode'] == 1)).to_numpy()
+    ccat = cv['true_category'].to_numpy().astype(int)
+    cv['w'] = cv['w'].to_numpy() * np.where(res, alpha[ccat], 1.0)
+    nd['true_category'] = cat
+    nd['w'] = w_side * (pot_on / pot_nd) * (1.0 - alpha[cat])
+    return cv, nd, pd.DataFrame(table)
 
 
 def passes(df, thr, names=NAMES):
@@ -230,7 +295,12 @@ def main():
     ap.add_argument('--fom', choices=['ssb', 'purity'], default='ssb',
                     help="ssb: S/sqrt(S+B); purity: sqrt(purity)*S/sqrt(S+B) (last analysisTools get_fom)")
     ap.add_argument('--nsplit', type=int, default=20, help='random split-halves for validation')
+    ap.add_argument('--ncdr', help='medulla output of the ncdeltarad sample: mixed into the CV NC RES rows')
+    ap.add_argument('--ncdr-weights', help='gen_sidecar/ncdeltarad_weights.csv (required with --ncdr)')
+    ap.add_argument('--ncdr-key', default='ncdeltarad')
     a = ap.parse_args()
+    if a.ncdr and not a.ncdr_weights:
+        ap.error('--ncdr needs --ncdr-weights')
     os.makedirs(a.out, exist_ok=True)
     pd.set_option('display.width', 250)
     pd.set_option('display.max_columns', 30)
@@ -245,7 +315,26 @@ def main():
         if not ok:
             raise SystemExit('cut emulation does not reproduce the stage trees -- update CUTS to the selection toml')
 
-    ev = pd.concat([d['full'], d['offbeam']], ignore_index=True)
+    mc = d['full']
+    if a.ncdr:
+        import sys
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'ncdeltarad'))
+        import sample_check as SC
+        if not {'true_cc', 'true_interaction_mode'} <= set(mc.columns):
+            raise SystemExit('the CV stage1 tree lacks true_cc / true_interaction_mode: cannot find its NC RES rows')
+        nd, pot_nd, (n2, n3) = load_ncdr(a.ncdr, a.ncdr_key)
+        e2, e3 = int(passes(nd, NOMINAL, STAGE2).sum()), int(passes(nd, NOMINAL).sum())
+        ok = (e2, e3) == (n2, n3)
+        print(f'  emulation ncdr    : stage1 {len(nd)}, stage2 {e2}/{n2}, stage3 {e3}/{n3}  {"OK" if ok else "MISMATCH"}')
+        if not ok:
+            raise SystemExit('cut emulation does not reproduce the ncdeltarad stage trees')
+        pot_cv = hist_sum(f, 'events/full/POT')
+        mc, nd, tab_mix = combine(mc, nd, SC.read_weights(a.ncdr_weights), pot_cv, pot_nd, pot_on)
+        print(f'\nCV + ncdeltarad, per category (POT cv {pot_cv:.4g}, ncdr {pot_nd:.4g}); CV NC RES rows x alpha, '
+              f'ncdr rows x (1 - alpha):')
+        print(tab_mix[tab_mix['ncdr_rows'] > 0].to_string(index=False, float_format=lambda v: f'{v:.3f}'))
+        mc = pd.concat([mc, nd], ignore_index=True)
+    ev = pd.concat([mc, d['offbeam']], ignore_index=True)
     sig = (ev['true_category'] == 0).to_numpy()
     w = ev['w'].to_numpy()
     opt = Optimizer(ev, sig, a.fom)

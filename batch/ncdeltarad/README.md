@@ -449,10 +449,17 @@ python3 batch/ncdeltarad/sample_check.py --ncdr build/gOre_1g1p_signal_ncdeltara
     --cv build/output_gOre_1g1p_signal_osc_run2.root --weights $B/gen_sidecar/ncdeltarad_weights.csv
 ```
 
-**Still needed:**
-- **A per-event weight in spineplot.** Today it only applies one POT scale per
-  sample. `batch/gore_cut_opt.py` already takes explicit weights, so the cut
-  re-tune can use the sample first.
-- **The replacement logic:** drop the CV's NC RES events (`true_cc == 0`,
-  `true_interaction_mode == 1`) and add this sample's neutrino rows with the
-  sidecar weight scaled by POT_cv / POT_ncdr.
+Result (2026-11-09): closure 0.995 ± 0.054 at stage1; signal statistics
+~17x the CV, but NC π⁰ (Δ res) only 0.2x. The enhanced radiative branching
+ratio and the smaller POT (0.28x the CV) produce ~0.17x the CV's Δ→Nπ⁰ events.
+
+**Combine, don't replace.** Replacing the CV's NC RES rows would cut the π⁰
+background statistics five-fold. Instead, per truth category, the CV's NC RES
+rows (`true_cc == 0`, `true_interaction_mode == 1`) get weight x α and this
+sample's neutrino rows get sidecar weight x POT scale x (1 − α), with α = 1 /
+(1 + gain). Both estimate the same events, so any fixed α is unbiased.
+`batch/gore_cut_opt.py --ncdr ... --ncdr-weights ...` does this for the cut
+re-tune.
+
+**Still needed:** a per-event weight in spineplot (today it applies one POT
+scale per sample), using the same combination.

@@ -1578,6 +1578,33 @@ def test_sample_check_treats_rows_without_a_truth_match_as_not_neutrino():
     assert S.consistency(nd, joined, rad) == []
 
 
+def test_cut_opt_mix_keeps_the_cv_yield_and_drops_unmatched_rows():
+    pd = pytest.importorskip('pandas')
+    pytest.importorskip('uproot')
+    sys.path.insert(0, str(NCDR.parent))
+    import gore_cut_opt as G
+    # CV at POT 10, scaled to onbeam POT 1 (w = 0.1): 4 signal + 6 NC pi0 rows,
+    # 3 of the pi0 rows not NC RES (DIS): those must keep their weight.
+    cv = pd.DataFrame(_rows([0] * 4 + [3] * 6))
+    cv.loc[7:, 'true_interaction_mode'] = 2
+    cv['w'] = 0.1
+    # ncdr at POT 5: 100 signal rows of weight 0.02 (-> 4 at CV POT),
+    # 3 pi0 rows of weight 0.5 (-> 3), 1 row with no truth match.
+    nd = pd.DataFrame(_rows([0] * 100 + [3] * 3 + [0]))
+    nd.loc[103, ['true_category', 'true_cc', 'true_interaction_mode', 'true_baryon_res_code']] = np.nan
+    side = {(1, 1, i): (0.02, 1) for i in range(100)}
+    side.update({(1, 1, i): (0.5, 0) for i in range(100, 103)})
+    cv2, nd2, tab = G.combine(cv, nd, side, pot_cv=10.0, pot_nd=5.0, pot_on=1.0)
+    assert len(nd2) == 103
+    a0, a3 = tab.loc[0, 'alpha'], tab.loc[3, 'alpha']
+    assert a0 == pytest.approx(1 / 26) and a3 == pytest.approx(0.5)
+    both = pd.concat([cv2, nd2])
+    for c, n_cv in ((0, 4), (3, 6)):
+        assert both.loc[both['true_category'] == c, 'w'].sum() == pytest.approx(0.1 * n_cv)
+    assert (cv2['w'].to_numpy()[7:] == 0.1).all()
+    assert cv2['w'].to_numpy()[0] == pytest.approx(0.1 * a0)
+
+
 def test_sample_check_rejects_duplicate_sidecar_keys(tmp_path):
     import sample_check as S
     p = tmp_path / 'w.csv'
