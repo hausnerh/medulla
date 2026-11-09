@@ -111,6 +111,9 @@ def load_ncdr(path, key='ncdeltarad'):
     """stage1 rows of sample `key` in a medulla output (the ncdeltarad sample, or
     the dirt MC), its POT and its stage2/3 tree sizes (for the emulation check)."""
     f = uproot.open(path)
+    if 'events' not in f or key not in f['events']:
+        raise SystemExit(f'{path} has no events/{key} (keys: {list(f.keys())}): medulla still running, '
+                         f'or it failed? Check its log for "medulla rc=".')
     d = f[f'events/{key}']
     t = d['selected_1g1p_stage1']
     have = set(t.keys())
