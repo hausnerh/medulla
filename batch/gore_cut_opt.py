@@ -127,7 +127,7 @@ def load_ncdr(path, key='ncdeltarad'):
     return df, float(np.sum(d['POT'].values())), n23
 
 
-def combine(cv, nd, side, pot_cv, pot_nd, pot_on):
+def combine(cv, nd, side, pot_cv, pot_nd, pot_on, alpha=None):
     """Mix the CV's NC RES rows with the ncdeltarad rows, category by category.
 
     CV NC RES rows in category c get weight x alpha_c; the ncdeltarad neutrino
@@ -137,7 +137,8 @@ def combine(cv, nd, side, pot_cv, pot_nd, pot_on):
     sample's effective statistics relative to the CV, as in sample_check.py)
     roughly minimises the variance. ncdeltarad rows without a neutrino match
     are dropped: the CV and off-beam samples already carry those.
-    Returns (cv, nd, per-category table)."""
+    `alpha` (per category) overrides the computed one, e.g. to reuse the
+    stage1 alpha on the stage2/3 trees. Returns (cv, nd, per-category table)."""
     import sample_check as SC
     cols = {k: nd[k].to_numpy(dtype=float) for k in SC.BRANCHES}
     w_side, _, _ = SC.join(cols, side)
@@ -145,11 +146,13 @@ def combine(cv, nd, side, pot_cv, pot_nd, pot_on):
     nd = nd[nu].copy()
     w_side = w_side[nu]
     cat = nd['true_category'].to_numpy().astype(int)
-    alpha, table = np.ones(len(CATS)), []
+    fixed = alpha is not None
+    alpha, table = (np.asarray(alpha, float).copy() if fixed else np.ones(len(CATS))), []
     for c in range(len(CATS)):
         m = cat == c
         gain = pot_nd * w_side[m].sum() / (w_side[m] ** 2).sum() / pot_cv if m.any() else 0.0
-        alpha[c] = 1.0 / (1.0 + gain)
+        if not fixed:
+            alpha[c] = 1.0 / (1.0 + gain)
         table.append({'category': CATS[c], 'ncdr_rows': int(m.sum()), 'gain': gain, 'alpha': alpha[c],
                       'combined_stats_vs_cv': 1.0 + gain})
     cv = cv.copy()
@@ -202,7 +205,16 @@ class Optimizer:
         # MC statistical errors on the expected yields: sqrt(sum of w^2).
         S_err = float(np.sqrt(((w * self.sig)[m] ** 2).sum()))
         B_err = float(np.sqrt(((w * ~self.sig)[m] ** 2).sum()))
-        return dict(S=S, S_err=S_err, B=B, B_err=B_err, fom=float(self.fom(S, B, B_err ** 2 + self.b2_floor(w))), eff=S / float((w * self.sig).sum()),
+        # Expected sensitivity to the signal scale factor x (counting, one bin):
+        # sigma_x at x = 1, and the expected significance excluding x = 3.18
+        # (MiniBooNE-excess scaling, MicroBooNE's benchmark) if x = 1, with the
+        # variance taken under the x = 3.18 hypothesis.
+        f_b = self.bkg_syst
+        v_b = (f_b * B) ** 2 + B_err ** 2 + self.b2_floor(w)
+        sigma_x = float(np.sqrt(S + B + v_b) / S) if S > 0 else float('inf')
+        z318 = float(2.18 * S / np.sqrt(3.18 * S + B + v_b)) if S > 0 else 0.0
+        return dict(S=S, S_err=S_err, B=B, B_err=B_err, sigma_x=sigma_x, z_x3p18=z318,
+                    fom=float(self.fom(S, B, B_err ** 2 + self.b2_floor(w))), eff=S / float((w * self.sig).sum()),
                     purity=S / (S + B) if S + B else 0.0,
                     nS=int((self.sig & m & (w > 0)).sum()), nB=int((~self.sig & m & (w > 0)).sum()))
 
@@ -374,8 +386,12 @@ def main():
         print(f'  emulation dirt    : stage1 {len(dr)}, stage2 {e2}/{n2}, stage3 {e3}/{n3}  {"OK" if ok else "MISMATCH"}')
         if not ok:
             raise SystemExit('cut emulation does not reproduce the dirt stage trees')
-        # Out-of-FV interactions are background whatever their truth topology,
-        # and so is cosmic activity in those spills: one category for all rows.
+        # Out-of-FV interactions are background whatever their truth topology:
+        # one category. Rows without a neutrino match (overlay cosmics) are
+        # dropped, as run_systematics drops them from the CV (events/full):
+        # the off-beam sample is the only cosmic source.
+        c = dr['true_category'].to_numpy(dtype=float)
+        dr = dr[np.isfinite(c) & (c != 9)].copy()
         dr['true_category'] = DIRT
         dr['w'] = pot_on / pot_dr
         print(f'  dirt: {len(dr)} stage1 rows, POT {pot_dr:.4g}')
