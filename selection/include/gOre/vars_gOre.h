@@ -8,6 +8,9 @@
 #ifndef VARS_GORE_H
 #define VARS_GORE_H
 
+#include <array>
+#include <cstdlib>
+
 #include "include/gOre/cuts_gOre.h"
 
 
@@ -433,6 +436,56 @@ namespace vars::gOre
       return count;
     }
   REGISTER_VAR_SCOPE(RegistrationScope::Both, n_secondary_showers, n_secondary_showers);
+
+  /**
+   * @brief count the true showers (photons/electrons above threshold) of an interaction by origin
+   * @details a shower is from the neutrino interaction when the particle is its own ancestor
+   * (a generator final-state particle); it is secondary when it descends from another
+   * final-state particle (pi0 decay photons, hadron reinteractions, delta rays, ...)
+   * @param obj the interaction (MC only)
+   * @param emin the shower kinetic energy threshold (MeV)
+   * @return {photons from the neutrino interaction, electrons from the neutrino interaction, secondary showers}
+   **/
+  template <class T>
+    std::array<size_t, 3> count_true_showers_by_origin(const T& obj, const double emin)
+    {
+      std::array<size_t, 3> n{0, 0, 0};
+      for (auto const& p : obj.particles)
+      {
+        const int64_t pdg = std::abs(static_cast<int64_t>(p.pdg_code));
+        if ((pdg != 22 && pdg != 11) || pvars::ke(p) < emin)
+          continue;
+        if (std::abs(static_cast<int64_t>(p.ancestor_pdg_code)) != pdg)
+          ++n[2];
+        else
+          ++n[pdg == 22 ? 0 : 1];
+      }
+      return n;
+    }
+
+  /** @brief number of true photons above threshold from the neutrino interaction (not decays/reinteractions) **/
+  template <class T>
+    double n_nu_photons(const T& obj, std::vector<double> params = {GORE_MIN_GORE_ENERGY})
+    {
+      return count_true_showers_by_origin(obj, params.at(0))[0];
+    }
+  REGISTER_VAR_SCOPE(RegistrationScope::True, n_nu_photons, n_nu_photons);
+
+  /** @brief number of true electrons above threshold from the neutrino interaction (not decays/reinteractions) **/
+  template <class T>
+    double n_nu_electrons(const T& obj, std::vector<double> params = {GORE_MIN_GORE_ENERGY})
+    {
+      return count_true_showers_by_origin(obj, params.at(0))[1];
+    }
+  REGISTER_VAR_SCOPE(RegistrationScope::True, n_nu_electrons, n_nu_electrons);
+
+  /** @brief number of true secondary showers above threshold (pi0 decays, reinteractions, delta rays, ...) **/
+  template <class T>
+    double n_secondary_true_showers(const T& obj, std::vector<double> params = {GORE_MIN_GORE_ENERGY})
+    {
+      return count_true_showers_by_origin(obj, params.at(0))[2];
+    }
+  REGISTER_VAR_SCOPE(RegistrationScope::True, n_secondary_true_showers, n_secondary_true_showers);
 
   /**
    * @brief approximate the pion_mass peak
