@@ -78,7 +78,22 @@ def load(path, key, want):
     if miss:
         raise SystemExit(f'{path}: events/{key}/{TREE} lacks {miss}')
     d = f[f'events/{key}']
-    return (t.arrays(want, library='pd'), float(np.sum(d['POT'].values())), float(np.sum(d['Livetime'].values())))
+    expo = [float(np.sum(d[h].values())) if h in d else None for h in ('POT', 'Livetime')]
+    return (t.arrays(want, library='pd'), *expo)
+
+
+def exposure(val, path, key, hist):
+    """`val` if the sample carried it, else events/<key>/<hist> from the --exposure file."""
+    if val is not None:
+        return val
+    if not path:
+        raise SystemExit(f'events/{key} has no {hist} histogram (sys ROOT made before the off-beam exposure fix?): '
+                         f'pass --exposure-from <a sys ROOT with the same onbeam/offbeam samples>, e.g. the signal one')
+    import uproot
+    f = uproot.open(path)
+    v = float(np.sum(f[f'events/{key}/{hist}'].values()))
+    print(f'  {key} {hist} {v:.4g} taken from {path}')
+    return v
 
 
 def frac(w, m):
@@ -97,6 +112,8 @@ def main(argv=None):
     ap.add_argument('sys', help='sidebands sys ROOT (events/{full,offbeam,onbeam})')
     ap.add_argument('--dirt', help='medulla output with the dirt MC run through the sidebands config (events/dirt)')
     ap.add_argument('--out', required=True)
+    ap.add_argument('--exposure-from', help='ROOT file to take missing POT/Livetime histograms from (same onbeam/'
+                                             'offbeam samples; e.g. the signal sys ROOT, which has the off-beam fix)')
     ap.add_argument('--gps', type=float, default=0.9985, help='gamma primary softmax (2D re-tune; nominal 0.9991)')
     ap.add_argument('--dm-halfwidth', type=float, default=95.0, help='Delta mass halfwidth [MeV] (2D re-tune; nominal 59.7)')
     ap.add_argument('--pps', type=float, default=0.9513)
@@ -114,6 +131,12 @@ def main(argv=None):
     full, pot_cv, _ = load(a.sys, 'full', want)
     off, _, lt_off = load(a.sys, 'offbeam', want)
     on, pot_on, lt_on = load(a.sys, 'onbeam', want)
+    pot_cv = exposure(pot_cv, a.exposure_from, 'full', 'POT')
+    lt_off = exposure(lt_off, a.exposure_from, 'offbeam', 'Livetime')
+    pot_on = exposure(pot_on, a.exposure_from, 'onbeam', 'POT')
+    lt_on = exposure(lt_on, a.exposure_from, 'onbeam', 'Livetime')
+    if not (lt_off > 0 and lt_on > 0):
+        raise SystemExit(f'off-beam/on-beam livetime {lt_off}/{lt_on}: cannot scale the off-beam cosmics')
     full['g'], full['w'] = group_of(full['true_category']), pot_on / pot_cv
     off['g'], off['w'] = COSMIC, lt_on / lt_off
     parts = [full, off]
