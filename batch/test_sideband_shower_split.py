@@ -21,16 +21,30 @@ def origin(rows):
 
 
 def test_groups_from_shower_origin():
-    d = origin([[1, 0, 0],             # one photon from the nu
-                [0, 1, 0],             # one electron from the nu (CC nue)
-                [1, 1, 0],             # two from the nu
-                [1, 0, 2],             # one from the nu plus pi0 photons
-                [0, 0, 2],             # pi0 decay photons only
-                [0, 0, 1],             # one reinteraction photon
-                [0, 0, 0],             # no true shower
-                [np.nan] * 3])         # unmatched
-    assert list(S.group_of(d)) == [S.SINGLE_G, S.SINGLE_E, S.MULTI, S.MULTI,
-                                   S.SECONDARY, S.SECONDARY, S.OTHER, S.OTHER]
+    d = origin([[1, 0, 0, 0],          # one photon from the nu
+                [0, 1, 0, 0],          # one electron from the nu (CC nue)
+                [1, 1, 0, 0],          # two from the nu
+                [1, 0, 2, 2],          # one from the nu plus pi0 photons
+                [0, 0, 2, 2],          # pi0 decay photons, both start in the argon
+                [0, 0, 2, 1],          # pi0 decay photons, one starts outside the argon
+                [0, 0, 1, 0],          # one secondary photon, starting outside
+                [0, 0, 1, 1],          # one secondary photon, starting inside
+                [0, 0, 0, 0],          # no true shower
+                [np.nan] * 4])         # unmatched
+    assert list(S.group_of(d)) == [S.SINGLE_G, S.SINGLE_E, S.MULTI, S.MULTI, S.SEC_IN, S.SEC_OUT,
+                                   S.SEC_OUT, S.SEC_IN, S.OTHER, S.OTHER]
+
+
+@pytest.mark.parametrize('rng_, nb, cuts', [((0.99, 1.0), 20, [0.9985]), ((0.99, 1.0), 20, [0.9991]),
+                                            ((0.0, 1.0), 50, [0.9513]), ((950.0, 1600.0), 26, [1137.0, 1327.0]),
+                                            ((950.0, 1600.0), 26, [1172.3, 1291.7]), ((0.0, 0.2), 40, [0.037])])
+def test_aligned_edges_put_cuts_on_edges(rng_, nb, cuts):
+    e = S.aligned_edges(*rng_, nb, cuts)
+    for c in cuts:
+        assert np.min(np.abs(e - c)) < 1e-9 * max(1.0, abs(c))
+    assert e[0] <= rng_[0] + 1e-12 and e[-1] >= rng_[1] - 1e-12
+    w = np.diff(e)
+    assert np.allclose(w, w[0]) and 0.5 < w[0] / ((rng_[1] - rng_[0]) / nb) < 2
 
 
 def test_poisson_z_sign_and_zero():
@@ -42,7 +56,7 @@ def test_poisson_z_sign_and_zero():
 def write_selection(path, rng):
     import uproot
 
-    def sample(n, cat, ng, ne, ns, nsh):
+    def sample(n, cat, ng, ne, ns, nsh, ns_in=None):
         return {S.GPS: rng.uniform(0.998, 1, n), S.PPS: rng.uniform(0.96, 1, n),
                 S.DM: rng.normal(1232, 20, n), S.NSH: np.full(n, float(nsh)),
                 'true_category': np.full(n, float(cat)),
@@ -52,7 +66,7 @@ def write_selection(path, rng):
                 'reco_leading_primary_gOre_photon_softmax': np.full(n, 0.99),
                 'reco_leading_primary_gOre_shower_ke': np.full(n, 200.0),
                 S.ORIGIN[0]: np.full(n, float(ng)), S.ORIGIN[1]: np.full(n, float(ne)),
-                S.ORIGIN[2]: np.full(n, float(ns))}
+                S.ORIGIN[2]: np.full(n, float(ns)), S.ORIGIN[3]: np.full(n, float(ns if ns_in is None else ns_in))}
 
     def cat(*parts):
         return {k: np.concatenate([p[k] for p in parts]) for k in parts[0]}
@@ -78,7 +92,7 @@ def test_selection_output_input(tmp_path):
     w = mc.groupby('g')['w'].sum()
     # overlay cosmics dropped; nu rows scaled by POT, off-beam by livetime, dirt from the same file
     assert w[S.SINGLE_G] == pytest.approx(100 * 0.1)
-    assert w[S.SECONDARY] == pytest.approx(100 * 0.1)
+    assert w[S.SEC_IN] == pytest.approx(100 * 0.1)
     assert w[S.COSMIC] == pytest.approx(40 * 50 / 200)
     assert w[S.DIRT] == pytest.approx(20 * 0.2)
     assert S.OVERLAY not in w.index
@@ -100,7 +114,7 @@ def test_one_shower_region_cutflow_and_nm1_outputs(tmp_path):
     # region = 1 reco shower: the 2-shower secondary rows and 2-shower dirt are outside it
     pre = flow.iloc[0]
     assert pre['stage'] == 'preselection'
-    assert pre['True secondary showers'] == pytest.approx(0.0)
+    assert pre[S.plain(S.GROUPS[S.SEC_IN][0])] == pytest.approx(0.0)
     assert pre['True single gamma primary'] == pytest.approx(10.0)
     n_cuts = len(S.cuts(dict(gps=0.9985, pps=0.9513, dm=95, dedx=4.07, axial=-0.5, dirs=0.037, phs=0.9225)))
     assert len(flow) == 1 + 2 * n_cuts          # preselection, cumulative cuts, N-1
@@ -123,5 +137,5 @@ def test_sidebands_config_saves_origin_branches():
     nonfid = [b for b in blocks if re.search(r'name = "selected_nonfid_', b)]
     assert nonfid
     for b in nonfid:
-        for v in ('n_nu_photons', 'n_nu_electrons', 'n_secondary_true_showers'):
+        for v in ('n_nu_photons', 'n_nu_electrons', 'n_secondary_true_showers', 'n_secondary_true_showers_in_av'):
             assert re.search(rf'name = "{v}",\s*type = "true"', b), (v, b[:80])

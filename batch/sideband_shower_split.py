@@ -17,11 +17,15 @@ the shower threshold) of the matched interaction. A shower is "from the
 neutrino interaction" when the particle is its own ancestor (a generator
 final-state particle, CC or NC); it is "secondary" when it descends from another
 final-state particle (pi0 decays, hadron reinteractions, delta rays). Branches
-true_n_nu_photons, true_n_nu_electrons, true_n_secondary_true_showers:
+true_n_nu_photons, true_n_nu_electrons, true_n_secondary_true_showers,
+true_n_secondary_true_showers_in_av:
   true single gamma primary      1 photon from the nu, no other true shower
   true single e primary          1 electron from the nu, no other true shower
   true multiple primary e/gamma  >=2 showers from the nu, or 1 plus secondaries
-  true secondary showers         only secondary showers (pi0-like)
+  true secondary, all in argon   only secondary showers (pi0-like), all starting
+                                 (first deposition) inside the active argon
+  true secondary, >=1 outside    only secondary showers, at least one starting
+                                 outside the active argon (never reconstructable)
   other nu                       no true shower above threshold
   cosmics                        off-beam data, scaled by livetime
   dirt                           out-of-FV neutrinos (dirt MC, matched rows)
@@ -29,6 +33,7 @@ true_n_nu_photons, true_n_nu_electrons, true_n_secondary_true_showers:
 Output (--out):
   cut flow      expected events per truth group, data, Poisson z, and the
                 fraction of true single gamma vs secondary showers kept
+                (plot binning: the cut values fall on bin edges)
   N-1 table     with all other cuts applied, the fraction of each group the
                 left-out cut rejects (its own contribution), MC and data
   before/       each cut variable at the preselection
@@ -57,34 +62,38 @@ GPS = 'reco_leading_primary_gOre_primary_softmax'
 PPS = 'reco_leading_primary_proton_primary_softmax'
 DM = 'reco_delta_mass_P'
 NSH = 'reco_n_primary_showers'
-ORIGIN = ['true_n_nu_photons', 'true_n_nu_electrons', 'true_n_secondary_true_showers']
+ORIGIN = ['true_n_nu_photons', 'true_n_nu_electrons', 'true_n_secondary_true_showers',
+          'true_n_secondary_true_showers_in_av']
 GROUPS = [('True single $\\gamma$ primary', '#E69900'),
           ('True single $e$ primary', '#2CA02C'),
           ('True multiple primary $e/\\gamma$', '#1F77B4'),
-          ('True secondary showers', '#F2E640'),
+          ('True secondary showers, all start in argon', '#F2E640'),
+          ('True secondary showers, $\\geq$1 starts outside argon', '#17BECF'),
           ('Other $\\nu$', '#9980CC'),
           ('Cosmics', '#808080'),
           ('Dirt', '#8C564B'),
           ('Cosmics in $\\nu$ events (MC overlay)', '#4D4D4D')]
-SINGLE_G, SINGLE_E, MULTI, SECONDARY, OTHER, COSMIC, DIRT, OVERLAY = range(8)
+SINGLE_G, SINGLE_E, MULTI, SEC_IN, SEC_OUT, OTHER, COSMIC, DIRT, OVERLAY = range(9)
+SECONDARIES = (SEC_IN, SEC_OUT)
 SHOWN = list(range(len(GROUPS)))
-SHORT = ['1g', '1e', 'multi', 'sec', 'oth nu', 'cosmic', 'dirt', 'ovl cos']
+SHORT = ['1g', '1e', 'multi', 'sec in', 'sec out', 'oth nu', 'cosmic', 'dirt', 'ovl cos']
 KE = 'reco_leading_primary_gOre_shower_ke'
 PRELIM = 'ICARUS Analysis In-Progress'
 
 
 def plain(label):
-    for tex, txt in (('$e/\\gamma$', 'e/gamma'), ('$\\gamma$', 'gamma'), ('$e$', 'e'), ('$\\nu$', 'nu')):
+    for tex, txt in (('$\\geq$', '>='), ('$e/\\gamma$', 'e/gamma'), ('$\\gamma$', 'gamma'), ('$e$', 'e'), ('$\\nu$', 'nu')):
         label = label.replace(tex, txt)
     return label
 
 
 def group_of(d):
     """Truth group per row from the shower-origin counts (NaN counts: no match -> other nu)."""
-    ng, ne, ns = (np.nan_to_num(d[c].to_numpy(dtype=float), nan=0.0) for c in ORIGIN)
+    ng, ne, ns, ns_in = (np.nan_to_num(d[c].to_numpy(dtype=float), nan=0.0) for c in ORIGIN)
     nnu = ng + ne
     g = np.full(len(d), OTHER)
-    g[(nnu == 0) & (ns > 0)] = SECONDARY
+    g[(nnu == 0) & (ns > 0) & (ns_in >= ns)] = SEC_IN
+    g[(nnu == 0) & (ns > 0) & (ns_in < ns)] = SEC_OUT
     g[(nnu >= 2) | ((nnu == 1) & (ns > 0))] = MULTI
     g[(ng == 1) & (ne == 0) & (ns == 0)] = SINGLE_G
     g[(ne == 1) & (ng == 0) & (ns == 0)] = SINGLE_E
@@ -120,6 +129,26 @@ def cuts(thr):
             c(f'photon softmax > {thr["phs"]}', 'reco_leading_primary_gOre_photon_softmax',
               gt('reco_leading_primary_gOre_photon_softmax', thr['phs']), [(thr['phs'], +1)],
               (0.0, 1.0), 50, 'Shower Photon Softmax')]
+
+
+def aligned_edges(lo, hi, nbins, cuts):
+    """Bin edges close to linspace(lo, hi, nbins + 1) with every cut value on an edge. One cut: the width is
+    adjusted so lo and the cut are both edges; several: the width divides the gaps between the cuts and the
+    range is extended to the next edge below lo / above hi."""
+    w0 = (hi - lo) / nbins
+    cuts = sorted(c for c in cuts if lo < c < hi)
+    if not cuts:
+        return np.linspace(lo, hi, nbins + 1)
+    if len(cuts) == 1:
+        w = (cuts[0] - lo) / max(1, round((cuts[0] - lo) / w0))
+        start = lo
+    else:
+        gaps = np.diff(cuts)
+        k = max(1, round(gaps[0] / w0))
+        w = gaps[0] / k
+        start = cuts[0] - np.ceil((cuts[0] - lo) / w - 1e-9) * w
+    n = int(np.ceil((hi - start) / w - 1e-9))
+    return start + w * np.arange(n + 1)
 
 
 def has(path, key):
@@ -272,7 +301,8 @@ def main(argv=None):
 
     print('\ncut flow (cumulative): expected events per truth group, and the fraction of each truth group kept')
     hdr = ''.join(f'{SHORT[i]:>9}' for i in SHOWN)
-    print(f'  {"stage":<38} {"MC":>8} {"data":>6} {"z":>5} |{hdr} | {"1g kept":>8} {"sec kept":>8} {"1g/sec":>7}')
+    print(f'  {"stage":<38} {"MC":>8} {"data":>6} {"z":>5} |{hdr} | {"1g kept":>8} {"sec in":>8} {"sec out":>8} '
+          f'{"1g/sec":>7}')
     w, g = mc['w'].to_numpy(), mc['g'].to_numpy()
     tot = {i: w[g == i].sum() for i in SHOWN}
     m_mc, m_on = np.ones(len(mc), bool), np.ones(len(on), bool)
@@ -283,13 +313,16 @@ def main(argv=None):
             m_on &= p_on[:, j]
         r = report(name if j is None else '+ ' + name, m_mc, m_on)
         kg = r[plain(GROUPS[SINGLE_G][0])] / tot[SINGLE_G] if tot[SINGLE_G] else float('nan')
-        ks = r[plain(GROUPS[SECONDARY][0])] / tot[SECONDARY] if tot[SECONDARY] else float('nan')
+        kin = r[plain(GROUPS[SEC_IN][0])] / tot[SEC_IN] if tot[SEC_IN] else float('nan')
+        kout = r[plain(GROUPS[SEC_OUT][0])] / tot[SEC_OUT] if tot[SEC_OUT] else float('nan')
+        tsec = tot[SEC_IN] + tot[SEC_OUT]
+        ks = (r[plain(GROUPS[SEC_IN][0])] + r[plain(GROUPS[SEC_OUT][0])]) / tsec if tsec else float('nan')
         cols = ''.join(f'{r[plain(GROUPS[i][0])]:9.1f}' for i in SHOWN)
         print(f'  {r["stage"]:<38} {r["mc_expected"]:8.1f} {r["data_n"]:6d} {r["z"]:5.1f} |{cols} | '
-              f'{kg:8.3f} {ks:8.4f} {kg / ks if ks else float("inf"):7.1f}')
+              f'{kg:8.3f} {kin:8.4f} {kout:8.4f} {kg / ks if ks else float("inf"):7.1f}')
 
     print('\nN-1: all other cuts applied; what this cut alone then removes (fraction of each group it rejects)')
-    print(f'  {"cut left out":<38} {"MC":>8} {"data":>6} {"z":>5} | {"rejects: 1g":>11} {"sec":>6} '
+    print(f'  {"cut left out":<38} {"MC":>8} {"data":>6} {"z":>5} | {"rejects: 1g":>11} {"sec in":>6} {"sec out":>7} '
           f'{"cosmic":>7} {"other nu":>8} {"MC all":>7} {"data":>6}')
     for j, c in enumerate(cl):
         others_mc = np.all(np.delete(p_mc, j, axis=1), axis=1)
@@ -302,7 +335,7 @@ def main(argv=None):
         nd = int(others_on.sum())
         rd = 1 - int((others_on & p_on[:, j]).sum()) / nd if nd else float('nan')
         print(f'  {c["name"]:<38} {r["mc_expected"]:8.1f} {r["data_n"]:6d} {r["z"]:5.1f} | {rej(g == SINGLE_G):11.3f} '
-              f'{rej(g == SECONDARY):6.3f} {rej(g == COSMIC):7.3f} {rej(g == OTHER):8.3f} '
+              f'{rej(g == SEC_IN):6.3f} {rej(g == SEC_OUT):7.3f} {rej(g == COSMIC):7.3f} {rej(g == OTHER):8.3f} '
               f'{rej(np.ones(len(mc), bool)):7.3f} {rd:6.3f}')
     pd.DataFrame(rows).to_csv(os.path.join(a.out, 'cutflow.csv'), index=False)
 
@@ -320,6 +353,8 @@ def plots(mc, on, p_mc, p_on, cl, out, pot_on, region):
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt
     import matplotlib.transforms as mtransforms
+    import warnings
+    warnings.filterwarnings('ignore', message='The figure layout has changed to tight')
     here = os.path.dirname(os.path.abspath(__file__))
     sheet = os.path.join(here, '..', 'spineplot', 'styles', 'muon2024.mplstyle')
     if os.path.exists(sheet):
@@ -338,8 +373,8 @@ def plots(mc, on, p_mc, p_on, cl, out, pot_on, region):
         d = os.path.join(out, sub)
         os.makedirs(d, exist_ok=True)
         fig, ax = plt.subplots(figsize=(10, 7.5))
-        lo, hi = c['range']
-        edges = np.linspace(lo, hi, c['nbins'] + 1)
+        edges = aligned_edges(*c['range'], c['nbins'], [x for x, _ in c.get('lines', [])])
+        lo, hi = edges[0], edges[-1]
         sel, dsel = mc[m_mc], on[m_on]
         xs, ws = [], []
         for i in range(len(GROUPS)):
@@ -355,13 +390,16 @@ def plots(mc, on, p_mc, p_on, cl, out, pot_on, region):
         k = np.histogram(x_on, edges)[0]
         ctr = 0.5 * (edges[1:] + edges[:-1])
         ax.errorbar(ctr, k, yerr=np.sqrt(k), fmt='o', color='k', ms=4, label=f'Data (BNB) ({k.sum()})')
-        ax.set_xlim(lo, hi)
+        ax.set_xlim(lo, min(hi, c['range'][1]) if c['range'][1] > lo else hi)  # don't show past e.g. softmax = 1
         ax.set_ylim(0, 1.5 * max(ax.get_ylim()[1], 1.0))
         trans = mtransforms.blended_transform_factory(ax.transData, ax.transAxes)
         span = 0.06 * (hi - lo)
         for n, (x, side) in enumerate(lines):
             ax.axvline(x, color='r', ls='--', label='cut (arrow: kept)' if n == 0 else None)
-            ax.annotate('', xy=(x + side * span, 0.6), xytext=(x, 0.6), xycoords=trans, textcoords=trans,
+            x0, x1 = ax.get_xlim()
+            room = (x1 - x) if side > 0 else (x - x0)
+            ax.annotate('', xy=(x + side * min(span, 0.9 * room), 0.6), xytext=(x, 0.6), xycoords=trans,
+                        textcoords=trans,
                         arrowprops=dict(arrowstyle='->', color='r', lw=2))
         ax.set_xlabel(c['xlabel'])
         ax.set_ylabel('Candidates')

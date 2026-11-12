@@ -9,6 +9,7 @@
 #define VARS_GORE_H
 
 #include <array>
+#include <cmath>
 #include <cstdlib>
 
 #include "include/gOre/cuts_gOre.h"
@@ -438,25 +439,49 @@ namespace vars::gOre
   REGISTER_VAR_SCOPE(RegistrationScope::Both, n_secondary_showers, n_secondary_showers);
 
   /**
+   * @brief does a true particle start (first energy deposition) inside the active argon?
+   * @details false if it deposits nothing (e.g. a photon converting outside the active volume) or its
+   * start point is outside the TPC active volume (bounds as in cuts::user_containment_cut)
+   **/
+  template <class P>
+    bool true_start_in_active_volume(const P& p)
+    {
+      if (!(p.size > 0))
+        return false;
+      const double x = p.start_point[0], y = p.start_point[1], z = p.start_point[2];
+      if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(z))
+        return false;
+      if (context::current_detector == caf::Det_t::kSBND)
+        return x > -200 && x < 200 && y > -200 && y < 200 && z > 0 && z < 500;
+      const bool in_x = (x > 61.12 && x < 359.45) || (x > -359.45 && x < -61.12); // two ICARUS cryostats
+      return in_x && y > -181.71 && y < 130.59 && z > -894.95 && z < 894.95;
+    }
+
+  /**
    * @brief count the true showers (photons/electrons above threshold) of an interaction by origin
    * @details a shower is from the neutrino interaction when the particle is its own ancestor
    * (a generator final-state particle); it is secondary when it descends from another
    * final-state particle (pi0 decay photons, hadron reinteractions, delta rays, ...)
    * @param obj the interaction (MC only)
    * @param emin the shower kinetic energy threshold (MeV)
-   * @return {photons from the neutrino interaction, electrons from the neutrino interaction, secondary showers}
+   * @return {photons from the neutrino interaction, electrons from the neutrino interaction, secondary showers,
+   * secondary showers starting inside the active argon}
    **/
   template <class T>
-    std::array<size_t, 3> count_true_showers_by_origin(const T& obj, const double emin)
+    std::array<size_t, 4> count_true_showers_by_origin(const T& obj, const double emin)
     {
-      std::array<size_t, 3> n{0, 0, 0};
+      std::array<size_t, 4> n{0, 0, 0, 0};
       for (auto const& p : obj.particles)
       {
         const int64_t pdg = std::abs(static_cast<int64_t>(p.pdg_code));
         if ((pdg != 22 && pdg != 11) || pvars::ke(p) < emin)
           continue;
         if (std::abs(static_cast<int64_t>(p.ancestor_pdg_code)) != pdg)
+        {
           ++n[2];
+          if (true_start_in_active_volume(p))
+            ++n[3];
+        }
         else
           ++n[pdg == 22 ? 0 : 1];
       }
@@ -486,6 +511,14 @@ namespace vars::gOre
       return count_true_showers_by_origin(obj, params.at(0))[2];
     }
   REGISTER_VAR_SCOPE(RegistrationScope::True, n_secondary_true_showers, n_secondary_true_showers);
+
+  /** @brief number of those true secondary showers that start (first deposition) inside the active argon **/
+  template <class T>
+    double n_secondary_true_showers_in_av(const T& obj, std::vector<double> params = {GORE_MIN_GORE_ENERGY})
+    {
+      return count_true_showers_by_origin(obj, params.at(0))[3];
+    }
+  REGISTER_VAR_SCOPE(RegistrationScope::True, n_secondary_true_showers_in_av, n_secondary_true_showers_in_av);
 
   /**
    * @brief approximate the pion_mass peak
