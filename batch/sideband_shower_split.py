@@ -57,8 +57,9 @@ GROUPS = [('True single $\\gamma$ primary', '#E69900'),
           ('True secondary showers', '#F2E640'),
           ('Other $\\nu$', '#9980CC'),
           ('Cosmics', '#808080'),
-          ('Dirt', '#8C564B')]
-SINGLE_G, SINGLE_E, MULTI, SECONDARY, OTHER, COSMIC, DIRT = range(7)
+          ('Dirt', '#8C564B'),
+          ('Cosmics in $\\nu$ events (MC overlay)', '#4D4D4D')]
+SINGLE_G, SINGLE_E, MULTI, SECONDARY, OTHER, COSMIC, DIRT, OVERLAY = range(8)
 CLASSES = [('signal-like (1 shower)', 1), ('pi0-like (2 showers)', 2)]
 PRELIM = 'ICARUS Analysis In-Progress'
 N_PI0_REJ = 3  # the first three cuts are the pi0 rejection
@@ -172,12 +173,24 @@ def build(a, want):
     if not (lt_off > 0 and lt_on > 0):
         raise SystemExit(f'off-beam/on-beam livetime {lt_off}/{lt_on}: cannot scale the off-beam cosmics')
     n0 = len(full)
-    full = matched(full)
-    print(f'events/{key}: {len(full)} of {n0} rows have a neutrino match (the rest are overlay cosmics, '
-          f'covered by off-beam); POT {pot_cv:.4g}; off-beam livetime {lt_off:.4g}, on-beam {lt_on:.4g}')
+    keep = matched(full)
+    overlay = full.drop(keep.index)
+    full = keep
+    note = ('kept as "cosmics in nu events" (--overlay-cosmics)' if a.overlay_cosmics else
+            'dropped: off-beam is the only cosmic source; --overlay-cosmics keeps them')
+    print(f'events/{key}: {len(full)} of {n0} rows have a neutrino match; the other {len(overlay)} '
+          f'(overlay cosmics, {len(overlay) * pot_on / pot_cv:.1f} at on-beam POT) {note}; '
+          f'POT {pot_cv:.4g}; off-beam livetime {lt_off:.4g}, on-beam {lt_on:.4g}')
     full['g'], full['w'] = group_of(full), pot_on / pot_cv
     off['g'], off['w'] = COSMIC, lt_on / lt_off
     parts = [full, off]
+    if a.overlay_cosmics:
+        if key == 'full':
+            raise SystemExit('--overlay-cosmics needs a selection output (events/cv): a sys ROOT keeps them '
+                             'in *_nonmatched')
+        overlay = overlay.copy()
+        overlay['g'], overlay['w'] = OVERLAY, pot_on / pot_cv
+        parts.append(overlay)
     dirt = a.dirt or (a.sys if has(a.sys, 'dirt') else None)
     if dirt:
         dr, pot_dr, _ = load(dirt, 'dirt', want)
@@ -196,6 +209,9 @@ def main(argv=None):
     ap.add_argument('sys', help='sidebands medulla output: events/{cv|full,offbeam,onbeam[,dirt]}')
     ap.add_argument('--dirt', help='file with events/dirt (default: the input file, if it has one)')
     ap.add_argument('--out', required=True)
+    ap.add_argument('--overlay-cosmics', action='store_true',
+                    help='also keep the cv rows without a neutrino match (cosmics recorded in neutrino-triggered '
+                         'readouts) as their own category, POT-scaled; off-beam covers only beam-off triggers')
     ap.add_argument('--exposure-from', help='ROOT file to take missing POT/Livetime histograms from (same onbeam/'
                                              'offbeam samples; only needed for old sys ROOTs)')
     ap.add_argument('--gps', type=float, default=0.9985, help='gamma primary softmax (2D re-tune; nominal 0.9991)')

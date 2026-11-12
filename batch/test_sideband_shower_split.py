@@ -71,8 +71,8 @@ def test_selection_output_input(tmp_path):
     pytest.importorskip('uproot')
     path = tmp_path / 'sel.root'
     write_selection(str(path), np.random.default_rng(0))
-    a = type('A', (), dict(sys=str(path), dirt=None, exposure_from=None))()
     want = [S.GPS, S.PPS, S.DM, S.NSH, 'true_category'] + S.ORIGIN
+    a = type('A', (), dict(sys=str(path), dirt=None, exposure_from=None, overlay_cosmics=False))()
     mc, on, pot_on = S.build(a, want)
     assert pot_on == pytest.approx(1e20)
     w = mc.groupby('g')['w'].sum()
@@ -81,7 +81,13 @@ def test_selection_output_input(tmp_path):
     assert w[S.SECONDARY] == pytest.approx(100 * 0.1)
     assert w[S.COSMIC] == pytest.approx(40 * 50 / 200)
     assert w[S.DIRT] == pytest.approx(20 * 0.2)
+    assert S.OVERLAY not in w.index
     assert len(on) == 30
+    # --overlay-cosmics: the 50 unmatched cv rows come back as their own POT-scaled group
+    a.overlay_cosmics = True
+    w2 = S.build(a, want)[0].groupby('g')['w'].sum()
+    assert w2[S.OVERLAY] == pytest.approx(50 * 0.1)
+    assert w2.drop(S.OVERLAY).to_dict() == pytest.approx(w.to_dict())
 
 
 def test_missing_origin_branches_explained(tmp_path):
