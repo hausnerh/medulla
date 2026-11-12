@@ -90,6 +90,24 @@ def test_selection_output_input(tmp_path):
     assert w2.drop(S.OVERLAY).to_dict() == pytest.approx(w.to_dict())
 
 
+def test_one_shower_region_cutflow_and_nm1_outputs(tmp_path):
+    pytest.importorskip('uproot')
+    path = tmp_path / 'sel.root'
+    write_selection(str(path), np.random.default_rng(0))
+    out = tmp_path / 'out'
+    assert S.main([str(path), '--out', str(out)]) == 0
+    flow = pd.read_csv(out / 'cutflow.csv')
+    # region = 1 reco shower: the 2-shower secondary rows and 2-shower dirt are outside it
+    pre = flow.iloc[0]
+    assert pre['stage'] == 'preselection'
+    assert pre['True secondary showers'] == pytest.approx(0.0)
+    assert pre['True single gamma primary'] == pytest.approx(10.0)
+    n_cuts = len(S.cuts(dict(gps=0.9985, pps=0.9513, dm=95, dedx=4.07, axial=-0.5, dirs=0.037, phs=0.9225)))
+    assert len(flow) == 1 + 2 * n_cuts          # preselection, cumulative cuts, N-1
+    for sub in ('before', 'after', 'nm1'):
+        assert any((out / sub).glob('*.png')) or not pytest.importorskip('matplotlib')
+
+
 def test_missing_origin_branches_explained(tmp_path):
     import uproot
     path = tmp_path / 'old.root'

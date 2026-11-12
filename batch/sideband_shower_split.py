@@ -1,17 +1,16 @@
 #!/usr/bin/env python3
 """
-Shower-multiplicity split of a gOre sideband: do the pi0-rejection cuts tell
-showers from the neutrino interaction apart from secondary (pi0-decay,
-reinteraction) showers where nothing is ever selected?
+Validate the 1g1p cuts in the non-fiducial sideband.
 
-The non-fiducial NgNp sideband (outside_signal_box + >=1 shower + >=1 proton,
-gOre_1g1p_sidebands_osc_run2.toml) is disjoint from the 1g1p selection by
-construction, so it can be looked at freely. Inside it:
-  signal-like   reco_n_primary_showers == 1   (looks like a lone photon)
-  pi0-like      reco_n_primary_showers == 2   (looks like a pi0 decay)
-Each cut of the pi0 rejection (and then e/gamma separation) is applied to both
-classes, at the thresholds given (default: the 2D re-tune), and the data and MC
-pass fractions compared.
+A sideband is a selection disjoint from the signal selection by construction:
+here the non-fiducial NgNp preselection (outside_signal_box + >=1 shower +
+>=1 proton, gOre_1g1p_sidebands_osc_run2.toml) restricted to the signal's
+topology, exactly one reco primary shower. Nothing in it can be selected by the
+analysis, so it can be looked at freely, and the 1g1p cuts are applied to it as
+they are to the signal region. They are validated if they keep the "signal-like"
+events (a shower from the neutrino interaction) while rejecting the "pi0-like"
+ones (showers from pi0 decays/reinteractions), and if the data follow the MC
+through the cuts.
 
 MC truth is grouped by the origin of the true showers (photons/electrons above
 the shower threshold) of the matched interaction. A shower is "from the
@@ -26,18 +25,26 @@ true_n_nu_photons, true_n_nu_electrons, true_n_secondary_true_showers:
   other nu                       no true shower above threshold
   cosmics                        off-beam data, scaled by livetime
   dirt                           out-of-FV neutrinos (dirt MC, matched rows)
-The cuts validate the pi0 rejection if they keep a much larger fraction of the
-true-single-gamma (and single-e) groups than of the true-secondary group, and
-the MC models them if its pass fractions match the data's in both classes.
+
+Output (--out):
+  cut flow      expected events per truth group, data, Poisson z, and the
+                fraction of true single gamma vs secondary showers kept
+  N-1 table     with all other cuts applied, the fraction of each group the
+                left-out cut rejects (its own contribution), MC and data
+  before/       each cut variable at the preselection
+  after/        each cut variable after all cuts
+  nm1/          each cut variable with all the other cuts applied
+  cutflow.csv
 
 Input: a selection-only medulla output (events/cv, offbeam, onbeam[, dirt]) or a
 sys ROOT (events/full, offbeam, onbeam). The cv rows without a neutrino match
 (overlay cosmics; category 9/NaN) are dropped, as run_systematics drops them
-from events/full: the off-beam sample is the only cosmic source.
+from events/full: the off-beam sample is the only cosmic source
+(--overlay-cosmics keeps them as their own category).
 
 Usage
-  sideband_shower_split.py build/output_gOre_1g1p_sidebands_osc_run2_origin.root --out build/sideband_split \\
-      [--dirt <file with events/dirt, default: the input if it has one>] [--gps 0.9985 --dm-halfwidth 95]
+  sideband_shower_split.py build/output_gOre_1g1p_sidebands_osc_run2_origin.root --out build/sideband_cuts \\
+      [--gps 0.9985 --dm-halfwidth 95] [--overlay-cosmics]
 """
 import argparse
 import os
@@ -60,9 +67,10 @@ GROUPS = [('True single $\\gamma$ primary', '#E69900'),
           ('Dirt', '#8C564B'),
           ('Cosmics in $\\nu$ events (MC overlay)', '#4D4D4D')]
 SINGLE_G, SINGLE_E, MULTI, SECONDARY, OTHER, COSMIC, DIRT, OVERLAY = range(8)
-CLASSES = [('signal-like (1 shower)', 1), ('pi0-like (2 showers)', 2)]
+SHOWN = list(range(len(GROUPS)))
+SHORT = ['1g', '1e', 'multi', 'sec', 'oth nu', 'cosmic', 'dirt', 'ovl cos']
+KE = 'reco_leading_primary_gOre_shower_ke'
 PRELIM = 'ICARUS Analysis In-Progress'
-N_PI0_REJ = 3  # the first three cuts are the pi0 rejection
 
 
 def plain(label):
@@ -84,20 +92,34 @@ def group_of(d):
 
 
 def cuts(thr):
-    """(name, function of a dataframe -> bool array); cumulative in this order."""
+    """The 1g1p cuts in order (pi0 rejection, then e/gamma separation): name, variable, pass function,
+    cut lines [(value, kept side +1 above / -1 below)] and the plot binning (spineplot's, finer where a cut needs it)."""
     def gt(col, t):
         return lambda d: np.nan_to_num(d[col].to_numpy(dtype=float), nan=-np.inf) > t
 
     def lt(col, t):
         return lambda d: np.nan_to_num(d[col].to_numpy(dtype=float), nan=np.inf) < t
     dm = lambda d: np.nan_to_num(np.abs(d[DM].to_numpy(dtype=float) - 1232.0), nan=np.inf) < thr['dm']
-    return [(f'gamma primary softmax > {thr["gps"]}', gt(GPS, thr['gps'])),
-            (f'proton primary softmax > {thr["pps"]}', gt(PPS, thr['pps'])),
-            (f'|M_Delta - 1232| < {thr["dm"]} MeV', dm),
-            (f'start dE/dx > {thr["dedx"]}', gt('reco_leading_primary_gOre_start_dedx', thr['dedx'])),
-            (f'axial spread > {thr["axial"]}', gt('reco_leading_primary_gOre_axial_spread', thr['axial'])),
-            (f'directional spread < {thr["dirs"]}', lt('reco_leading_primary_gOre_directional_spread', thr['dirs'])),
-            (f'photon softmax > {thr["phs"]}', gt('reco_leading_primary_gOre_photon_softmax', thr['phs']))]
+    c = lambda name, var, fn, lines, rng, nb, xl: dict(name=name, var=var, fn=fn, lines=lines, range=rng,
+                                                      nbins=nb, xlabel=xl)
+    return [c(f'gamma primary softmax > {thr["gps"]}', GPS, gt(GPS, thr['gps']), [(thr['gps'], +1)],
+              (0.99, 1.0), 20, 'Shower Primary Softmax'),
+            c(f'proton primary softmax > {thr["pps"]}', PPS, gt(PPS, thr['pps']), [(thr['pps'], +1)],
+              (0.0, 1.0), 50, 'Leading Proton Primary Softmax'),
+            c(f'|M_Delta - 1232| < {thr["dm"]} MeV', DM, dm, [(1232.0 - thr['dm'], +1), (1232.0 + thr['dm'], -1)],
+              (950.0, 1600.0), 26, r'Reconstructed $M_\Delta$ Peak [MeV/$c^2$]'),
+            c(f'start dE/dx > {thr["dedx"]}', 'reco_leading_primary_gOre_start_dedx',
+              gt('reco_leading_primary_gOre_start_dedx', thr['dedx']), [(thr['dedx'], +1)],
+              (0.0, 25.0), 50, 'Shower Start dE/dx [MeV/cm]'),
+            c(f'axial spread > {thr["axial"]}', 'reco_leading_primary_gOre_axial_spread',
+              gt('reco_leading_primary_gOre_axial_spread', thr['axial']), [(thr['axial'], +1)],
+              (-1.0, 1.0), 40, 'Shower Axial Spread'),
+            c(f'directional spread < {thr["dirs"]}', 'reco_leading_primary_gOre_directional_spread',
+              lt('reco_leading_primary_gOre_directional_spread', thr['dirs']), [(thr['dirs'], -1)],
+              (0.0, 0.2), 40, 'Shower Directional Spread'),
+            c(f'photon softmax > {thr["phs"]}', 'reco_leading_primary_gOre_photon_softmax',
+              gt('reco_leading_primary_gOre_photon_softmax', thr['phs']), [(thr['phs'], +1)],
+              (0.0, 1.0), 50, 'Shower Photon Softmax')]
 
 
 def has(path, key):
@@ -209,6 +231,8 @@ def main(argv=None):
     ap.add_argument('sys', help='sidebands medulla output: events/{cv|full,offbeam,onbeam[,dirt]}')
     ap.add_argument('--dirt', help='file with events/dirt (default: the input file, if it has one)')
     ap.add_argument('--out', required=True)
+    ap.add_argument('--n-showers', type=int, default=1,
+                    help='reco primary showers defining the sideband region (default 1, as in the 1g1p selection)')
     ap.add_argument('--overlay-cosmics', action='store_true',
                     help='also keep the cv rows without a neutrino match (cosmics recorded in neutrino-triggered '
                          'readouts) as their own category, POT-scaled; off-beam covers only beam-off triggers')
@@ -224,69 +248,70 @@ def main(argv=None):
     a = ap.parse_args(argv)
     os.makedirs(a.out, exist_ok=True)
     thr = dict(gps=a.gps, pps=a.pps, dm=a.dm_halfwidth, dedx=a.dedx, axial=a.axial, dirs=a.dirs, phs=a.phs)
-    want = [GPS, PPS, DM, NSH, 'true_category', 'reco_leading_primary_gOre_start_dedx',
-            'reco_leading_primary_gOre_axial_spread', 'reco_leading_primary_gOre_directional_spread',
-            'reco_leading_primary_gOre_photon_softmax', 'reco_leading_primary_gOre_shower_ke'] + ORIGIN
-    mc, on, pot_on = build(a, want)
-    print(f'{TREE}: onbeam {pot_on:.3g} POT; MC {mc["w"].sum():.1f} expected, data {len(on)}')
-
     cl = cuts(thr)
+    want = sorted({c['var'] for c in cl} | {NSH, 'true_category', KE} | set(ORIGIN))
+    mc, on, pot_on = build(a, want)
+    region = f'non-fid. sideband, {a.n_showers} reco shower' + ('s' if a.n_showers != 1 else '')
+    mc = mc[mc[NSH].to_numpy() == a.n_showers].reset_index(drop=True)
+    on = on[on[NSH].to_numpy() == a.n_showers].reset_index(drop=True)
+    print(f'{TREE}, {region}: onbeam {pot_on:.3g} POT; MC {mc["w"].sum():.1f} expected, data {len(on)}, '
+          f'data/MC {len(on) / mc["w"].sum():.2f}')
+
+    p_mc = np.column_stack([c['fn'](mc) for c in cl])
+    p_on = np.column_stack([c['fn'](on) for c in cl])
     rows = []
-    for cname, n in CLASSES:
-        sub, dsub = mc[mc[NSH].to_numpy() == n], on[on[NSH].to_numpy() == n]
-        w, g = sub['w'].to_numpy(), sub['g'].to_numpy()
-        tot = w.sum()
-        print(f'\n== {cname}: MC {tot:.1f}, data {len(dsub)}, data/MC {len(dsub) / tot if tot else float("nan"):.2f}')
-        for i, (label, _) in enumerate(GROUPS):
-            v, raw = w[g == i].sum(), int((g == i).sum())
-            if raw:
-                print(f'    {plain(label):<32} {v:8.1f} ({v / tot:5.1%}; {raw} MC rows)')
-        pass_mc = np.ones(len(sub), bool)
-        pass_d = np.ones(len(dsub), bool)
-        print(f'    {"cumulative cut":<40} {"MC exp":>7} {"data":>5} {"z":>5} {"MC pass":>14} {"data pass":>15} '
-              f'{"1g":>6} {"1e":>6} {"sec":>6}')
-        for name, fn in cl:
-            pass_mc &= fn(sub)
-            pass_d &= fn(dsub)
-            pm, em = frac(w, pass_mc)
-            k, nd = int(pass_d.sum()), len(dsub)
-            pd_, ed = (k / nd, np.sqrt(k / nd * (1 - k / nd) / nd)) if nd else (float('nan'), float('nan'))
-            mu = w[pass_mc].sum()
-            p_g = {i: frac(w[g == i], pass_mc[g == i])[0] for i in (SINGLE_G, SINGLE_E, SECONDARY)}
-            print(f'    {name:<40} {mu:7.1f} {k:5d} {poisson_z(k, mu):5.1f} {pm:7.4f}±{em:.4f} {pd_:7.4f}±{ed:.4f} '
-                  f'{p_g[SINGLE_G]:6.3f} {p_g[SINGLE_E]:6.3f} {p_g[SECONDARY]:6.3f}')
-            rows.append(dict(cls=cname, cut=name, mc_expected=mu, data_n=k, z=poisson_z(k, mu), mc=pm, mc_err=em,
-                             data=pd_, data_err=ed, single_gamma=p_g[SINGLE_G], single_e=p_g[SINGLE_E],
-                             secondary=p_g[SECONDARY]))
-    pd.DataFrame(rows).to_csv(os.path.join(a.out, 'pass_fractions.csv'), index=False)
-    separation(mc, cl)
-    plots(mc, on, thr, a.out, pot_on)
-    print(f'\nwrote {a.out}/pass_fractions.csv and plots')
+
+    def report(stage, m_mc, m_on):
+        w, g = mc['w'].to_numpy(), mc['g'].to_numpy()
+        mu, k = w[m_mc].sum(), int(m_on.sum())
+        row = dict(stage=stage, mc_expected=mu, data_n=k, z=poisson_z(k, mu))
+        for i in SHOWN:
+            row[plain(GROUPS[i][0])] = w[m_mc & (g == i)].sum()
+        rows.append(row)
+        return row
+
+    print('\ncut flow (cumulative): expected events per truth group, and the fraction of each truth group kept')
+    hdr = ''.join(f'{SHORT[i]:>9}' for i in SHOWN)
+    print(f'  {"stage":<38} {"MC":>8} {"data":>6} {"z":>5} |{hdr} | {"1g kept":>8} {"sec kept":>8} {"1g/sec":>7}')
+    w, g = mc['w'].to_numpy(), mc['g'].to_numpy()
+    tot = {i: w[g == i].sum() for i in SHOWN}
+    m_mc, m_on = np.ones(len(mc), bool), np.ones(len(on), bool)
+    stages = [('preselection', None)] + [(c['name'], j) for j, c in enumerate(cl)]
+    for name, j in stages:
+        if j is not None:
+            m_mc &= p_mc[:, j]
+            m_on &= p_on[:, j]
+        r = report(name if j is None else '+ ' + name, m_mc, m_on)
+        kg = r[plain(GROUPS[SINGLE_G][0])] / tot[SINGLE_G] if tot[SINGLE_G] else float('nan')
+        ks = r[plain(GROUPS[SECONDARY][0])] / tot[SECONDARY] if tot[SECONDARY] else float('nan')
+        cols = ''.join(f'{r[plain(GROUPS[i][0])]:9.1f}' for i in SHOWN)
+        print(f'  {r["stage"]:<38} {r["mc_expected"]:8.1f} {r["data_n"]:6d} {r["z"]:5.1f} |{cols} | '
+              f'{kg:8.3f} {ks:8.4f} {kg / ks if ks else float("inf"):7.1f}')
+
+    print('\nN-1: all other cuts applied; what this cut alone then removes (fraction of each group it rejects)')
+    print(f'  {"cut left out":<38} {"MC":>8} {"data":>6} {"z":>5} | {"rejects: 1g":>11} {"sec":>6} '
+          f'{"cosmic":>7} {"other nu":>8} {"MC all":>7} {"data":>6}')
+    for j, c in enumerate(cl):
+        others_mc = np.all(np.delete(p_mc, j, axis=1), axis=1)
+        others_on = np.all(np.delete(p_on, j, axis=1), axis=1)
+        r = report('N-1 ' + c['name'], others_mc, others_on)
+
+        def rej(sel):
+            sw = w[others_mc & sel].sum()
+            return 1 - w[others_mc & sel & p_mc[:, j]].sum() / sw if sw else float('nan')
+        nd = int(others_on.sum())
+        rd = 1 - int((others_on & p_on[:, j]).sum()) / nd if nd else float('nan')
+        print(f'  {c["name"]:<38} {r["mc_expected"]:8.1f} {r["data_n"]:6d} {r["z"]:5.1f} | {rej(g == SINGLE_G):11.3f} '
+              f'{rej(g == SECONDARY):6.3f} {rej(g == COSMIC):7.3f} {rej(g == OTHER):8.3f} '
+              f'{rej(np.ones(len(mc), bool)):7.3f} {rd:6.3f}')
+    pd.DataFrame(rows).to_csv(os.path.join(a.out, 'cutflow.csv'), index=False)
+
+    plots(mc, on, p_mc, p_on, cl, a.out, pot_on, region)
+    print(f'\nwrote {a.out}/cutflow.csv and {a.out}/{{before,after,nm1}}/*.png,pdf')
     return 0
 
 
-def separation(mc, cl):
-    """True-origin survival through the pi0 rejection (and all cuts), both reco classes together (MC)."""
-    sub = mc[mc[NSH].isin([n for _, n in CLASSES])]
-    w, g = sub['w'].to_numpy(), sub['g'].to_numpy()
-    print('\nseparation by truth (MC, 1- and 2-shower classes together): fraction of each truth group kept')
-    for upto, label in ((N_PI0_REJ, 'pi0 rejection (first 3 cuts)'), (len(cl), 'pi0 rejection + e/gamma')):
-        m = np.ones(len(sub), bool)
-        for _, fn in cl[:upto]:
-            m &= fn(sub)
-        f = {i: frac(w[g == i], m[g == i]) for i in (SINGLE_G, SINGLE_E, MULTI, SECONDARY)}
-        raw = {i: int(((g == i) & m).sum()) for i in f}
-        sec = f[SECONDARY][0]
-        print(f'  {label}:')
-        for i, (p, e) in f.items():
-            if not np.isfinite(p):
-                print(f'    {plain(GROUPS[i][0]):<32} no MC rows')
-                continue
-            r = f'  x{p / sec:.1f} the secondary-shower rate' if sec and i != SECONDARY else ''
-            print(f'    {plain(GROUPS[i][0]):<32} {p:.4f} ± {e:.4f} ({raw[i]} MC rows pass){r}')
-
-
-def plots(mc, on, thr, out, pot_on):
+def plots(mc, on, p_mc, p_on, cl, out, pot_on, region):
     try:
         import matplotlib
     except ImportError:
@@ -299,45 +324,55 @@ def plots(mc, on, thr, out, pot_on):
     sheet = os.path.join(here, '..', 'spineplot', 'styles', 'muon2024.mplstyle')
     if os.path.exists(sheet):
         plt.style.use(sheet)
-    # (variable, range, bins, label, [(cut value, side kept: +1 above / -1 below)])
-    variables = [(GPS, (0.99, 1.0), 50, 'Shower Primary Softmax', [(thr['gps'], +1)]),
-                 (DM, (950.0, 1600.0), 26, r'Reconstructed $M_\Delta$ [MeV/$c^2$]',
-                  [(1232.0 - thr['dm'], +1), (1232.0 + thr['dm'], -1)]),
-                 (PPS, (0.0, 1.0), 50, 'Leading Proton Primary Softmax', [(thr['pps'], +1)]),
-                 ('reco_leading_primary_gOre_shower_ke', (0.0, 1000.0), 25, 'Shower KE [MeV]', [])]
-    for var, (lo, hi), nb, xl, cutlines in variables:
-        fig, axs = plt.subplots(1, 2, figsize=(16, 6.5))
-        edges = np.linspace(lo, hi, nb + 1)
-        for ax, (cname, n) in zip(axs, CLASSES):
-            sub, dsub = mc[mc[NSH] == n], on[on[NSH] == n]
-            xs = [sub.loc[sub['g'] == g, var].to_numpy(dtype=float) for g in range(len(GROUPS))]
-            ws = [sub.loc[sub['g'] == g, 'w'].to_numpy(dtype=float) for g in range(len(GROUPS))]
-            keep = [i for i in range(len(GROUPS)) if ws[i].sum() > 0]
+    all_mc, all_on = np.all(p_mc, axis=1), np.all(p_on, axis=1)
+    ke = dict(var=KE, range=(0.0, 2000.0), nbins=20, xlabel='Shower KE [MeV]', lines=[], name='shower KE')
+    jobs = []
+    for c in cl + [ke]:
+        lines = c['lines'] if c is not ke else []
+        jobs.append(('before', c, np.ones(len(mc), bool), np.ones(len(on), bool), lines, 'preselection'))
+        jobs.append(('after', c, all_mc, all_on, lines, 'all cuts'))
+    for j, c in enumerate(cl):
+        jobs.append(('nm1', c, np.all(np.delete(p_mc, j, axis=1), axis=1),
+                     np.all(np.delete(p_on, j, axis=1), axis=1), c['lines'], f'all cuts but {c["name"]}'))
+    for sub, c, m_mc, m_on, lines, stage in jobs:
+        d = os.path.join(out, sub)
+        os.makedirs(d, exist_ok=True)
+        fig, ax = plt.subplots(figsize=(10, 7.5))
+        lo, hi = c['range']
+        edges = np.linspace(lo, hi, c['nbins'] + 1)
+        sel, dsel = mc[m_mc], on[m_on]
+        xs, ws = [], []
+        for i in range(len(GROUPS)):
+            s = sel[sel['g'] == i]
+            xs.append(np.clip(s[c['var']].to_numpy(dtype=float), lo, hi - 1e-9 * (hi - lo)))
+            ws.append(s['w'].to_numpy(dtype=float))
+        keep = [i for i in range(len(GROUPS)) if ws[i].sum() > 0]
+        if keep:
             ax.hist([xs[i] for i in keep], bins=edges, weights=[ws[i] for i in keep], stacked=True,
                     histtype='barstacked', color=[GROUPS[i][1] for i in keep],
                     label=[f'{GROUPS[i][0]} ({ws[i].sum():.1f})' for i in keep])
-            k = np.histogram(dsub[var].to_numpy(dtype=float), edges)[0]
-            ctr = 0.5 * (edges[1:] + edges[:-1])
-            ax.errorbar(ctr, k, yerr=np.sqrt(k), fmt='o', color='k', ms=4, label=f'Data (BNB) ({k.sum()})')
-            ax.set_xlim(lo, hi)
-            ax.set_ylim(0, 1.45 * max(ax.get_ylim()[1], 1.0))
-            trans = mtransforms.blended_transform_factory(ax.transData, ax.transAxes)
-            span = 0.06 * (hi - lo)
-            for j, (x, side) in enumerate(cutlines):
-                ax.axvline(x, color='r', ls='--', label='cut (arrow: kept)' if j == 0 else None)
-                ax.annotate('', xy=(x + side * span, 0.6), xytext=(x, 0.6), xycoords=trans, textcoords=trans,
-                            arrowprops=dict(arrowstyle='->', color='r', lw=2))
-            ax.set_xlabel(xl)
-            ax.set_ylabel('Candidates')
-            ax.text(0.0, 1.01, PRELIM, transform=ax.transAxes, ha='left', va='bottom', color='red',
-                    fontweight='bold', fontsize='medium')
-            ax.text(1.0, 1.01, f'{pot_on:.2e} POT', transform=ax.transAxes, ha='right', va='bottom',
-                    fontsize='medium')
-            ax.legend(loc='upper right', fontsize='x-small', frameon=False,
-                      title=f'non-fid. sideband, {cname}', title_fontsize='small')
+        x_on = np.clip(dsel[c['var']].to_numpy(dtype=float), lo, hi - 1e-9 * (hi - lo))
+        k = np.histogram(x_on, edges)[0]
+        ctr = 0.5 * (edges[1:] + edges[:-1])
+        ax.errorbar(ctr, k, yerr=np.sqrt(k), fmt='o', color='k', ms=4, label=f'Data (BNB) ({k.sum()})')
+        ax.set_xlim(lo, hi)
+        ax.set_ylim(0, 1.5 * max(ax.get_ylim()[1], 1.0))
+        trans = mtransforms.blended_transform_factory(ax.transData, ax.transAxes)
+        span = 0.06 * (hi - lo)
+        for n, (x, side) in enumerate(lines):
+            ax.axvline(x, color='r', ls='--', label='cut (arrow: kept)' if n == 0 else None)
+            ax.annotate('', xy=(x + side * span, 0.6), xytext=(x, 0.6), xycoords=trans, textcoords=trans,
+                        arrowprops=dict(arrowstyle='->', color='r', lw=2))
+        ax.set_xlabel(c['xlabel'])
+        ax.set_ylabel('Candidates')
+        ax.text(0.0, 1.01, PRELIM, transform=ax.transAxes, ha='left', va='bottom', color='red',
+                fontweight='bold', fontsize='medium')
+        ax.text(1.0, 1.01, f'{pot_on:.2e} POT', transform=ax.transAxes, ha='right', va='bottom', fontsize='medium')
+        ax.legend(loc='upper right', fontsize='x-small', frameon=False, title=f'{region}\n{stage}',
+                  title_fontsize='x-small')
         fig.tight_layout()
         for ext in ('png', 'pdf'):
-            fig.savefig(os.path.join(out, f'{var}.{ext}'))
+            fig.savefig(os.path.join(d, f'{c["var"]}.{ext}'))
         plt.close(fig)
 
 
