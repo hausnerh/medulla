@@ -521,6 +521,21 @@ namespace vars::gOre
   REGISTER_VAR_SCOPE(RegistrationScope::True, n_secondary_true_showers_in_av, n_secondary_true_showers_in_av);
 
   /**
+   * @brief does the true interaction have activity inside a time window (the beam gate)?
+   * @details 1 if any of its true particles has a time t (us) in [params[0], params[1]], else 0;
+   * the per-interaction version of vars::nintime, to tell in-time from out-of-time cosmics
+   **/
+  template <class T>
+    double in_beam_gate(const T& obj, std::vector<double> params = {0.0, 1.6})
+    {
+      for (auto const& p : obj.particles)
+        if (p.t >= params.at(0) && p.t <= params.at(1))
+          return 1;
+      return 0;
+    }
+  REGISTER_VAR_SCOPE(RegistrationScope::True, in_beam_gate, in_beam_gate);
+
+  /**
    * @brief approximate the pion_mass peak
    * @details m = sqrt(2*E_1*E_2*(1 - CosTh))
    **/

@@ -56,8 +56,12 @@ def test_poisson_z_sign_and_zero():
 def write_selection(path, rng):
     import uproot
 
-    def sample(n, cat, ng, ne, ns, nsh, ns_in=None):
-        return {S.GPS: rng.uniform(0.998, 1, n), S.PPS: rng.uniform(0.96, 1, n),
+    def sample(n, cat, ng, ne, ns, nsh, ns_in=None, t_flash=0.5):
+        # alternate in-time / out-of-time flashes (t_flash vs 50 us), every 5th row without a flash match
+        tf = np.where(np.arange(n) % 2 == 0, t_flash, 50.0)
+        fl = np.where(np.arange(n) % 5 == 4, 0.0, 1.0)
+        return {S.FLASH: fl, S.FLASH_T: np.where(fl == 1, tf, np.nan),
+                S.TRUE_GATE: np.where(np.arange(n) % 2 == 0, 1.0, 0.0),S.GPS: rng.uniform(0.998, 1, n), S.PPS: rng.uniform(0.96, 1, n),
                 S.DM: rng.normal(1232, 20, n), S.NSH: np.full(n, float(nsh)),
                 'true_category': np.full(n, float(cat)),
                 'reco_leading_primary_gOre_start_dedx': np.full(n, 5.0),
@@ -71,7 +75,7 @@ def write_selection(path, rng):
     def cat(*parts):
         return {k: np.concatenate([p[k] for p in parts]) for k in parts[0]}
     with uproot.recreate(path) as f:
-        # cv: 100 single-gamma (1 shower), 100 secondary (2 showers), 50 overlay cosmics (dropped)
+        # cv: 100 single-gamma (1 shower), 100 secondary (2 showers), 50 overlay cosmics
         cv = cat(sample(100, 0, 1, 0, 0, 1), sample(100, 3, 0, 0, 2, 2), sample(50, 9, 0, 0, 0, 1))
         for key, d, pot, lt in (('cv', cv, 1e21, 0.0), ('offbeam', sample(40, 9, 0, 0, 0, 1), 0.0, 200.0),
                                 ('onbeam', sample(30, 9, 0, 0, 0, 1), 1e20, 50.0),
@@ -85,23 +89,33 @@ def test_selection_output_input(tmp_path):
     pytest.importorskip('uproot')
     path = tmp_path / 'sel.root'
     write_selection(str(path), np.random.default_rng(0))
-    want = [S.GPS, S.PPS, S.DM, S.NSH, 'true_category'] + S.ORIGIN
-    a = type('A', (), dict(sys=str(path), dirt=None, exposure_from=None, overlay_cosmics=False))()
+    want = [S.GPS, S.PPS, S.DM, S.NSH, 'true_category', S.FLASH, S.FLASH_T, S.TRUE_GATE] + S.ORIGIN
+    a = type('A', (), dict(sys=str(path), dirt=None, exposure_from=None, no_overlay_cosmics=False,
+                           flash_window=(-0.5, 1.6)))()
     mc, on, pot_on = S.build(a, want)
     assert pot_on == pytest.approx(1e20)
     w = mc.groupby('g')['w'].sum()
-    # overlay cosmics dropped; nu rows scaled by POT, off-beam by livetime, dirt from the same file
+    # nu rows scaled by POT, off-beam by livetime, dirt from the same file
     assert w[S.SINGLE_G] == pytest.approx(100 * 0.1)
     assert w[S.SEC_IN] == pytest.approx(100 * 0.1)
-    assert w[S.COSMIC] == pytest.approx(40 * 50 / 200)
     assert w[S.DIRT] == pytest.approx(20 * 0.2)
-    assert S.OVERLAY not in w.index
+    # off-beam: of 40 rows, in-time = even index and flash-matched (index % 5 != 4) -> 16
+    assert w[S.COS_IN] == pytest.approx(16 * 50 / 200)
+    assert w[S.COS_OUT] == pytest.approx(24 * 50 / 200)
+    # overlay (default on): the 50 unmatched cv rows, POT-scaled, split the same way (20 in-time)
+    assert w[S.OVL_IN] == pytest.approx(20 * 0.1)
+    assert w[S.OVL_OUT] == pytest.approx(30 * 0.1)
     assert len(on) == 30
-    # --overlay-cosmics: the 50 unmatched cv rows come back as their own POT-scaled group
-    a.overlay_cosmics = True
+    # --no-overlay-cosmics: the old matched-only scheme
+    a.no_overlay_cosmics = True
     w2 = S.build(a, want)[0].groupby('g')['w'].sum()
-    assert w2[S.OVERLAY] == pytest.approx(50 * 0.1)
-    assert w2.drop(S.OVERLAY).to_dict() == pytest.approx(w.to_dict())
+    assert S.OVL_IN not in w2.index and S.OVL_OUT not in w2.index
+    assert w2.to_dict() == pytest.approx(w.drop([S.OVL_IN, S.OVL_OUT]).to_dict())
+
+
+def test_in_time_is_the_signal_flash_cut():
+    d = pd.DataFrame({S.FLASH: [1, 1, 1, 0, 1], S.FLASH_T: [0.0, -0.6, 1.6, 0.5, np.nan]})
+    assert list(S.in_time(d, (-0.5, 1.6))) == [True, False, True, False, False]
 
 
 def test_one_shower_region_cutflow_and_nm1_outputs(tmp_path):
@@ -137,5 +151,8 @@ def test_sidebands_config_saves_origin_branches():
     nonfid = [b for b in blocks if re.search(r'name = "selected_nonfid_', b)]
     assert nonfid
     for b in nonfid:
-        for v in ('n_nu_photons', 'n_nu_electrons', 'n_secondary_true_showers', 'n_secondary_true_showers_in_av'):
+        for v in ('n_nu_photons', 'n_nu_electrons', 'n_secondary_true_showers', 'n_secondary_true_showers_in_av',
+                  'in_beam_gate'):
             assert re.search(rf'name = "{v}",\s*type = "true"', b), (v, b[:80])
+        for v in ('flash', 'flash_time'):
+            assert re.search(rf'name = "{v}",\s*type = "reco"', b), (v, b[:80])

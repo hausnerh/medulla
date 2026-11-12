@@ -27,8 +27,19 @@ true_n_secondary_true_showers_in_av:
   true secondary, >=1 outside    only secondary showers, at least one starting
                                  outside the active argon (never reconstructable)
   other nu                       no true shower above threshold
-  cosmics                        off-beam data, scaled by livetime
   dirt                           out-of-FV neutrinos (dirt MC, matched rows)
+Cosmics come from two sources, each split into in-time / out-of-time by the reco
+flash exactly as the signal's flash_cut (valid flash match with the flash time in
+--flash-window, default [-0.5, 1.6] us); this sideband has no flash cut, so
+out-of-time cosmics enter it:
+  cosmics (off-beam data)        beam-off triggers, scaled by livetime
+  cosmics in nu readouts (MC)    the cv rows without a neutrino match: cosmics
+                                 recorded in neutrino-triggered readouts, which
+                                 off-beam data cannot represent; POT-scaled
+                                 (--no-overlay-cosmics drops them: the old
+                                 matched-only scheme). Their truth beam-gate
+                                 activity (true_in_beam_gate) is printed as a
+                                 cross-check of the reco in-time label.
 
 Output (--out):
   cut flow      expected events per truth group, data, Poisson z, and the
@@ -41,15 +52,13 @@ Output (--out):
   nm1/          each cut variable with all the other cuts applied
   cutflow.csv
 
-Input: a selection-only medulla output (events/cv, offbeam, onbeam[, dirt]) or a
-sys ROOT (events/full, offbeam, onbeam). The cv rows without a neutrino match
-(overlay cosmics; category 9/NaN) are dropped, as run_systematics drops them
-from events/full: the off-beam sample is the only cosmic source
-(--overlay-cosmics keeps them as their own category).
+Input: a selection-only medulla output (events/cv, offbeam, onbeam[, dirt]); a
+sys ROOT (events/full, offbeam, onbeam) works with --no-overlay-cosmics, since
+run_systematics moves the overlay cosmics to *_nonmatched.
 
 Usage
   sideband_shower_split.py build/output_gOre_1g1p_sidebands_osc_run2_origin.root --out build/sideband_cuts \\
-      [--gps 0.9985 --dm-halfwidth 95] [--overlay-cosmics]
+      [--gps 0.9985 --dm-halfwidth 95] [--no-overlay-cosmics]
 """
 import argparse
 import os
@@ -70,13 +79,17 @@ GROUPS = [('True single $\\gamma$ primary', '#E69900'),
           ('True secondary showers, all start in argon', '#F2E640'),
           ('True secondary showers, $\\geq$1 starts outside argon', '#17BECF'),
           ('Other $\\nu$', '#9980CC'),
-          ('Cosmics', '#808080'),
+          ('Cosmics, in-time (off-beam data)', '#808080'),
+          ('Cosmics, out-of-time (off-beam data)', '#C2C2C2'),
           ('Dirt', '#8C564B'),
-          ('Cosmics in $\\nu$ events (MC overlay)', '#4D4D4D')]
-SINGLE_G, SINGLE_E, MULTI, SEC_IN, SEC_OUT, OTHER, COSMIC, DIRT, OVERLAY = range(9)
+          ('Cosmics in $\\nu$ readouts, in-time (MC)', '#4F6475'),
+          ('Cosmics in $\\nu$ readouts, out-of-time (MC)', '#A7B9C9')]
+SINGLE_G, SINGLE_E, MULTI, SEC_IN, SEC_OUT, OTHER, COS_IN, COS_OUT, DIRT, OVL_IN, OVL_OUT = range(11)
 SECONDARIES = (SEC_IN, SEC_OUT)
+COSMICS = (COS_IN, COS_OUT, OVL_IN, OVL_OUT)
 SHOWN = list(range(len(GROUPS)))
-SHORT = ['1g', '1e', 'multi', 'sec in', 'sec out', 'oth nu', 'cosmic', 'dirt', 'ovl cos']
+SHORT = ['1g', '1e', 'multi', 'sec in', 'sec out', 'oth nu', 'cos in', 'cos out', 'dirt', 'ovl in', 'ovl out']
+FLASH, FLASH_T, TRUE_GATE = 'reco_flash', 'reco_flash_time', 'true_in_beam_gate'
 KE = 'reco_leading_primary_gOre_shower_ke'
 PRELIM = 'ICARUS Analysis In-Progress'
 
@@ -187,6 +200,13 @@ def exposure(val, path, key, hist):
     return v
 
 
+def in_time(d, window):
+    """The signal's flash_cut: a valid flash match with the flash time inside the window (us)."""
+    t = d[FLASH_T].to_numpy(dtype=float)
+    ok = (d[FLASH].to_numpy(dtype=float) == 1) & np.isfinite(t)
+    return ok & (t >= window[0]) & (t <= window[1])
+
+
 def matched(d):
     """Rows with a neutrino match (drops overlay cosmics: category 9 or NaN)."""
     c = d['true_category'].to_numpy(dtype=float)
@@ -227,21 +247,29 @@ def build(a, want):
     keep = matched(full)
     overlay = full.drop(keep.index)
     full = keep
-    note = ('kept as "cosmics in nu events" (--overlay-cosmics)' if a.overlay_cosmics else
-            'dropped: off-beam is the only cosmic source; --overlay-cosmics keeps them')
+    note = ('dropped (--no-overlay-cosmics): off-beam is the only cosmic source' if a.no_overlay_cosmics else
+            'kept as "cosmics in nu readouts"')
     print(f'events/{key}: {len(full)} of {n0} rows have a neutrino match; the other {len(overlay)} '
           f'(overlay cosmics, {len(overlay) * pot_on / pot_cv:.1f} at on-beam POT) {note}; '
           f'POT {pot_cv:.4g}; off-beam livetime {lt_off:.4g}, on-beam {lt_on:.4g}')
     full['g'], full['w'] = group_of(full), pot_on / pot_cv
-    off['g'], off['w'] = COSMIC, lt_on / lt_off
+    off['g'], off['w'] = np.where(in_time(off, a.flash_window), COS_IN, COS_OUT), lt_on / lt_off
     parts = [full, off]
-    if a.overlay_cosmics:
+    if not a.no_overlay_cosmics:
         if key == 'full':
-            raise SystemExit('--overlay-cosmics needs a selection output (events/cv): a sys ROOT keeps them '
-                             'in *_nonmatched')
+            raise SystemExit('a sys ROOT keeps the overlay cosmics in *_nonmatched: pass a selection output '
+                             '(events/cv) or --no-overlay-cosmics')
         overlay = overlay.copy()
-        overlay['g'], overlay['w'] = OVERLAY, pot_on / pot_cv
+        it = in_time(overlay, a.flash_window)
+        overlay['g'], overlay['w'] = np.where(it, OVL_IN, OVL_OUT), pot_on / pot_cv
         parts.append(overlay)
+        gate = overlay[TRUE_GATE].to_numpy(dtype=float)
+        for label, m in (('reco in-time', it), ('reco out-of-time', ~it)):
+            g_ = gate[m]
+            known = np.isfinite(g_)
+            print(f'  overlay cosmics, {label}: {int(m.sum())} rows; truth activity in the beam gate '
+                  f'{np.mean(g_[known] == 1) if known.any() else float("nan"):.1%} '
+                  f'(of the {int(known.sum())} with a true interaction)')
     dirt = a.dirt or (a.sys if has(a.sys, 'dirt') else None)
     if dirt:
         dr, pot_dr, _ = load(dirt, 'dirt', want)
@@ -262,9 +290,11 @@ def main(argv=None):
     ap.add_argument('--out', required=True)
     ap.add_argument('--n-showers', type=int, default=1,
                     help='reco primary showers defining the sideband region (default 1, as in the 1g1p selection)')
-    ap.add_argument('--overlay-cosmics', action='store_true',
-                    help='also keep the cv rows without a neutrino match (cosmics recorded in neutrino-triggered '
-                         'readouts) as their own category, POT-scaled; off-beam covers only beam-off triggers')
+    ap.add_argument('--no-overlay-cosmics', action='store_true',
+                    help='drop the cv rows without a neutrino match (cosmics recorded in neutrino-triggered '
+                         'readouts); off-beam then is the only cosmic source (the old matched-only scheme)')
+    ap.add_argument('--flash-window', type=float, nargs=2, default=(-0.5, 1.6), metavar=('LO', 'HI'),
+                    help='in-time flash window [us] for the cosmic labels (the signal flash_cut; default -0.5 1.6)')
     ap.add_argument('--exposure-from', help='ROOT file to take missing POT/Livetime histograms from (same onbeam/'
                                              'offbeam samples; only needed for old sys ROOTs)')
     ap.add_argument('--gps', type=float, default=0.9985, help='gamma primary softmax (2D re-tune; nominal 0.9991)')
@@ -278,7 +308,7 @@ def main(argv=None):
     os.makedirs(a.out, exist_ok=True)
     thr = dict(gps=a.gps, pps=a.pps, dm=a.dm_halfwidth, dedx=a.dedx, axial=a.axial, dirs=a.dirs, phs=a.phs)
     cl = cuts(thr)
-    want = sorted({c['var'] for c in cl} | {NSH, 'true_category', KE} | set(ORIGIN))
+    want = sorted({c['var'] for c in cl} | {NSH, 'true_category', KE, FLASH, FLASH_T, TRUE_GATE} | set(ORIGIN))
     mc, on, pot_on = build(a, want)
     region = f'non-fid. sideband, {a.n_showers} reco shower' + ('s' if a.n_showers != 1 else '')
     mc = mc[mc[NSH].to_numpy() == a.n_showers].reset_index(drop=True)
@@ -335,7 +365,7 @@ def main(argv=None):
         nd = int(others_on.sum())
         rd = 1 - int((others_on & p_on[:, j]).sum()) / nd if nd else float('nan')
         print(f'  {c["name"]:<38} {r["mc_expected"]:8.1f} {r["data_n"]:6d} {r["z"]:5.1f} | {rej(g == SINGLE_G):11.3f} '
-              f'{rej(g == SEC_IN):6.3f} {rej(g == SEC_OUT):7.3f} {rej(g == COSMIC):7.3f} {rej(g == OTHER):8.3f} '
+              f'{rej(g == SEC_IN):6.3f} {rej(g == SEC_OUT):7.3f} {rej(np.isin(g, COSMICS)):7.3f} {rej(g == OTHER):8.3f} '
               f'{rej(np.ones(len(mc), bool)):7.3f} {rd:6.3f}')
     pd.DataFrame(rows).to_csv(os.path.join(a.out, 'cutflow.csv'), index=False)
 
