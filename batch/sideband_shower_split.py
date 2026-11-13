@@ -18,15 +18,25 @@ neutrino interaction" when the particle is its own ancestor (a generator
 final-state particle, CC or NC); it is "secondary" when it descends from another
 final-state particle (pi0 decays, hadron reinteractions, delta rays). Branches
 true_n_nu_photons, true_n_nu_electrons, true_n_secondary_true_showers,
-true_n_secondary_true_showers_in_av:
+true_n_secondary_true_showers_in_av, and the pi0 photons among the secondaries
+(parent pdg 111): true_n_pi0_true_showers, true_n_pi0_true_showers_escaping
+(starts outside the active volume or not contained), true_n_pi0_lone_photons
+(a pi0 with only one decay photon in the truth record):
   true single gamma primary      1 photon from the nu, no other true shower
   true single e primary          1 electron from the nu, no other true shower
   true multiple primary e/gamma  >=2 showers from the nu, or 1 plus secondaries
-  true secondary, all in argon   only secondary showers (pi0-like), all starting
-                                 (first deposition) inside the active argon
-  true secondary, >=1 outside    only secondary showers, at least one starting
-                                 outside the active argon (never reconstructable)
+  true pi0, all photons in argon only secondary showers, >=1 from a pi0, every
+                                 pi0 photon starting and contained in the argon
+  true pi0, a photon escapes     as above, but a pi0 photon starts outside or
+                                 leaves the argon, or is missing from the record
+  true other secondary showers   only secondary showers, none from a pi0
+                                 (delta rays, Michel electrons, brems, ...)
   other nu                       no true shower above threshold
+Files without the pi0 branches fall back to the split by start point only
+(secondary, all start in argon / >=1 starts outside) with no "other secondary".
+MC rows of readouts that fail the trigger emulation (event_trigger_emulated = 0)
+are dropped: such a readout exists in data only if a cosmic fired the trigger,
+which the off-beam sample already counts (--no-trigger-emulation keeps them).
   dirt                           out-of-FV neutrinos (dirt MC, matched rows)
 Cosmics come from two sources, each split into in-time / out-of-time by the reco
 flash exactly as the signal's flash_cut (valid flash match with the flash time in
@@ -73,40 +83,54 @@ DM = 'reco_delta_mass_P'
 NSH = 'reco_n_primary_showers'
 ORIGIN = ['true_n_nu_photons', 'true_n_nu_electrons', 'true_n_secondary_true_showers',
           'true_n_secondary_true_showers_in_av']
+PI0 = ['true_n_pi0_true_showers', 'true_n_pi0_true_showers_escaping', 'true_n_pi0_lone_photons']
+TRIG = ('event_trigger_emulated', 'trigger_emulated')
 GROUPS = [('True single $\\gamma$ primary', '#E69900'),
           ('True single $e$ primary', '#2CA02C'),
           ('True multiple primary $e/\\gamma$', '#1F77B4'),
-          ('True secondary showers, all start in argon', '#F2E640'),
-          ('True secondary showers, $\\geq$1 starts outside argon', '#17BECF'),
+          ('True $\\pi^0$ showers, all photons in argon', '#F2E640'),
+          ('True $\\pi^0$ showers, a photon escapes the argon', '#17BECF'),
+          ('True other secondary showers ($\\delta$-ray, Michel, ...)', '#E377C2'),
           ('Other $\\nu$', '#9980CC'),
           ('Cosmics, in-time (off-beam data)', '#808080'),
           ('Cosmics, out-of-time (off-beam data)', '#C2C2C2'),
           ('Dirt', '#8C564B'),
           ('Cosmics in $\\nu$ readouts, in-time (MC)', '#4F6475'),
           ('Cosmics in $\\nu$ readouts, out-of-time (MC)', '#A7B9C9')]
-SINGLE_G, SINGLE_E, MULTI, SEC_IN, SEC_OUT, OTHER, COS_IN, COS_OUT, DIRT, OVL_IN, OVL_OUT = range(11)
-SECONDARIES = (SEC_IN, SEC_OUT)
+SINGLE_G, SINGLE_E, MULTI, SEC_IN, SEC_OUT, SEC_OTHER, OTHER, COS_IN, COS_OUT, DIRT, OVL_IN, OVL_OUT = range(12)
+LEGACY_LABELS = {SEC_IN: 'True secondary showers, all start in argon',
+                 SEC_OUT: 'True secondary showers, $\\geq$1 starts outside argon'}
+PI0_LABELS = {i: GROUPS[i][0] for i in LEGACY_LABELS}
 COSMICS = (COS_IN, COS_OUT, OVL_IN, OVL_OUT)
 SHOWN = list(range(len(GROUPS)))
-SHORT = ['1g', '1e', 'multi', 'sec in', 'sec out', 'oth nu', 'cos in', 'cos out', 'dirt', 'ovl in', 'ovl out']
+SHORT = ['1g', '1e', 'multi', 'pi0 in', 'pi0 out', 'oth sec', 'oth nu', 'cos in', 'cos out', 'dirt', 'ovl in', 'ovl out']
 FLASH, FLASH_T, TRUE_GATE = 'reco_flash', 'reco_flash_time', 'true_in_beam_gate'
 KE = 'reco_leading_primary_gOre_shower_ke'
 PRELIM = 'ICARUS Analysis In-Progress'
 
 
 def plain(label):
-    for tex, txt in (('$\\geq$', '>='), ('$e/\\gamma$', 'e/gamma'), ('$\\gamma$', 'gamma'), ('$e$', 'e'), ('$\\nu$', 'nu')):
+    for tex, txt in (('$\\geq$', '>='), ('$\\pi^0$', 'pi0'), ('$\\delta$', 'delta'), ('$e/\\gamma$', 'e/gamma'), ('$\\gamma$', 'gamma'), ('$e$', 'e'), ('$\\nu$', 'nu')):
         label = label.replace(tex, txt)
     return label
 
 
 def group_of(d):
-    """Truth group per row from the shower-origin counts (NaN counts: no match -> other nu)."""
+    """Truth group per row from the shower-origin counts (NaN counts: no match -> other nu).
+    With the pi0 branches the secondary-only rows split into pi0 in argon / pi0 escaping / other secondary;
+    without them (older files), by whether every secondary shower starts in the argon."""
     ng, ne, ns, ns_in = (np.nan_to_num(d[c].to_numpy(dtype=float), nan=0.0) for c in ORIGIN)
     nnu = ng + ne
+    sec = (nnu == 0) & (ns > 0)
     g = np.full(len(d), OTHER)
-    g[(nnu == 0) & (ns > 0) & (ns_in >= ns)] = SEC_IN
-    g[(nnu == 0) & (ns > 0) & (ns_in < ns)] = SEC_OUT
+    if all(c in d for c in PI0):
+        npi, esc, lone = (np.nan_to_num(d[c].to_numpy(dtype=float), nan=0.0) for c in PI0)
+        g[sec & (npi == 0)] = SEC_OTHER
+        g[sec & (npi > 0)] = SEC_IN
+        g[sec & (npi > 0) & ((esc > 0) | (lone > 0))] = SEC_OUT
+    else:
+        g[sec & (ns_in >= ns)] = SEC_IN
+        g[sec & (ns_in < ns)] = SEC_OUT
     g[(nnu >= 2) | ((nnu == 1) & (ns > 0))] = MULTI
     g[(ng == 1) & (ne == 0) & (ns == 0)] = SINGLE_G
     g[(ne == 1) & (ng == 0) & (ns == 0)] = SINGLE_E
@@ -170,12 +194,14 @@ def has(path, key):
     return 'events' in f and key in f['events']
 
 
-def load(path, key, want):
+def load(path, key, want, optional=()):
+    """events/<key>/TREE as a DataFrame (`want` required, `optional` read when present), POT, Livetime."""
     import uproot
     f = uproot.open(path)
     if 'events' not in f or key not in f['events']:
         raise SystemExit(f'{path}: no events/{key}')
     t = f[f'events/{key}/{TREE}']
+    want = list(want) + [b for b in optional if b in t.keys() and b not in want]
     miss = [b for b in want if b not in t.keys()]
     if miss:
         hint = (' (rerun the sidebands selection with the shower-origin branches: see the module docstring)'
@@ -207,6 +233,18 @@ def in_time(d, window):
     return ok & (t >= window[0]) & (t <= window[1])
 
 
+def triggered(d, label, keep_all):
+    """Drop MC rows whose readout failed the trigger emulation (prints how many); unchanged without the branch."""
+    col = next((c for c in TRIG if c in d), None)
+    if col is None:
+        print(f'  {label}: no trigger-emulation branch ({TRIG[0]}): untriggered MC readouts are kept')
+        return d
+    fail = ~(d[col].to_numpy(dtype=float) == 1)
+    print(f'  {label}: {int(fail.sum())} of {len(d)} rows ({fail.mean() if len(d) else 0:.1%}) fail the trigger '
+          f'emulation' + (' (kept: --no-trigger-emulation)' if keep_all else ' (dropped)'))
+    return d if keep_all else d[~fail].copy()
+
+
 def matched(d):
     """Rows with a neutrino match (drops overlay cosmics: category 9 or NaN)."""
     c = d['true_category'].to_numpy(dtype=float)
@@ -234,9 +272,15 @@ def poisson_z(n, mu):
 def build(a, want):
     import pandas as pd
     key = 'full' if has(a.sys, 'full') else 'cv'
-    full, pot_cv, _ = load(a.sys, key, want)
-    off, _, lt_off = load(a.sys, 'offbeam', want)
-    on, pot_on, lt_on = load(a.sys, 'onbeam', want)
+    opt = PI0 + list(TRIG)
+    full, pot_cv, _ = load(a.sys, key, want, opt)
+    off, _, lt_off = load(a.sys, 'offbeam', want, opt)
+    on, pot_on, lt_on = load(a.sys, 'onbeam', want, opt)
+    legacy = not all(c in full for c in PI0)
+    if legacy:
+        print(f'NOTE: no pi0 branches ({PI0[0]}, ...): secondary showers split by start point only')
+    for i, lab in (LEGACY_LABELS if legacy else PI0_LABELS).items():
+        GROUPS[i] = (lab, GROUPS[i][1])
     pot_cv = exposure(pot_cv, a.exposure_from, key, 'POT')
     lt_off = exposure(lt_off, a.exposure_from, 'offbeam', 'Livetime')
     pot_on = exposure(pot_on, a.exposure_from, 'onbeam', 'POT')
@@ -252,6 +296,8 @@ def build(a, want):
     print(f'events/{key}: {len(full)} of {n0} rows have a neutrino match; the other {len(overlay)} '
           f'(overlay cosmics, {len(overlay) * pot_on / pot_cv:.1f} at on-beam POT) {note}; '
           f'POT {pot_cv:.4g}; off-beam livetime {lt_off:.4g}, on-beam {lt_on:.4g}')
+    full = triggered(full, f'events/{key} (nu matched)', a.no_trigger_emulation)
+    overlay = triggered(overlay, f'events/{key} (overlay cosmics)', a.no_trigger_emulation)
     full['g'], full['w'] = group_of(full), pot_on / pot_cv
     off['g'], off['w'] = np.where(in_time(off, a.flash_window), COS_IN, COS_OUT), lt_on / lt_off
     parts = [full, off]
@@ -272,8 +318,8 @@ def build(a, want):
                   f'(of the {int(known.sum())} with a true interaction)')
     dirt = a.dirt or (a.sys if has(a.sys, 'dirt') else None)
     if dirt:
-        dr, pot_dr, _ = load(dirt, 'dirt', want)
-        dr = matched(dr)
+        dr, pot_dr, _ = load(dirt, 'dirt', want, opt)
+        dr = triggered(matched(dr), 'events/dirt', a.no_trigger_emulation)
         dr['g'], dr['w'] = DIRT, pot_on / pot_dr
         parts.append(dr)
         print(f'dirt from {dirt}: {len(dr)} matched rows, POT {pot_dr:.4g}')
@@ -293,6 +339,9 @@ def main(argv=None):
     ap.add_argument('--no-overlay-cosmics', action='store_true',
                     help='drop the cv rows without a neutrino match (cosmics recorded in neutrino-triggered '
                          'readouts); off-beam then is the only cosmic source (the old matched-only scheme)')
+    ap.add_argument('--no-trigger-emulation', action='store_true',
+                    help='keep MC rows of readouts that fail the trigger emulation (data have them only when a '
+                         'cosmic fired the trigger, which off-beam already counts)')
     ap.add_argument('--flash-window', type=float, nargs=2, default=(-0.5, 1.6), metavar=('LO', 'HI'),
                     help='in-time flash window [us] for the cosmic labels (the signal flash_cut; default -0.5 1.6)')
     ap.add_argument('--exposure-from', help='ROOT file to take missing POT/Livetime histograms from (same onbeam/'
@@ -331,8 +380,8 @@ def main(argv=None):
 
     print('\ncut flow (cumulative): expected events per truth group, and the fraction of each truth group kept')
     hdr = ''.join(f'{SHORT[i]:>9}' for i in SHOWN)
-    print(f'  {"stage":<38} {"MC":>8} {"data":>6} {"z":>5} |{hdr} | {"1g kept":>8} {"sec in":>8} {"sec out":>8} '
-          f'{"1g/sec":>7}')
+    print(f'  {"stage":<38} {"MC":>8} {"data":>6} {"z":>5} |{hdr} | {"1g kept":>8} {"pi0 in":>8} {"pi0 out":>8} '
+          f'{"oth sec":>8} {"1g/pi0":>7}')
     w, g = mc['w'].to_numpy(), mc['g'].to_numpy()
     tot = {i: w[g == i].sum() for i in SHOWN}
     m_mc, m_on = np.ones(len(mc), bool), np.ones(len(on), bool)
@@ -345,15 +394,16 @@ def main(argv=None):
         kg = r[plain(GROUPS[SINGLE_G][0])] / tot[SINGLE_G] if tot[SINGLE_G] else float('nan')
         kin = r[plain(GROUPS[SEC_IN][0])] / tot[SEC_IN] if tot[SEC_IN] else float('nan')
         kout = r[plain(GROUPS[SEC_OUT][0])] / tot[SEC_OUT] if tot[SEC_OUT] else float('nan')
+        koth = r[plain(GROUPS[SEC_OTHER][0])] / tot[SEC_OTHER] if tot[SEC_OTHER] else float('nan')
         tsec = tot[SEC_IN] + tot[SEC_OUT]
         ks = (r[plain(GROUPS[SEC_IN][0])] + r[plain(GROUPS[SEC_OUT][0])]) / tsec if tsec else float('nan')
         cols = ''.join(f'{r[plain(GROUPS[i][0])]:9.1f}' for i in SHOWN)
         print(f'  {r["stage"]:<38} {r["mc_expected"]:8.1f} {r["data_n"]:6d} {r["z"]:5.1f} |{cols} | '
-              f'{kg:8.3f} {kin:8.4f} {kout:8.4f} {kg / ks if ks else float("inf"):7.1f}')
+              f'{kg:8.3f} {kin:8.4f} {kout:8.4f} {koth:8.4f} {kg / ks if ks else float("inf"):7.1f}')
 
     print('\nN-1: all other cuts applied; what this cut alone then removes (fraction of each group it rejects)')
-    print(f'  {"cut left out":<38} {"MC":>8} {"data":>6} {"z":>5} | {"rejects: 1g":>11} {"sec in":>6} {"sec out":>7} '
-          f'{"cosmic":>7} {"other nu":>8} {"MC all":>7} {"data":>6}')
+    print(f'  {"cut left out":<38} {"MC":>8} {"data":>6} {"z":>5} | {"rejects: 1g":>11} {"pi0 in":>6} {"pi0 out":>7} '
+          f'{"oth sec":>7} {"cosmic":>7} {"other nu":>8} {"MC all":>7} {"data":>6}')
     for j, c in enumerate(cl):
         others_mc = np.all(np.delete(p_mc, j, axis=1), axis=1)
         others_on = np.all(np.delete(p_on, j, axis=1), axis=1)
@@ -365,7 +415,7 @@ def main(argv=None):
         nd = int(others_on.sum())
         rd = 1 - int((others_on & p_on[:, j]).sum()) / nd if nd else float('nan')
         print(f'  {c["name"]:<38} {r["mc_expected"]:8.1f} {r["data_n"]:6d} {r["z"]:5.1f} | {rej(g == SINGLE_G):11.3f} '
-              f'{rej(g == SEC_IN):6.3f} {rej(g == SEC_OUT):7.3f} {rej(np.isin(g, COSMICS)):7.3f} {rej(g == OTHER):8.3f} '
+              f'{rej(g == SEC_IN):6.3f} {rej(g == SEC_OUT):7.3f} {rej(g == SEC_OTHER):7.3f} {rej(np.isin(g, COSMICS)):7.3f} {rej(g == OTHER):8.3f} '
               f'{rej(np.ones(len(mc), bool)):7.3f} {rd:6.3f}')
     pd.DataFrame(rows).to_csv(os.path.join(a.out, 'cutflow.csv'), index=False)
 

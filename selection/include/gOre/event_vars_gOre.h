@@ -232,7 +232,23 @@ namespace evars::gOre
       return n_mc_category(sr, 6);
     }
   REGISTER_VAR_SCOPE(RegistrationScope::Event, n_mc_category_6, n_mc_category_6);
-  
+
+  /**
+   * @brief did the readout pass the trigger? (the branch form of cuts::trigger_emulation_cut)
+   * @details data: always 1. MC: 1 when the trigger emulation gave a global trigger time, else 0.
+   * An MC event that fails it would only be recorded if a cosmic fired the trigger, which the
+   * off-beam sample already represents.
+   * @tparam T the top-level record.
+   * @param sr the StandardRecord.
+   * @return 1 if triggered, else 0
+   **/
+  template <typename T>
+    double trigger_emulated(const T& sr)
+    {
+      return (sr.hdr.ismc && std::isnan(sr.hdr.triggerinfo.global_trigger_det_time)) ? 0 : 1;
+    }
+  REGISTER_VAR_SCOPE(RegistrationScope::Event, trigger_emulated, trigger_emulated);
+
 } // end namespace evars::gOre
 
 #endif

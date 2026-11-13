@@ -11,6 +11,7 @@
 #include <array>
 #include <cmath>
 #include <cstdlib>
+#include <map>
 
 #include "include/gOre/cuts_gOre.h"
 
@@ -465,15 +466,21 @@ namespace vars::gOre
    * @param obj the interaction (MC only)
    * @param emin the shower kinetic energy threshold (MeV)
    * @return {photons from the neutrino interaction, electrons from the neutrino interaction, secondary showers,
-   * secondary showers starting inside the active argon}
+   * secondary showers starting inside the active argon, pi0 decay photons (secondary, parent pdg 111),
+   * those pi0 photons that escape the argon (start outside the active volume or not contained),
+   * pi0s with only one decay photon in the truth record (any energy: the partner was not stored)}
    **/
   template <class T>
-    std::array<size_t, 4> count_true_showers_by_origin(const T& obj, const double emin)
+    std::array<size_t, 7> count_true_showers_by_origin(const T& obj, const double emin)
     {
-      std::array<size_t, 4> n{0, 0, 0, 0};
+      std::array<size_t, 7> n{0, 0, 0, 0, 0, 0, 0};
+      std::map<int64_t, size_t> pi0_photons; // pi0 track id -> decay photons in the record (any energy)
       for (auto const& p : obj.particles)
       {
         const int64_t pdg = std::abs(static_cast<int64_t>(p.pdg_code));
+        const bool from_pi0 = pdg == 22 && p.parent_pdg_code == 111;
+        if (from_pi0)
+          ++pi0_photons[static_cast<int64_t>(p.parent_track_id)];
         if ((pdg != 22 && pdg != 11) || pvars::ke(p) < emin)
           continue;
         if (std::abs(static_cast<int64_t>(p.ancestor_pdg_code)) != pdg)
@@ -481,10 +488,19 @@ namespace vars::gOre
           ++n[2];
           if (true_start_in_active_volume(p))
             ++n[3];
+          if (from_pi0)
+          {
+            ++n[4];
+            if (!true_start_in_active_volume(p) || !p.is_contained)
+              ++n[5];
+          }
         }
         else
           ++n[pdg == 22 ? 0 : 1];
       }
+      for (auto const& [id, count] : pi0_photons)
+        if (count == 1)
+          ++n[6];
       return n;
     }
 
@@ -519,6 +535,34 @@ namespace vars::gOre
       return count_true_showers_by_origin(obj, params.at(0))[3];
     }
   REGISTER_VAR_SCOPE(RegistrationScope::True, n_secondary_true_showers_in_av, n_secondary_true_showers_in_av);
+
+  /** @brief number of true pi0 decay photons above threshold (secondary showers whose parent is a pi0) **/
+  template <class T>
+    double n_pi0_true_showers(const T& obj, std::vector<double> params = {GORE_MIN_GORE_ENERGY})
+    {
+      return count_true_showers_by_origin(obj, params.at(0))[4];
+    }
+  REGISTER_VAR_SCOPE(RegistrationScope::True, n_pi0_true_showers, n_pi0_true_showers);
+
+  /**
+   * @brief number of those pi0 decay photons that escape the argon
+   * @details the photon starts (first deposition) outside the active volume, deposits nothing, or is
+   * not contained (SPINE truth containment: part of its shower leaves the active volume)
+   **/
+  template <class T>
+    double n_pi0_true_showers_escaping(const T& obj, std::vector<double> params = {GORE_MIN_GORE_ENERGY})
+    {
+      return count_true_showers_by_origin(obj, params.at(0))[5];
+    }
+  REGISTER_VAR_SCOPE(RegistrationScope::True, n_pi0_true_showers_escaping, n_pi0_true_showers_escaping);
+
+  /** @brief number of pi0s with only one decay photon in the truth record (the partner was not stored) **/
+  template <class T>
+    double n_pi0_lone_photons(const T& obj, std::vector<double> params = {GORE_MIN_GORE_ENERGY})
+    {
+      return count_true_showers_by_origin(obj, params.at(0))[6];
+    }
+  REGISTER_VAR_SCOPE(RegistrationScope::True, n_pi0_lone_photons, n_pi0_lone_photons);
 
   /**
    * @brief does the true interaction have activity inside a time window (the beam gate)?

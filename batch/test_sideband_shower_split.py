@@ -35,6 +35,17 @@ def test_groups_from_shower_origin():
                                    S.SEC_OUT, S.SEC_IN, S.OTHER, S.OTHER]
 
 
+def test_groups_split_pi0_from_other_secondaries():
+    d = origin([[0, 0, 2, 2], [0, 0, 2, 2], [0, 0, 1, 1], [0, 0, 1, 1], [1, 0, 0, 0]])
+    pi0 = pd.DataFrame([[2, 0, 0],      # pi0, both photons contained in the argon
+                        [2, 1, 0],      # pi0, one photon leaves the argon
+                        [1, 0, 1],      # pi0 with its partner photon missing from the record
+                        [0, 0, 0],      # one secondary shower, not from a pi0 (delta ray / Michel)
+                        [0, 0, 0]], columns=S.PI0)
+    assert list(S.group_of(pd.concat([d, pi0], axis=1))) == [S.SEC_IN, S.SEC_OUT, S.SEC_OUT, S.SEC_OTHER,
+                                                             S.SINGLE_G]
+
+
 @pytest.mark.parametrize('rng_, nb, cuts', [((0.99, 1.0), 20, [0.9985]), ((0.99, 1.0), 20, [0.9991]),
                                             ((0.0, 1.0), 50, [0.9513]), ((950.0, 1600.0), 26, [1137.0, 1327.0]),
                                             ((950.0, 1600.0), 26, [1172.3, 1291.7]), ((0.0, 0.2), 40, [0.037])])
@@ -53,10 +64,10 @@ def test_poisson_z_sign_and_zero():
     assert S.poisson_z(0, 3.0) < -2.0
 
 
-def write_selection(path, rng):
+def write_selection(path, rng, pi0=False):
     import uproot
 
-    def sample(n, cat, ng, ne, ns, nsh, ns_in=None, t_flash=0.5):
+    def sample(n, cat, ng, ne, ns, nsh, ns_in=None, t_flash=0.5, npi0=0):
         # alternate in-time / out-of-time flashes (t_flash vs 50 us), every 5th row without a flash match
         tf = np.where(np.arange(n) % 2 == 0, t_flash, 50.0)
         fl = np.where(np.arange(n) % 5 == 4, 0.0, 1.0)
@@ -70,13 +81,15 @@ def write_selection(path, rng):
                 'reco_leading_primary_gOre_photon_softmax': np.full(n, 0.99),
                 'reco_leading_primary_gOre_shower_ke': np.full(n, 200.0),
                 S.ORIGIN[0]: np.full(n, float(ng)), S.ORIGIN[1]: np.full(n, float(ne)),
-                S.ORIGIN[2]: np.full(n, float(ns)), S.ORIGIN[3]: np.full(n, float(ns if ns_in is None else ns_in))}
+                S.ORIGIN[2]: np.full(n, float(ns)), S.ORIGIN[3]: np.full(n, float(ns if ns_in is None else ns_in)),
+                **({S.PI0[0]: np.full(n, float(npi0)), S.PI0[1]: np.zeros(n), S.PI0[2]: np.zeros(n),
+                    S.TRIG[0]: np.where(np.arange(n) % 10 == 9, 0.0, 1.0)} if pi0 else {})}
 
     def cat(*parts):
         return {k: np.concatenate([p[k] for p in parts]) for k in parts[0]}
     with uproot.recreate(path) as f:
         # cv: 100 single-gamma (1 shower), 100 secondary (2 showers), 50 overlay cosmics
-        cv = cat(sample(100, 0, 1, 0, 0, 1), sample(100, 3, 0, 0, 2, 2), sample(50, 9, 0, 0, 0, 1))
+        cv = cat(sample(100, 0, 1, 0, 0, 1), sample(100, 3, 0, 0, 2, 2, npi0=2), sample(50, 9, 0, 0, 0, 1))
         for key, d, pot, lt in (('cv', cv, 1e21, 0.0), ('offbeam', sample(40, 9, 0, 0, 0, 1), 0.0, 200.0),
                                 ('onbeam', sample(30, 9, 0, 0, 0, 1), 1e20, 50.0),
                                 ('dirt', sample(20, 5, 0, 0, 0, 2), 5e20, 0.0)):
@@ -91,7 +104,7 @@ def test_selection_output_input(tmp_path):
     write_selection(str(path), np.random.default_rng(0))
     want = [S.GPS, S.PPS, S.DM, S.NSH, 'true_category', S.FLASH, S.FLASH_T, S.TRUE_GATE] + S.ORIGIN
     a = type('A', (), dict(sys=str(path), dirt=None, exposure_from=None, no_overlay_cosmics=False,
-                           flash_window=(-0.5, 1.6)))()
+                           no_trigger_emulation=False, flash_window=(-0.5, 1.6)))()
     mc, on, pot_on = S.build(a, want)
     assert pot_on == pytest.approx(1e20)
     w = mc.groupby('g')['w'].sum()
@@ -111,6 +124,25 @@ def test_selection_output_input(tmp_path):
     w2 = S.build(a, want)[0].groupby('g')['w'].sum()
     assert S.OVL_IN not in w2.index and S.OVL_OUT not in w2.index
     assert w2.to_dict() == pytest.approx(w.drop([S.OVL_IN, S.OVL_OUT]).to_dict())
+
+
+def test_untriggered_mc_dropped_and_pi0_groups(tmp_path):
+    pytest.importorskip('uproot')
+    path = tmp_path / 'sel.root'
+    write_selection(str(path), np.random.default_rng(0), pi0=True)
+    want = [S.GPS, S.NSH, 'true_category', S.FLASH, S.FLASH_T, S.TRUE_GATE] + S.ORIGIN
+    a = type('A', (), dict(sys=str(path), dirt=None, exposure_from=None, no_overlay_cosmics=False,
+                           no_trigger_emulation=False, flash_window=(-0.5, 1.6)))()
+    w = S.build(a, want)[0].groupby('g')['w'].sum()
+    # every 10th MC row fails the trigger emulation and is dropped; data rows are untouched
+    assert w[S.SINGLE_G] == pytest.approx(90 * 0.1)
+    assert w[S.SEC_IN] == pytest.approx(90 * 0.1)            # pi0 photons, contained
+    assert w[S.DIRT] == pytest.approx(18 * 0.2)
+    assert w[S.COS_IN] + w[S.COS_OUT] == pytest.approx(40 * 50 / 200)
+    assert S.GROUPS[S.SEC_IN][0] == S.PI0_LABELS[S.SEC_IN]
+    a.no_trigger_emulation = True
+    w2 = S.build(a, want)[0].groupby('g')['w'].sum()
+    assert w2[S.SINGLE_G] == pytest.approx(100 * 0.1)
 
 
 def test_in_time_is_the_signal_flash_cut():
@@ -152,7 +184,8 @@ def test_sidebands_config_saves_origin_branches():
     assert nonfid
     for b in nonfid:
         for v in ('n_nu_photons', 'n_nu_electrons', 'n_secondary_true_showers', 'n_secondary_true_showers_in_av',
-                  'in_beam_gate'):
+                  'in_beam_gate', 'n_pi0_true_showers', 'n_pi0_true_showers_escaping', 'n_pi0_lone_photons'):
             assert re.search(rf'name = "{v}",\s*type = "true"', b), (v, b[:80])
+        assert re.search(r'name = "trigger_emulated",\s*type = "event"', b), b[:80]
         for v in ('flash', 'flash_time'):
             assert re.search(rf'name = "{v}",\s*type = "reco"', b), (v, b[:80])
