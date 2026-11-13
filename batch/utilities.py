@@ -6,7 +6,10 @@ import shutil
 import sqlite3
 import tempfile
 import time
-import toml
+try:
+    import toml           # only used by the create-project path (runs in SL7);
+except ImportError:       # the native --launch-jobs path never touches it, so
+    toml = None           # tolerate its absence in a bare native shell.
 from concurrent.futures import ThreadPoolExecutor
 from catalog import resolve_samples
 from glob import glob
@@ -1550,14 +1553,14 @@ def launch_jobsub(
     try:
         return _launch_targets(
             project_dir, exp, targets, ship_dir, confirm, tag, memory, disk,
-            lifetime, verbose, force, jobs_per_process,
+            lifetime, verbose, force, jobs_per_process, gituser=gituser,
         )
     finally:
         shutil.rmtree(ship_dir, ignore_errors=True)
 
 def _launch_targets(
     project_dir, exp, targets, ship_dir, confirm, tag, memory, disk,
-    lifetime, verbose, force, jobs_per_process,
+    lifetime, verbose, force, jobs_per_process, gituser='justinjmueller',
 ):
     """
     Build, confirm and run the jobsub_submit call for each (sample, count)
@@ -1615,6 +1618,7 @@ def _launch_targets(
             '--',
             f'--project={project_dir.resolve()}',
             f'--tag={tag}',
+            f'--gituser={gituser}',   # clone from a fork on the grid (see submit.sh)
             f'--jobs-per-process={jobs_per_process}',
             # Lets the last process stop at the requested count.
             f'--total-jobs={count}',

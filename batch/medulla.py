@@ -102,19 +102,19 @@ def main(
     if test_job:
         if not project_exists:
             raise FileNotFoundError(f"Project database {project_dir / 'project.db'} does not exist. Please create a new project first.")
-        launch_jobsub(project_dir, experiment, njobs=jobs_per_process, tag=tag, memory=memory, disk=disk, lifetime=lifetime, force=force, jobs_per_process=jobs_per_process)
+        launch_jobsub(project_dir, experiment, njobs=jobs_per_process, tag=tag, gituser=gituser, memory=memory, disk=disk, lifetime=lifetime, force=force, jobs_per_process=jobs_per_process)
 
     # If the user requested to launch jobs, do so.
     elif launch_jobs is not None:
         if not project_exists:
             raise FileNotFoundError(f"Project database {project_dir / 'project.db'} does not exist. Please create a new project first.")
-        launch_jobsub(project_dir, experiment, njobs=launch_jobs, tag=tag, memory=memory, disk=disk, lifetime=lifetime, force=force, jobs_per_process=jobs_per_process)
+        launch_jobsub(project_dir, experiment, njobs=launch_jobs, tag=tag, gituser=gituser, memory=memory, disk=disk, lifetime=lifetime, force=force, jobs_per_process=jobs_per_process)
 
     # If the user requested to launch jobs per sample, do so.
     elif njobs_per_sample is not None:
         if not project_exists:
             raise FileNotFoundError(f"Project database {project_dir / 'project.db'} does not exist. Please create a new project first.")
-        launch_jobsub(project_dir, experiment, njobs_per_sample=njobs_per_sample, tag=tag, memory=memory, disk=disk, lifetime=lifetime, force=force, jobs_per_process=jobs_per_process)
+        launch_jobsub(project_dir, experiment, njobs_per_sample=njobs_per_sample, tag=tag, gituser=gituser, memory=memory, disk=disk, lifetime=lifetime, force=force, jobs_per_process=jobs_per_process)
 
 if __name__ == '__main__':
     p = ArgumentParser(description='Run medulla.')

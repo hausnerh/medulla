@@ -207,6 +207,15 @@ class TestLaunchJobsubJobsPerProcess:
         assert _script_arg(calls[0], "jobs-per-process") == "1"
         assert _script_arg(calls[0], "total-jobs") == "4"
 
+    def test_gituser_reaches_submit_script(self, uneven_project, tmp_path, monkeypatch):
+        """Jobs built from a fork must clone that fork: --gituser is passed to submit.sh."""
+        monkeypatch.chdir(tmp_path)
+        ok, calls = _capture_jobsub(uneven_project, njobs=2, gituser="hausnerh")
+        assert ok is True
+        assert _script_arg(calls[0], "gituser") == "hausnerh"
+        ok, calls = _capture_jobsub(uneven_project, njobs=2)
+        assert _script_arg(calls[0], "gituser") == "justinjmueller"
+
     def test_process_count_rounds_up(self, uneven_project, tmp_path, monkeypatch):
         """5 job IDs at 2 per process need 3 processes. The third holds
         only one job ID, which submit.sh enforces via --total-jobs."""

@@ -398,7 +398,7 @@ SETUP_TIME=$(( $(now_s) - t0 ))
 
 # Build medulla
 t0=$(now_s)
-git clone https://github.com/justinjmueller/medulla.git
+git clone https://github.com/${GITUSER}/medulla.git
 cd medulla
 git checkout ${TAG}
 CLONE_TIME=$(( $(now_s) - t0 ))
