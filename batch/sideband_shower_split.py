@@ -38,18 +38,15 @@ MC rows of readouts that fail the trigger emulation (event_trigger_emulated = 0)
 are dropped: such a readout exists in data only if a cosmic fired the trigger,
 which the off-beam sample already counts (--no-trigger-emulation keeps them).
   dirt                           out-of-FV neutrinos (dirt MC, matched rows)
-Cosmics come from two sources, each split into in-time / out-of-time by the reco
-flash exactly as the signal's flash_cut (valid flash match with the flash time in
---flash-window, default [-0.5, 1.6] us); this sideband has no flash cut, so
-out-of-time cosmics enter it:
-  cosmics (off-beam data)        beam-off triggers, scaled by livetime
-  cosmics in nu readouts (MC)    the cv rows without a neutrino match: cosmics
-                                 recorded in neutrino-triggered readouts, which
-                                 off-beam data cannot represent; POT-scaled
-                                 (--no-overlay-cosmics drops them: the old
-                                 matched-only scheme). Their truth beam-gate
-                                 activity (true_in_beam_gate) is printed as a
-                                 cross-check of the reco in-time label.
+  cosmics                        one category from two sources (the console
+                                 prints the split): off-beam data (beam-off
+                                 triggers, scaled by livetime) and the cv rows
+                                 without a neutrino match (cosmics recorded in
+                                 neutrino-triggered readouts, which off-beam
+                                 cannot represent; POT-scaled). This sideband has
+                                 no flash cut, so out-of-time cosmics enter it.
+                                 --no-overlay-cosmics drops the second source
+                                 (the old matched-only scheme).
 
 Output (--out):
   cut flow      expected events per truth group, data, Poisson z, and the
@@ -92,19 +89,14 @@ GROUPS = [('True single $\\gamma$ primary', '#E69900'),
           ('True $\\pi^0$ showers, a photon escapes the argon', '#17BECF'),
           ('True other secondary showers ($\\delta$-ray, Michel, ...)', '#E377C2'),
           ('Other $\\nu$', '#9980CC'),
-          ('Cosmics, in-time (off-beam data)', '#808080'),
-          ('Cosmics, out-of-time (off-beam data)', '#C2C2C2'),
-          ('Dirt', '#8C564B'),
-          ('Cosmics in $\\nu$ readouts, in-time (MC)', '#4F6475'),
-          ('Cosmics in $\\nu$ readouts, out-of-time (MC)', '#A7B9C9')]
-SINGLE_G, SINGLE_E, MULTI, SEC_IN, SEC_OUT, SEC_OTHER, OTHER, COS_IN, COS_OUT, DIRT, OVL_IN, OVL_OUT = range(12)
+          ('Cosmics', '#808080'),
+          ('Dirt', '#8C564B')]
+SINGLE_G, SINGLE_E, MULTI, SEC_IN, SEC_OUT, SEC_OTHER, OTHER, COSMIC, DIRT = range(9)
 LEGACY_LABELS = {SEC_IN: 'True secondary showers, all start in argon',
                  SEC_OUT: 'True secondary showers, $\\geq$1 starts outside argon'}
 PI0_LABELS = {i: GROUPS[i][0] for i in LEGACY_LABELS}
-COSMICS = (COS_IN, COS_OUT, OVL_IN, OVL_OUT)
 SHOWN = list(range(len(GROUPS)))
-SHORT = ['1g', '1e', 'multi', 'pi0 in', 'pi0 out', 'oth sec', 'oth nu', 'cos in', 'cos out', 'dirt', 'ovl in', 'ovl out']
-FLASH, FLASH_T, TRUE_GATE = 'reco_flash', 'reco_flash_time', 'true_in_beam_gate'
+SHORT = ['1g', '1e', 'multi', 'pi0 in', 'pi0 out', 'oth sec', 'oth nu', 'cosmic', 'dirt']
 KE = 'reco_leading_primary_gOre_shower_ke'
 PRELIM = 'ICARUS Analysis In-Progress'
 
@@ -226,13 +218,6 @@ def exposure(val, path, key, hist):
     return v
 
 
-def in_time(d, window):
-    """The signal's flash_cut: a valid flash match with the flash time inside the window (us)."""
-    t = d[FLASH_T].to_numpy(dtype=float)
-    ok = (d[FLASH].to_numpy(dtype=float) == 1) & np.isfinite(t)
-    return ok & (t >= window[0]) & (t <= window[1])
-
-
 def triggered(d, label, keep_all):
     """Drop MC rows whose readout failed the trigger emulation (prints how many); unchanged without the branch."""
     col = next((c for c in TRIG if c in d), None)
@@ -298,29 +283,21 @@ def build(a, want):
           f'POT {pot_cv:.4g}; off-beam livetime {lt_off:.4g}, on-beam {lt_on:.4g}')
     full = triggered(full, f'events/{key} (nu matched)', a.no_trigger_emulation)
     overlay = triggered(overlay, f'events/{key} (overlay cosmics)', a.no_trigger_emulation)
-    full['g'], full['w'] = group_of(full), pot_on / pot_cv
-    off['g'], off['w'] = np.where(in_time(off, a.flash_window), COS_IN, COS_OUT), lt_on / lt_off
+    full['g'], full['w'], full['src'] = group_of(full), pot_on / pot_cv, 'nu'
+    off['g'], off['w'], off['src'] = COSMIC, lt_on / lt_off, 'offbeam'
     parts = [full, off]
     if not a.no_overlay_cosmics:
         if key == 'full':
             raise SystemExit('a sys ROOT keeps the overlay cosmics in *_nonmatched: pass a selection output '
                              '(events/cv) or --no-overlay-cosmics')
         overlay = overlay.copy()
-        it = in_time(overlay, a.flash_window)
-        overlay['g'], overlay['w'] = np.where(it, OVL_IN, OVL_OUT), pot_on / pot_cv
+        overlay['g'], overlay['w'], overlay['src'] = COSMIC, pot_on / pot_cv, 'overlay'
         parts.append(overlay)
-        gate = overlay[TRUE_GATE].to_numpy(dtype=float)
-        for label, m in (('reco in-time', it), ('reco out-of-time', ~it)):
-            g_ = gate[m]
-            known = np.isfinite(g_)
-            print(f'  overlay cosmics, {label}: {int(m.sum())} rows; truth activity in the beam gate '
-                  f'{np.mean(g_[known] == 1) if known.any() else float("nan"):.1%} '
-                  f'(of the {int(known.sum())} with a true interaction)')
     dirt = a.dirt or (a.sys if has(a.sys, 'dirt') else None)
     if dirt:
         dr, pot_dr, _ = load(dirt, 'dirt', want, opt)
         dr = triggered(matched(dr), 'events/dirt', a.no_trigger_emulation)
-        dr['g'], dr['w'] = DIRT, pot_on / pot_dr
+        dr['g'], dr['w'], dr['src'] = DIRT, pot_on / pot_dr, 'dirt'
         parts.append(dr)
         print(f'dirt from {dirt}: {len(dr)} matched rows, POT {pot_dr:.4g}')
     else:
@@ -342,8 +319,6 @@ def main(argv=None):
     ap.add_argument('--no-trigger-emulation', action='store_true',
                     help='keep MC rows of readouts that fail the trigger emulation (data have them only when a '
                          'cosmic fired the trigger, which off-beam already counts)')
-    ap.add_argument('--flash-window', type=float, nargs=2, default=(-0.5, 1.6), metavar=('LO', 'HI'),
-                    help='in-time flash window [us] for the cosmic labels (the signal flash_cut; default -0.5 1.6)')
     ap.add_argument('--exposure-from', help='ROOT file to take missing POT/Livetime histograms from (same onbeam/'
                                              'offbeam samples; only needed for old sys ROOTs)')
     ap.add_argument('--gps', type=float, default=0.9985, help='gamma primary softmax (2D re-tune; nominal 0.9991)')
@@ -357,13 +332,17 @@ def main(argv=None):
     os.makedirs(a.out, exist_ok=True)
     thr = dict(gps=a.gps, pps=a.pps, dm=a.dm_halfwidth, dedx=a.dedx, axial=a.axial, dirs=a.dirs, phs=a.phs)
     cl = cuts(thr)
-    want = sorted({c['var'] for c in cl} | {NSH, 'true_category', KE, FLASH, FLASH_T, TRUE_GATE} | set(ORIGIN))
+    want = sorted({c['var'] for c in cl} | {NSH, 'true_category', KE} | set(ORIGIN))
     mc, on, pot_on = build(a, want)
     region = f'non-fid. sideband, {a.n_showers} reco shower' + ('s' if a.n_showers != 1 else '')
     mc = mc[mc[NSH].to_numpy() == a.n_showers].reset_index(drop=True)
     on = on[on[NSH].to_numpy() == a.n_showers].reset_index(drop=True)
     print(f'{TREE}, {region}: onbeam {pot_on:.3g} POT; MC {mc["w"].sum():.1f} expected, data {len(on)}, '
           f'data/MC {len(on) / mc["w"].sum():.2f}')
+    cos = mc['g'].to_numpy() == COSMIC
+    src = mc['src'].to_numpy()
+    print('  cosmics: ' + ', '.join(f'{lab} {mc["w"].to_numpy()[cos & (src == s)].sum():.1f}'
+                                    for s, lab in (('offbeam', 'off-beam data'), ('overlay', 'overlay (nu readouts)'))))
 
     p_mc = np.column_stack([c['fn'](mc) for c in cl])
     p_on = np.column_stack([c['fn'](on) for c in cl])
@@ -415,7 +394,7 @@ def main(argv=None):
         nd = int(others_on.sum())
         rd = 1 - int((others_on & p_on[:, j]).sum()) / nd if nd else float('nan')
         print(f'  {c["name"]:<38} {r["mc_expected"]:8.1f} {r["data_n"]:6d} {r["z"]:5.1f} | {rej(g == SINGLE_G):11.3f} '
-              f'{rej(g == SEC_IN):6.3f} {rej(g == SEC_OUT):7.3f} {rej(g == SEC_OTHER):7.3f} {rej(np.isin(g, COSMICS)):7.3f} {rej(g == OTHER):8.3f} '
+              f'{rej(g == SEC_IN):6.3f} {rej(g == SEC_OUT):7.3f} {rej(g == SEC_OTHER):7.3f} {rej(g == COSMIC):7.3f} {rej(g == OTHER):8.3f} '
               f'{rej(np.ones(len(mc), bool)):7.3f} {rd:6.3f}')
     pd.DataFrame(rows).to_csv(os.path.join(a.out, 'cutflow.csv'), index=False)
 

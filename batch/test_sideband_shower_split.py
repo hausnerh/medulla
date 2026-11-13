@@ -67,12 +67,8 @@ def test_poisson_z_sign_and_zero():
 def write_selection(path, rng, pi0=False):
     import uproot
 
-    def sample(n, cat, ng, ne, ns, nsh, ns_in=None, t_flash=0.5, npi0=0):
-        # alternate in-time / out-of-time flashes (t_flash vs 50 us), every 5th row without a flash match
-        tf = np.where(np.arange(n) % 2 == 0, t_flash, 50.0)
-        fl = np.where(np.arange(n) % 5 == 4, 0.0, 1.0)
-        return {S.FLASH: fl, S.FLASH_T: np.where(fl == 1, tf, np.nan),
-                S.TRUE_GATE: np.where(np.arange(n) % 2 == 0, 1.0, 0.0),S.GPS: rng.uniform(0.998, 1, n), S.PPS: rng.uniform(0.96, 1, n),
+    def sample(n, cat, ng, ne, ns, nsh, ns_in=None, npi0=0):
+        return {S.GPS: rng.uniform(0.998, 1, n), S.PPS: rng.uniform(0.96, 1, n),
                 S.DM: rng.normal(1232, 20, n), S.NSH: np.full(n, float(nsh)),
                 'true_category': np.full(n, float(cat)),
                 'reco_leading_primary_gOre_start_dedx': np.full(n, 5.0),
@@ -102,9 +98,9 @@ def test_selection_output_input(tmp_path):
     pytest.importorskip('uproot')
     path = tmp_path / 'sel.root'
     write_selection(str(path), np.random.default_rng(0))
-    want = [S.GPS, S.PPS, S.DM, S.NSH, 'true_category', S.FLASH, S.FLASH_T, S.TRUE_GATE] + S.ORIGIN
+    want = [S.GPS, S.PPS, S.DM, S.NSH, 'true_category'] + S.ORIGIN
     a = type('A', (), dict(sys=str(path), dirt=None, exposure_from=None, no_overlay_cosmics=False,
-                           no_trigger_emulation=False, flash_window=(-0.5, 1.6)))()
+                           no_trigger_emulation=False))()
     mc, on, pot_on = S.build(a, want)
     assert pot_on == pytest.approx(1e20)
     w = mc.groupby('g')['w'].sum()
@@ -112,42 +108,33 @@ def test_selection_output_input(tmp_path):
     assert w[S.SINGLE_G] == pytest.approx(100 * 0.1)
     assert w[S.SEC_IN] == pytest.approx(100 * 0.1)
     assert w[S.DIRT] == pytest.approx(20 * 0.2)
-    # off-beam: of 40 rows, in-time = even index and flash-matched (index % 5 != 4) -> 16
-    assert w[S.COS_IN] == pytest.approx(16 * 50 / 200)
-    assert w[S.COS_OUT] == pytest.approx(24 * 50 / 200)
-    # overlay (default on): the 50 unmatched cv rows, POT-scaled, split the same way (20 in-time)
-    assert w[S.OVL_IN] == pytest.approx(20 * 0.1)
-    assert w[S.OVL_OUT] == pytest.approx(30 * 0.1)
+    # one cosmic category: 40 off-beam rows scaled by livetime + 50 overlay rows (default on) by POT
+    assert w[S.COSMIC] == pytest.approx(40 * 50 / 200 + 50 * 0.1)
     assert len(on) == 30
     # --no-overlay-cosmics: the old matched-only scheme
     a.no_overlay_cosmics = True
     w2 = S.build(a, want)[0].groupby('g')['w'].sum()
-    assert S.OVL_IN not in w2.index and S.OVL_OUT not in w2.index
-    assert w2.to_dict() == pytest.approx(w.drop([S.OVL_IN, S.OVL_OUT]).to_dict())
+    assert w2[S.COSMIC] == pytest.approx(40 * 50 / 200)
+    assert w2.drop(S.COSMIC).to_dict() == pytest.approx(w.drop(S.COSMIC).to_dict())
 
 
 def test_untriggered_mc_dropped_and_pi0_groups(tmp_path):
     pytest.importorskip('uproot')
     path = tmp_path / 'sel.root'
     write_selection(str(path), np.random.default_rng(0), pi0=True)
-    want = [S.GPS, S.NSH, 'true_category', S.FLASH, S.FLASH_T, S.TRUE_GATE] + S.ORIGIN
+    want = [S.GPS, S.NSH, 'true_category'] + S.ORIGIN
     a = type('A', (), dict(sys=str(path), dirt=None, exposure_from=None, no_overlay_cosmics=False,
-                           no_trigger_emulation=False, flash_window=(-0.5, 1.6)))()
+                           no_trigger_emulation=False))()
     w = S.build(a, want)[0].groupby('g')['w'].sum()
     # every 10th MC row fails the trigger emulation and is dropped; data rows are untouched
     assert w[S.SINGLE_G] == pytest.approx(90 * 0.1)
     assert w[S.SEC_IN] == pytest.approx(90 * 0.1)            # pi0 photons, contained
     assert w[S.DIRT] == pytest.approx(18 * 0.2)
-    assert w[S.COS_IN] + w[S.COS_OUT] == pytest.approx(40 * 50 / 200)
+    assert w[S.COSMIC] == pytest.approx(40 * 50 / 200 + 45 * 0.1)   # off-beam (data: no trigger drop) + overlay
     assert S.GROUPS[S.SEC_IN][0] == S.PI0_LABELS[S.SEC_IN]
     a.no_trigger_emulation = True
     w2 = S.build(a, want)[0].groupby('g')['w'].sum()
     assert w2[S.SINGLE_G] == pytest.approx(100 * 0.1)
-
-
-def test_in_time_is_the_signal_flash_cut():
-    d = pd.DataFrame({S.FLASH: [1, 1, 1, 0, 1], S.FLASH_T: [0.0, -0.6, 1.6, 0.5, np.nan]})
-    assert list(S.in_time(d, (-0.5, 1.6))) == [True, False, True, False, False]
 
 
 def test_one_shower_region_cutflow_and_nm1_outputs(tmp_path):
