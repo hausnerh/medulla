@@ -524,8 +524,22 @@ gather_and_merge(){
     ensure_creds || die "no credentials to read $PROJ/output"
     [[ -z "${NJOBS:-}" ]] && read_project_njobs || true
 
-    local outs
-    mapfile -t outs < <(SL7RUN "ifdh ls '$PROJ/output'" 2>/dev/null | grep -oE 'output_jobid[0-9]+\.root' | sort -u)
+    # Outputs are bucketed by job ID since upstream v1.1.1 (output/<jobid/1000 as %03d>/output_jobidNNNN.root,
+    # see utilities.output_bucket); older projects have them flat in output/. List both in one SL7 session and
+    # keep each file's path relative to output/ ("001/output_jobid1234.root" or "output_jobid1234.root").
+    local outs lister="$DEBUG_DIR/list_outputs.sh"
+    mkdir -p "$DEBUG_DIR"
+    cat > "$lister" <<'LIST'
+#!/bin/bash
+# $1 = project output dir. Prints every entry of it and of its 3-digit bucket subdirectories.
+d="${1%/}"
+ifdh ls "$d" 2>/dev/null
+for b in $(ifdh ls "$d" 2>/dev/null | grep -oE '/[0-9]{3}/?$' | tr -d '/'); do
+    ifdh ls "$d/$b" 2>/dev/null
+done
+LIST
+    mapfile -t outs < <(SL7RUN "bash '$lister' '$PROJ/output'" 2>/dev/null \
+        | grep -oE 'output/([0-9]{3}/)?output_jobid[0-9]+\.root$' | sed 's#^output/##' | sort -u)
     local done=${#outs[@]}
     log "Selection produced $done / ${NJOBS:-?} job outputs."
     if [[ -n "${NJOBS:-}" && "$done" -lt "$NJOBS" ]]; then
@@ -542,8 +556,10 @@ gather_and_merge(){
     local tmp="build/_haddtmp_$(basename "$PROJ")" f n_missing n_have
     mkdir -p "$tmp"
     : > "$tmp/copy_list.txt"
-    for f in "${outs[@]}"; do
-        [[ -s "$tmp/$f" ]] || echo "$PROJ/output/$f $REPO/$tmp/$f" >> "$tmp/copy_list.txt"
+    local rel
+    for rel in "${outs[@]}"; do
+        f=$(basename "$rel")
+        [[ -s "$tmp/$f" ]] || echo "$PROJ/output/$rel $REPO/$tmp/$f" >> "$tmp/copy_list.txt"
     done
     n_missing=$(wc -l < "$tmp/copy_list.txt")
     if [[ "$n_missing" -gt 0 ]]; then
