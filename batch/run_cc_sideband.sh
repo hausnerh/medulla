@@ -105,7 +105,7 @@ SL7RUN(){
 NAT(){ if [[ -n "$NATIVE_SETUP" ]]; then bash -lc "{ $NATIVE_SETUP ; } >/dev/null 2>&1 ; $1"; else bash -lc "$1"; fi; }
 
 # ---- argument parsing ------------------------------------------------
-RESUME_PROJ=""; PLOTS_ONLY=0; SYS_ROOT_OVERRIDE=""; CHECK_ENV=0; SEL_TOML_OVERRIDE=""; SYS_TOML_OVERRIDE=""; SELECT_ONLY=0; OFFBEAM_EXPOSURE=""; SKIP_PLOTS=""
+RESUME_PROJ=""; PLOTS_ONLY=0; SYS_ROOT_OVERRIDE=""; CHECK_ENV=0; SEL_TOML_OVERRIDE=""; SYS_TOML_OVERRIDE=""; SELECT_ONLY=0; SYS_ONLY=0; OFFBEAM_EXPOSURE=""; SKIP_PLOTS=""
 usage(){
   cat <<EOF
 Usage: $0 [--signal|--sideband] [--resume PROJECT_DIR] [--plots-only [SYS_ROOT]] [--check-env] [--help]
@@ -129,6 +129,9 @@ Usage: $0 [--signal|--sideband] [--resume PROJECT_DIR] [--plots-only [SYS_ROOT]]
                          --sel-toml, systematics/toml/<same basename>.toml if it exists).
   --select-only          Stop after selection + hadd (skip systematics + plots).
                          For validating new samples before systematics exist.
+  --sys-only             Skip selection and hadd: run Stage 3 (systematics) on the
+                         existing merged selection output (build/output_<label>.root)
+                         and stop (no plots). Use after a --select-only run.
   --offbeam-exposure ROOT
                          Merged output of gOre_osc_run2_data_exposure.toml. After
                          the hadd, fill the off-beam Livetime (empty in ReCAF2026
@@ -158,6 +161,7 @@ while [[ $# -gt 0 ]]; do
         --sys-toml)    SYS_TOML_OVERRIDE="$2"; shift 2 ;;
         --sys-toml=*)  SYS_TOML_OVERRIDE="${1#*=}"; shift ;;
         --select-only) SELECT_ONLY=1; shift ;;
+        --sys-only)    SYS_ONLY=1; shift ;;
         --offbeam-exposure)   OFFBEAM_EXPOSURE="$2"; shift 2 ;;
         --offbeam-exposure=*) OFFBEAM_EXPOSURE="${1#*=}"; shift ;;
         --skip-plots)   SKIP_PLOTS="$2"; shift 2 ;;
@@ -775,6 +779,12 @@ main(){
     if [[ "$PLOTS_ONLY" -eq 1 ]]; then
         log "Plots-only mode: reusing sys ROOT $SYS_ROOT"
         submit_plots; retrieve; log "DONE."; return
+    fi
+    if [[ "$SYS_ONLY" -eq 1 ]]; then
+        [[ -s "$SEL_HADD" ]] || die "--sys-only: no merged selection output $SEL_HADD (run --select-only first)"
+        log "Sys-only mode: systematics on $SEL_HADD with $SYS_TOML"
+        do_systematics
+        log "DONE (systematics only). Output: $SYS_ROOT"; return
     fi
     [[ -n "$RESUME_PROJ" ]] && log "Resume mode: PROJ=$PROJ (skipping Stage 1)"
     [[ -z "$RESUME_PROJ" ]] && submit_selection

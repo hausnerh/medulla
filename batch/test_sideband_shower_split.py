@@ -176,3 +176,69 @@ def test_sidebands_config_saves_origin_branches():
         assert re.search(r'name = "trigger_emulated",\s*type = "event"', b), b[:80]
         for v in ('flash', 'flash_time'):
             assert re.search(rf'name = "{v}",\s*type = "reco"', b), (v, b[:80])
+
+
+def test_marginal_z_reduces_to_poisson_and_shrinks_with_sigma():
+    assert S.poisson_tail(7, 2.9, True) == pytest.approx(0.02872, abs=1e-4)
+    z0 = S.marginal_z(7, 2.9, 0.0)
+    assert z0 == pytest.approx(1.90, abs=0.01)
+    assert S.marginal_z(7, 2.9, 1.0) < S.marginal_z(7, 2.9, 0.3) < z0
+    assert S.marginal_z(1, 5.0, 0.0) < 0
+
+
+def test_knob_universe_sums_interpolates_multisigma_like_spineplot():
+    S1 = np.ones((1, 4))
+    W = np.tile(1 + 0.2 * S.SIGMA_LEVELS[6], (4, 1))          # w(s) = 1 + 0.2 s on every event
+    N = S.knob_universe_sums(W, S1, 4000, np.random.default_rng(1))
+    s = np.random.default_rng(1).normal(0, 1, 4000)
+    assert np.allclose(N[0], 4 * (1 + 0.2 * np.clip(s, -3, 3)))
+    Wu = np.array([[1.1, 0.9]] * 4)                            # 2 multisim universes, used as they are
+    assert np.allclose(S.knob_universe_sums(Wu, S1, 10, np.random.default_rng(0)), [[4.4, 3.6]])
+
+
+def write_sys(path, n_sel=40, n_rej=60):
+    """A run_systematics-like file: events/full/TREE + row-aligned multisim/multisigma trees."""
+    import uproot
+    ak = pytest.importorskip('awkward')
+    n = n_sel + n_rej
+    gps = np.r_[np.full(n_sel, 0.9999), np.full(n_rej, 0.5)]   # only the first n_sel pass every cut
+    base = {S.GPS: gps, S.PPS: np.full(n, 0.99), S.DM: np.full(n, 1232.0), S.NSH: np.ones(n),
+            'reco_leading_primary_gOre_start_dedx': np.full(n, 5.0),
+            'reco_leading_primary_gOre_axial_spread': np.zeros(n),
+            'reco_leading_primary_gOre_directional_spread': np.full(n, 0.01),
+            'reco_leading_primary_gOre_photon_softmax': np.full(n, 0.99)}
+    ms = ak.Array([[1.1, 0.9]] * n)                             # +-10%: sigma = 0.1 N
+    sg = ak.Array([list(1 + 0.2 * S.SIGMA_LEVELS[6])] * n)      # 20% per sigma
+    with uproot.recreate(path) as f:
+        f[f'events/full/{S.TREE}'] = base
+        f[f'events/full/{S.TREE}_multisimTree'] = {'flux': ms, 'Run': np.zeros(n, np.int32)}
+        f[f'events/full/{S.TREE}_multisigmaTree'] = {'xsec': sg, 'xsec_sigma': ak.Array([[1.0]] * n)}
+    return n
+
+
+def test_sys_band_matches_the_analytic_spread(tmp_path):
+    pytest.importorskip('uproot')
+    path = str(tmp_path / 'sys.root')
+    n = write_sys(path)
+    cl = S.cuts(dict(gps=0.9985, pps=0.9513, dm=95, dedx=4.07, axial=-0.5, dirs=0.037, phs=0.9225))
+    cv, var, per = S.sys_band(path, S.StageMasks(cl), lambda d: d[S.NSH].to_numpy() == 1, 0.5, nuniv=20000)
+    assert cv[0] == pytest.approx(0.5 * n) and cv[-1] == pytest.approx(0.5 * 40)
+    assert set(per) == {'flux', 'xsec'}
+    assert np.sqrt(per['flux'][-1]) == pytest.approx(0.1 * cv[-1])
+    assert np.sqrt(per['xsec'][-1]) == pytest.approx(0.2 * cv[-1], rel=0.03)
+    assert np.sqrt(var[-1]) == pytest.approx(np.hypot(0.1, 0.2) * cv[-1], rel=0.03)
+
+
+def test_uncertainty_table_end_to_end(tmp_path):
+    pytest.importorskip('uproot')
+    sel = tmp_path / 'sel.root'
+    write_selection(str(sel), np.random.default_rng(0))
+    sysf = tmp_path / 'sys.root'
+    write_sys(str(sysf))
+    out = tmp_path / 'out'
+    assert S.main([str(sel), '--out', str(out), '--weights', str(sysf)]) == 0
+    band = pd.read_csv(out / 'sysband.csv')
+    assert len(band) == len(pd.read_csv(out / 'cutflow.csv').query('stage == "preselection" or '
+                                                                    'stage.str.startswith("+")'))
+    assert (band['syst_frac'].dropna() > 0).all()
+    assert (band['z_stat_syst'].abs() <= band['z_stat'].abs() + 1e-9).all()

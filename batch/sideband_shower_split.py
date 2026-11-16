@@ -65,7 +65,12 @@ run_systematics moves the overlay cosmics to *_nonmatched.
 
 Usage
   sideband_shower_split.py build/output_gOre_1g1p_sidebands_osc_run2_origin.root --out build/sideband_cuts \\
-      [--gps 0.9985 --dm-halfwidth 95] [--no-overlay-cosmics]
+      [--gps 0.9985 --dm-halfwidth 95] [--no-overlay-cosmics] \\
+      [--weights build/output_gOre_1g1p_sidebands_osc_run2_origin_sys.root]
+--weights takes the run_systematics output of the same selection (systematics/toml/
+gOre_1g1p_sidebands_osc_run2_origin.toml, `run_cc_sideband.sh --sys-only`) and adds the flux +
+cross section band (spineplot's method: per-knob variance around the CV, summed) and MC statistics
+to every cut-flow stage, with the data/MC significance with and without them (sysband.csv).
 """
 import argparse
 import os
@@ -254,6 +259,116 @@ def poisson_z(n, mu):
     return float(np.sign(n - mu) * np.sqrt(max(t, 0.0)))
 
 
+def poisson_tail(n, mu, upper):
+    """P(N >= n) if `upper`, else P(N <= n), for N ~ Poisson(mu)."""
+    from math import exp, lgamma, log
+    if mu <= 0:
+        return float(n == 0) if upper else 1.0
+    pmf = lambda k: exp(k * log(mu) - mu - lgamma(k + 1))
+    if upper:
+        return max(0.0, 1.0 - sum(pmf(k) for k in range(n)))
+    return min(1.0, sum(pmf(k) for k in range(n + 1)))
+
+
+def marginal_z(n, mu, sigma):
+    """Signed significance of n observed vs mu expected with a Gaussian uncertainty sigma on mu
+    (the Poisson tail averaged over mu ~ Normal(mu, sigma) truncated at 0; numerical quadrature)."""
+    from statistics import NormalDist
+    if mu <= 0:
+        return float('nan')
+    x = np.linspace(-6, 6, 481)
+    pdf = np.exp(-0.5 * x ** 2)
+    mus = mu + sigma * x
+    ok = mus > 0
+    up = n > mu                                               # the tail on the side of the observation
+    p = np.sum(pdf[ok] * np.array([poisson_tail(n, m, up) for m in mus[ok]])) / np.sum(pdf[ok])
+    p = min(max(p, 1e-300), 0.5)
+    return float(np.sign(n - mu) * NormalDist().inv_cdf(1 - p))
+
+
+SIGMA_LEVELS = {6: np.array([-1, 1, -2, 2, -3, 3], float), 7: np.linspace(-3, 3, 7)}
+
+
+def knob_universe_sums(W, S, nuniv, rng):
+    """Selected-event sums per universe for one knob: S (stages x events, 0/1) @ universe weights.
+    Multisigma knobs (6 or 7 points: GENIE -1,+1,-2,+2,-3,+3 or detector -3..+3) are linearly
+    interpolated at nuniv sigmas drawn once for the knob (shared by all events), clamped at the
+    end points, exactly as spineplot/systematic.py does; anything else is taken as universes."""
+    sums = S @ W                                              # stages x points
+    if W.shape[1] not in SIGMA_LEVELS:
+        return sums
+    lv = SIGMA_LEVELS[W.shape[1]]
+    order = np.argsort(lv)
+    lv, sums = lv[order], sums[:, order]
+    s = rng.normal(0, 1, nuniv)
+    i = np.clip(np.searchsorted(lv, s) - 1, 0, len(lv) - 2)
+    t = np.clip((s - lv[i]) / (lv[i + 1] - lv[i]), 0, 1)
+    return sums[:, i] * (1 - t) + sums[:, i + 1] * t          # interpolation is linear in the weights
+
+
+def sys_band(path, stage_masks, region_fn, scale, nuniv=1000, seed=12345):
+    """Flux + cross section uncertainty on the expected neutrino count of each stage.
+
+    `path` is a run_systematics output (events/full/TREE plus TREE_{multisim,multisigma}Tree, filled row by
+    row with it). `stage_masks(d)` returns the (stages x rows) selection of a DataFrame of TREE branches, and
+    `region_fn(d)` the rows in the sideband region. For each knob, the variance of `scale` x (universe count
+    - CV count) over its universes; knobs add in quadrature (as spineplot's total band). Returns the CV
+    counts (scaled), the variance per stage, and {knob: variance per stage}."""
+    import uproot
+    f = uproot.open(path)
+    d = f['events/full']
+    t = d[TREE]
+    names = [k.split(';')[0] for k in d.keys()]
+    cols = stage_masks.columns
+    df = t.arrays([c for c in cols if c in t.keys()] + [c for c in TRIG if c in t.keys()], library='pd')
+    trig = next((c for c in TRIG if c in df), None)
+    keep = region_fn(df) & ((df[trig].to_numpy(dtype=float) == 1) if trig else True)
+    S = stage_masks(df)[:, keep].astype(float)
+    cv = S.sum(axis=1)
+    rng = np.random.default_rng(seed)
+    per_knob = {}
+    for suffix in ('multisimTree', 'multisigmaTree'):
+        tname = f'{TREE}_{suffix}'
+        if tname not in names:
+            print(f'  {path}: no events/full/{tname}')
+            continue
+        wt = d[tname]
+        if wt.num_entries != t.num_entries:
+            raise SystemExit(f'{tname} has {wt.num_entries} rows, {TREE} {t.num_entries}: not row-aligned')
+        for knob in wt.keys():
+            if knob in ('Run', 'Subrun', 'Evt') or knob.endswith('_sigma'):
+                continue
+            arr = wt[knob].array(library='np')[keep]
+            if arr.dtype != object:                           # scalar branch (Run/Subrun/Evt, a counter): no weights
+                continue
+            lens = {len(x) for x in arr}
+            if len(lens) != 1 or 0 in lens:
+                print(f'  WARNING {knob}: ragged/empty weight vectors {sorted(lens)[:5]}: skipped')
+                continue
+            W = np.stack(arr).astype(float)
+            W = np.where(np.isfinite(W), W, 1.0)
+            N = knob_universe_sums(W, S, nuniv, rng)
+            per_knob[knob] = (scale ** 2) * np.mean((N - cv[:, None]) ** 2, axis=1)
+    total = np.sum(list(per_knob.values()), axis=0) if per_knob else np.zeros(len(cv))
+    return scale * cv, total, per_knob
+
+
+class StageMasks:
+    """Callable giving the cumulative 1g1p stage selection (preselection + each cut) of a DataFrame."""
+
+    def __init__(self, cl):
+        self.cl = cl
+        self.columns = sorted({c['var'] for c in cl} | {NSH})
+
+    def __call__(self, d):
+        m = np.ones(len(d), bool)
+        out = [m.copy()]
+        for c in self.cl:
+            m &= c['fn'](d)
+            out.append(m.copy())
+        return np.array(out)
+
+
 def build(a, want):
     import pandas as pd
     key = 'full' if has(a.sys, 'full') else 'cv'
@@ -321,6 +436,9 @@ def main(argv=None):
                          'cosmic fired the trigger, which off-beam already counts)')
     ap.add_argument('--exposure-from', help='ROOT file to take missing POT/Livetime histograms from (same onbeam/'
                                              'offbeam samples; only needed for old sys ROOTs)')
+    ap.add_argument('--weights', help='run_systematics output for this selection (events/full/TREE + its '
+                                      'multisim/multisigma trees): adds the flux + xsec band and MC statistics '
+                                      'to the cut flow, with the data/MC significance (sysband.csv)')
     ap.add_argument('--gps', type=float, default=0.9985, help='gamma primary softmax (2D re-tune; nominal 0.9991)')
     ap.add_argument('--dm-halfwidth', type=float, default=95.0, help='Delta mass halfwidth [MeV] (2D re-tune; nominal 59.7)')
     ap.add_argument('--pps', type=float, default=0.9513)
@@ -397,10 +515,59 @@ def main(argv=None):
               f'{rej(g == SEC_IN):6.3f} {rej(g == SEC_OUT):7.3f} {rej(g == SEC_OTHER):7.3f} {rej(g == COSMIC):7.3f} {rej(g == OTHER):8.3f} '
               f'{rej(np.ones(len(mc), bool)):7.3f} {rd:6.3f}')
     pd.DataFrame(rows).to_csv(os.path.join(a.out, 'cutflow.csv'), index=False)
+    if a.weights:
+        uncertainty_table(a, mc, on, p_mc, p_on, cl, stages)
 
     plots(mc, on, p_mc, p_on, cl, a.out, pot_on, region)
     print(f'\nwrote {a.out}/cutflow.csv and {a.out}/{{before,after,nm1}}/*.png,pdf')
     return 0
+
+
+def uncertainty_table(a, mc, on, p_mc, p_on, cl, stages):
+    """Cut flow with its uncertainties: MC statistics, flux + cross section (from the --weights sys ROOT),
+    and the data/MC significance with and without them. Writes sysband.csv."""
+    import pandas as pd
+    src, w = mc['src'].to_numpy(), mc['w'].to_numpy()
+    nu = src == 'nu'
+    scale = float(w[nu][0]) if nu.any() else 1.0
+    sm = StageMasks(cl)
+    cv, var, per_knob = sys_band(a.weights, sm, lambda d: d[NSH].to_numpy() == a.n_showers, scale)
+    m_mc = np.vstack([np.ones(len(mc), bool)] + [np.all(p_mc[:, :j + 1], axis=1) for j in range(len(cl))])
+    m_on = np.vstack([np.ones(len(on), bool)] + [np.all(p_on[:, :j + 1], axis=1) for j in range(len(cl))])
+    nu_sel = np.array([w[m & nu].sum() for m in m_mc])
+    print(f'\nuncertainties: flux + cross section from {a.weights} ({len(per_knob)} knobs; no detector '
+          f'variations in this production), MC statistics sqrt(sum w^2) over all MC terms')
+    lost = np.abs(cv - nu_sel) > 0.01 * np.maximum(nu_sel, 1e-9) + 0.05
+    if lost.any():
+        k = int(np.argmax(lost))
+        print(f'  NOTE: at "{stages[k][0]}" the weighted tree holds {cv[k]:.2f} nu events, the selection file '
+              f'{nu_sel[k]:.2f}: the band is taken as a fraction from the weighted rows (the difference is rows '
+              f'run_systematics could not match to a neutrino in the CAFs, or a different selection file)')
+    print(f'  {"stage":<38} {"MC":>8} {"nu":>7} {"stat":>6} {"syst":>6} {"syst%":>6} {"data":>6} '
+          f'{"z stat":>7} {"z all":>7}')
+    rows = []
+    for k, (name, j) in enumerate(stages):
+        mu = w[m_mc[k]].sum()
+        st = np.sqrt((w[m_mc[k]] ** 2).sum())
+        sy = np.sqrt(var[k]) * (nu_sel[k] / cv[k] if cv[k] > 0 else 1.0)   # fractional band on the nu part
+        n = int(m_on[k].sum())
+        z0 = marginal_z(n, mu, st)
+        z1 = marginal_z(n, mu, np.hypot(st, sy))
+        label = name if j is None else '+ ' + name
+        rows.append(dict(stage=label, mc_expected=mu, nu_expected=nu_sel[k], mc_stat=st, syst=sy,
+                         syst_frac=sy / nu_sel[k] if nu_sel[k] else float('nan'), data_n=n,
+                         z_stat=z0, z_stat_syst=z1))
+        print(f'  {label:<38} {mu:8.2f} {nu_sel[k]:7.2f} {st:6.2f} {sy:6.2f} '
+              f'{100 * rows[-1]["syst_frac"]:5.0f}% {n:6d} {z0:7.2f} {z1:7.2f}')
+    last = len(stages) - 1
+    top = sorted(per_knob.items(), key=lambda kv: kv[1][last], reverse=True)[:8]
+    if top and var[last] > 0:
+        print('  largest knobs after all cuts (share of the flux + xsec variance):')
+        for knob, v in top:
+            print(f'    {knob:<60} {100 * v[last] / var[last]:5.1f}%')
+    print('  z stat: Poisson for the data with the MC-statistics uncertainty on the prediction; z all: also the '
+          'flux + xsec band (both Gaussian on the prediction, marginalised)')
+    pd.DataFrame(rows).to_csv(os.path.join(a.out, 'sysband.csv'), index=False)
 
 
 def plots(mc, on, p_mc, p_on, cl, out, pot_on, region):
