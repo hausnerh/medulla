@@ -384,7 +384,7 @@ def sys_band(path, cl, region_fn, jobs, scale, clip=WEIGHT_CLIP, nuniv=1000, see
     final = max(stages, key=lambda k: k[1]) if stages else None
     rng = np.random.default_rng(seed)
     var = {k: np.zeros(nb[k]) for k in idx}
-    per_knob, points = {}, {}
+    per_knob, points, clipped = {}, {}, {}
     for suffix in ('multisimTree', 'multisigmaTree'):
         tname = f'{TREE}_{suffix}'
         if tname not in names:
@@ -413,7 +413,16 @@ def sys_band(path, cl, region_fn, jobs, scale, clip=WEIGHT_CLIP, nuniv=1000, see
                     bad = f'ragged/empty weight vectors (lengths {lens[:5]})'
                     break
                 W = ak.to_numpy(ak.to_regular(arr, axis=1)).astype(float)
-                W = np.clip(np.where(np.isfinite(W), W, 1.0), *clip)
+                fin = np.isfinite(W)
+                W = np.where(fin, W, 1.0)
+                out_ = ((W < clip[0]) | (W > clip[1])).any(axis=1) | ~fin.all(axis=1)
+                if out_.any():                                # what the clamp touches (reported, not hidden)
+                    cr = clipped.setdefault(knob, [0, 0, -np.inf])
+                    cr[0] += int(out_.sum())
+                    if final is not None:
+                        cr[1] += int((out_ & (idx[final][a:b][kc] >= 0)).sum())
+                    cr[2] = max(cr[2], float(W.max()))
+                W = np.clip(W, *clip)
                 for k, i_all in idx.items():
                     ii = i_all[a:b][kc]
                     sel = ii >= 0
@@ -440,7 +449,7 @@ def sys_band(path, cl, region_fn, jobs, scale, clip=WEIGHT_CLIP, nuniv=1000, see
             if final is not None and cv[final][0] > 0:
                 points[knob] = sums.get(final, np.zeros((1, npts)))[0] / cv[final][0]
     return dict(cv={k: scale * v for k, v in cv.items()}, var=var, per_knob=per_knob, points=points,
-                n_knobs=len(per_knob))
+                n_knobs=len(per_knob), clipped=clipped)
 
 
 def build(a, want):
@@ -659,6 +668,15 @@ def uncertainty_table(a, mc, on, p_mc, p_on, cl, stages, band):
             else:
                 how = f'{len(p)} universes: mean x{p.mean():.2f}, sd {p.std():.2f}'
             print(f'    {knob:<60} {100 * v[last] / var[last]:5.1f}%   {how}')
+    cr = band.get('clipped', {})
+    nrow = int(round(cv[0] / max(w[nu][0], 1e-300))) if nu.any() else 0
+    if cr:
+        print(f'  weight clamp {list(a.weight_clip)}: {len(cr)} knobs have events with a weight outside it (or NaN); '
+              f'events of the {nrow} in the region, of those after all cuts, largest raw weight:')
+        for knob, (n_reg, n_fin, mx) in sorted(cr.items(), key=lambda kv: -kv[1][0])[:10]:
+            print(f'    {knob:<60} {n_reg:6d} {n_fin:4d}   {mx:.3g}')
+    else:
+        print(f'  weight clamp {list(a.weight_clip)}: no weight outside it (the clamp changes nothing)')
     print('  z stat: Poisson for the data with the MC-statistics uncertainty on the prediction; z all: also the '
           'flux + xsec band (both Gaussian on the prediction, marginalised)')
     pd.DataFrame(rows).to_csv(os.path.join(a.out, 'sysband.csv'), index=False)

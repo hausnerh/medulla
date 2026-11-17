@@ -259,6 +259,30 @@ def test_sys_band_clamps_pathological_weights(tmp_path):
     b = S.sys_band(path, cl, lambda d: d[S.NSH].to_numpy() == 1, S.stage_jobs(cl), 1.0)
     # clamped to 10: universe 0 counts 9 + 10 = 19 vs CV 10, universe 1 counts 10 -> variance 81 / 2
     assert b['var'][('stage', 0)][0] == pytest.approx(40.5)
+    # and the clamp is reported: 1 event touched in the region, 1 after all cuts, raw weight 1e6
+    assert b['clipped'] == {'k': [1, 1, pytest.approx(1e6)]}
+
+
+def test_caf_pset_diagnostic_flags_labels_grids_and_overlaps(tmp_path, monkeypatch, capsys):
+    import diag_caf_wgt_psets as D
+    ps = [dict(i=0, name='GENIEReWeight_SBN_v1_multisigma_MaCCRES', type=1, nuniv=30, params=['MaCCRES'],
+               vals=[np.linspace(-3, 3, 30)]),
+          dict(i=1, name='GENIEReWeight_SBN_v1_multisim_CCRESVariationResponse', type=0, nuniv=500,
+               params=['MaCCRES', 'MvCCRES'], vals=None),
+          dict(i=2, name='some_flux_knob', type=0, nuniv=1000, params=['flux'], vals=None)]
+    monkeypatch.setattr(D, 'read_psets', lambda p: ps)
+    monkeypatch.setattr(D, 'observed_nuniv', lambda p: np.array([30, 500, 1000]))
+    t = tmp_path / 'sys.toml'
+    t.write_text('[[sys]]\nname = "GENIEReWeight_SBN_v1_multisigma_MaCCRES"\ntype = "multisigma"\nindex = 0\n'
+                 'nsigma = [-1.0, 1.0, -2.0, 2.0, -3.0, 3.0]\n\n'
+                 '[[sys]]\nname = "GENIEReWeight_SBN_v1_multisim_CCRESVariationResponse"\ntype = "multisim"\n'
+                 'index = 1\n\n[[sys]]\nname = "wrong_label"\ntype = "multisim"\nindex = 2\n')
+    assert D.main(['x.root', '--toml', str(t)]) == 0
+    out = capsys.readouterr().out
+    assert 'index   2: toml "wrong_label" but the CAF has "some_flux_knob"' in out
+    assert '1 multisigma knobs store a different number of entries' in out
+    assert 'CCRESVariationResponse: MaCCRES' in out
+    assert 'sigmas [-3.' in out
 
 
 def test_uncertainty_table_end_to_end(tmp_path):
