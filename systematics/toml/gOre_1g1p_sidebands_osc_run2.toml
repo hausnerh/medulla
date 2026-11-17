@@ -54,6 +54,12 @@ use_additional_hash = true
 path = 'output_gOre_1g1p_sidebands_osc_run2_sys.root'
 histogram_destination = 'variations/'
 
+# Upstream's AR23+ template (sbn_numu_disappearance_2026/sys_icarus.toml) clamps every
+# weight to this range; without it a handful of pathological GENIE weights dominate the
+# band (seen 2026-11-17: a 570000% flux+xsec band on the nonfid 1-shower preselection).
+[general]
+weight_clip = [0.0, 10.0]
+
 # Variables that get sys histograms / covariance summaries. Add more as needed
 # — each gets its own histogram set under `histogram_destination`.
 [[sysvar]]

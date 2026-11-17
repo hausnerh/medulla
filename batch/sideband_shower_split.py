@@ -287,76 +287,104 @@ def marginal_z(n, mu, sigma):
 
 
 SIGMA_LEVELS = {6: np.array([-1, 1, -2, 2, -3, 3], float), 7: np.linspace(-3, 3, 7)}
+WEIGHT_CLIP = (0.0, 10.0)        # upstream's AR23+ template (general.weight_clip), applied again on read
 
 
-def interpolate_universes(sums, nuniv, rng):
-    """Universe counts of one knob from its selected-event sums per weight point (stages x points).
-    Multisigma knobs (6 or 7 points: GENIE -1,+1,-2,+2,-3,+3 or detector -3..+3) are linearly
-    interpolated at nuniv sigmas drawn once for the knob (shared by all events), clamped at the
-    end points, exactly as spineplot/systematic.py does per event; the interpolation is linear in
-    the weights, so doing it on the sums is exact. Anything else is taken as universes."""
-    if sums.shape[1] not in SIGMA_LEVELS:
+def sigma_draws(npts, nuniv, rng):
+    """The sigmas a multisigma knob (6 or 7 weight points) is evaluated at; None for multisim universes."""
+    return rng.normal(0, 1, nuniv) if npts in SIGMA_LEVELS else None
+
+
+def interpolate_universes(sums, s):
+    """Universe counts of one knob from its selected-event sums per weight point (... x points).
+    Multisigma knobs (GENIE -1,+1,-2,+2,-3,+3 or detector -3..+3) are linearly interpolated at the sigmas
+    `s` (drawn once per knob, shared by all events and bins), clamped at the end points, as
+    spineplot/systematic.py does per event; the interpolation is linear in the weights, so doing it on
+    the sums is exact. Without `s` the points are the universes."""
+    if s is None:
         return sums
-    lv = SIGMA_LEVELS[sums.shape[1]]
+    lv = SIGMA_LEVELS[sums.shape[-1]]
     order = np.argsort(lv)
-    lv, sums = lv[order], sums[:, order]
-    s = rng.normal(0, 1, nuniv)
+    lv, sums = lv[order], sums[..., order]
     i = np.clip(np.searchsorted(lv, s) - 1, 0, len(lv) - 2)
     t = np.clip((s - lv[i]) / (lv[i + 1] - lv[i]), 0, 1)
-    return sums[:, i] * (1 - t) + sums[:, i + 1] * t
+    return sums[..., i] * (1 - t) + sums[..., i + 1] * t
 
 
 def knob_universe_sums(W, S, nuniv, rng):
     """Selected-event sums per universe for one knob: S (stages x events, 0/1) @ weights (events x points)."""
-    return interpolate_universes(S @ W, nuniv, rng)
+    return interpolate_universes(S @ W, sigma_draws(W.shape[1], nuniv, rng))
 
 
-def knob_point_sums(branch, S, keep, step=4000):
-    """S (stages x all rows, 0 outside the region) @ the knob's weight vectors, read `step` rows at a time
-    (a whole branch of 1000-universe vectors does not fit in a gpvm's memory). None for a scalar branch
-    (Run/Subrun/Evt, a counter) or when no region row is in the tree."""
-    import awkward as ak
-    n, tot = branch.num_entries, None
-    for a in range(0, n, step):
-        b = min(n, a + step)
-        k = keep[a:b]
-        if not k.any():
-            continue
-        arr = branch.array(entry_start=a, entry_stop=b, library='ak')
-        if arr.ndim < 2:
-            return None
-        arr = arr[k]
-        lens = np.unique(ak.to_numpy(ak.num(arr, axis=1)))
-        if len(lens) != 1 or lens[0] == 0 or (tot is not None and lens[0] != tot.shape[1]):
-            raise ValueError(f'ragged/empty weight vectors (lengths {lens[:5]})')
-        W = ak.to_numpy(ak.to_regular(arr, axis=1)).astype(float)
-        W = np.where(np.isfinite(W), W, 1.0)
-        part = S[:, a:b][:, k] @ W
-        tot = part if tot is None else tot + part
-    return tot
+def job_mask(kind, j, P):
+    """Rows of a (rows x cuts) pass matrix in a cut-flow stage ('stage', j cuts applied), before all cuts,
+    after all cuts, or with all cuts but cut j ('nm1')."""
+    if kind == 'stage':
+        return np.all(P[:, :j], axis=1)
+    if kind == 'before':
+        return np.ones(len(P), bool)
+    if kind == 'after':
+        return np.all(P, axis=1)
+    return np.all(np.delete(P, j, axis=1), axis=1)
 
 
-def sys_band(path, stage_masks, region_fn, scale, nuniv=1000, seed=12345, step=4000):
-    """Flux + cross section uncertainty on the expected neutrino count of each stage.
+def bin_index(x, edges):
+    """Histogram bin of each value as the plots fill it (values outside the range go to the edge bins,
+    NaN to -1)."""
+    x = np.asarray(x, float)
+    lo, hi = edges[0], edges[-1]
+    i = np.clip(np.searchsorted(edges, np.clip(x, lo, hi - 1e-9 * (hi - lo)), side='right') - 1, 0, len(edges) - 2)
+    i[~np.isfinite(x)] = -1
+    return i
 
-    `path` is a run_systematics output (events/full/TREE plus TREE_{multisim,multisigma}Tree, filled row by
-    row with it). `stage_masks(d)` returns the (stages x rows) selection of a DataFrame of TREE branches, and
-    `region_fn(d)` the rows in the sideband region. For each knob, the variance of `scale` x (universe count
-    - CV count) over its universes; knobs add in quadrature (as spineplot's total band). Returns the CV
-    counts (scaled), the variance per stage, and {knob: variance per stage}."""
+
+def stage_jobs(cl):
+    """One single-bin band job per cut-flow stage (preselection + each cut, cumulative)."""
+    return [dict(key=('stage', k), kind='stage', j=k, var=None, edges=None) for k in range(len(cl) + 1)]
+
+
+def sys_band(path, cl, region_fn, jobs, scale, clip=WEIGHT_CLIP, nuniv=1000, seed=12345, step=4000):
+    """Flux + cross section uncertainty on the expected neutrino counts of a set of histograms.
+
+    `path` is a run_systematics output: events/full/TREE plus TREE_{multisim,multisigma}Tree, filled row by
+    row with it. Each job (key, kind, j, var, edges) is a histogram of `var` (one bin if None) over the
+    rows job_mask(kind, j, cuts) selects within `region_fn`. For each knob and bin, the variance of `scale`
+    x (universe count - CV count) over its universes; knobs add in quadrature (spineplot's total band).
+    Weights are clamped to `clip`, NaN set to 1. The weights are read `step` rows at a time.
+    Returns dict(cv={key: counts}, var={key: variance}, per_knob={knob: variance per stage job},
+    points={knob: point sums / CV after all cuts}, n_knobs)."""
     import uproot
+    import awkward as ak
     f = uproot.open(path)
     d = f['events/full']
     t = d[TREE]
     names = [k.split(';')[0] for k in d.keys()]
-    cols = stage_masks.columns
+    cols = sorted({c['var'] for c in cl} | {NSH} | {jb['var'] for jb in jobs if jb['var']})
     df = t.arrays([c for c in cols if c in t.keys()] + [c for c in TRIG if c in t.keys()], library='pd')
     trig = next((c for c in TRIG if c in df), None)
-    keep = np.asarray(region_fn(df) & ((df[trig].to_numpy(dtype=float) == 1) if trig else True), bool)
-    S = stage_masks(df).astype(float) * keep                  # stages x all rows, 0 outside the region
-    cv = S.sum(axis=1)
+    keep = np.asarray(region_fn(df), bool)
+    if trig:
+        keep &= df[trig].to_numpy(dtype=float) == 1
+    P = np.column_stack([c['fn'](df) for c in cl])
+    idx, nb = {}, {}
+    missing = sorted({jb['var'] for jb in jobs if jb['var'] and jb['var'] not in df})
+    if missing:
+        print(f'  NOTE: {path} lacks {missing}: those histograms get the MC-statistics band only')
+    for jb in jobs:
+        if jb['var'] in missing:
+            continue
+        m = job_mask(jb['kind'], jb['j'], P) & keep
+        k = jb['key']
+        if jb['var'] is None:
+            idx[k], nb[k] = np.where(m, 0, -1), 1
+        else:
+            idx[k], nb[k] = np.where(m, bin_index(df[jb['var']].to_numpy(), jb['edges']), -1), len(jb['edges']) - 1
+    cv = {k: np.bincount(i[i >= 0], minlength=nb[k]).astype(float) for k, i in idx.items()}
+    stages = [jb['key'] for jb in jobs if jb['kind'] == 'stage']
+    final = max(stages, key=lambda k: k[1]) if stages else None
     rng = np.random.default_rng(seed)
-    per_knob = {}
+    var = {k: np.zeros(nb[k]) for k in idx}
+    per_knob, points = {}, {}
     for suffix in ('multisimTree', 'multisigmaTree'):
         tname = f'{TREE}_{suffix}'
         if tname not in names:
@@ -368,33 +396,51 @@ def sys_band(path, stage_masks, region_fn, scale, nuniv=1000, seed=12345, step=4
         for knob in wt.keys():
             if knob in ('Run', 'Subrun', 'Evt') or knob.endswith('_sigma'):
                 continue
-            try:
-                sums = knob_point_sums(wt[knob], S, keep, step)
-            except ValueError as e:
-                print(f'  WARNING {knob}: {e}: skipped')
+            sums, bad = {}, None
+            for a in range(0, t.num_entries, step):
+                b = min(t.num_entries, a + step)
+                kc = keep[a:b]
+                if not kc.any():
+                    continue
+                arr = wt[knob].array(entry_start=a, entry_stop=b, library='ak')
+                if arr.ndim < 2:
+                    bad = 'scalar'
+                    break
+                arr = arr[kc]
+                lens = np.unique(ak.to_numpy(ak.num(arr, axis=1)))
+                npts = next(iter(sums.values())).shape[1] if sums else None
+                if len(lens) != 1 or lens[0] == 0 or (npts is not None and lens[0] != npts):
+                    bad = f'ragged/empty weight vectors (lengths {lens[:5]})'
+                    break
+                W = ak.to_numpy(ak.to_regular(arr, axis=1)).astype(float)
+                W = np.clip(np.where(np.isfinite(W), W, 1.0), *clip)
+                for k, i_all in idx.items():
+                    ii = i_all[a:b][kc]
+                    sel = ii >= 0
+                    if not sel.any():
+                        continue
+                    order = np.argsort(ii[sel], kind='stable')
+                    bins, starts = np.unique(ii[sel][order], return_index=True)
+                    if k not in sums:
+                        sums[k] = np.zeros((nb[k], W.shape[1]))
+                    sums[k][bins] += np.add.reduceat(W[sel][order], starts, axis=0)
+            if bad == 'scalar' or not sums:
                 continue
-            if sums is None:
+            if bad:
+                print(f'  WARNING {knob}: {bad}: skipped')
                 continue
-            N = interpolate_universes(sums, nuniv, rng)
-            per_knob[knob] = (scale ** 2) * np.mean((N - cv[:, None]) ** 2, axis=1)
-    total = np.sum(list(per_knob.values()), axis=0) if per_knob else np.zeros(len(cv))
-    return scale * cv, total, per_knob
-
-
-class StageMasks:
-    """Callable giving the cumulative 1g1p stage selection (preselection + each cut) of a DataFrame."""
-
-    def __init__(self, cl):
-        self.cl = cl
-        self.columns = sorted({c['var'] for c in cl} | {NSH})
-
-    def __call__(self, d):
-        m = np.ones(len(d), bool)
-        out = [m.copy()]
-        for c in self.cl:
-            m &= c['fn'](d)
-            out.append(m.copy())
-        return np.array(out)
+            npts = next(iter(sums.values())).shape[1]
+            s = sigma_draws(npts, nuniv, rng)
+            kv = {}
+            for k in idx:
+                N = interpolate_universes(sums.get(k, np.zeros((nb[k], npts))), s)
+                kv[k] = (scale ** 2) * np.mean((N - cv[k][:, None]) ** 2, axis=1)
+                var[k] += kv[k]
+            per_knob[knob] = np.array([kv[k][0] for k in stages])
+            if final is not None and cv[final][0] > 0:
+                points[knob] = sums.get(final, np.zeros((1, npts)))[0] / cv[final][0]
+    return dict(cv={k: scale * v for k, v in cv.items()}, var=var, per_knob=per_knob, points=points,
+                n_knobs=len(per_knob))
 
 
 def build(a, want):
@@ -467,6 +513,8 @@ def main(argv=None):
     ap.add_argument('--weights', help='run_systematics output for this selection (events/full/TREE + its '
                                       'multisim/multisigma trees): adds the flux + xsec band and MC statistics '
                                       'to the cut flow, with the data/MC significance (sysband.csv)')
+    ap.add_argument('--weight-clip', type=float, nargs=2, default=list(WEIGHT_CLIP), metavar=('LO', 'HI'),
+                    help='clamp every systematic weight to [LO, HI] on read (default: upstream general.weight_clip)')
     ap.add_argument('--gps', type=float, default=0.9985, help='gamma primary softmax (2D re-tune; nominal 0.9991)')
     ap.add_argument('--dm-halfwidth', type=float, default=95.0, help='Delta mass halfwidth [MeV] (2D re-tune; nominal 59.7)')
     ap.add_argument('--pps', type=float, default=0.9513)
@@ -543,28 +591,36 @@ def main(argv=None):
               f'{rej(g == SEC_IN):6.3f} {rej(g == SEC_OUT):7.3f} {rej(g == SEC_OTHER):7.3f} {rej(g == COSMIC):7.3f} {rej(g == OTHER):8.3f} '
               f'{rej(np.ones(len(mc), bool)):7.3f} {rd:6.3f}')
     pd.DataFrame(rows).to_csv(os.path.join(a.out, 'cutflow.csv'), index=False)
+    specs = plot_specs(cl)
+    band = None
     if a.weights:
-        uncertainty_table(a, mc, on, p_mc, p_on, cl, stages)
+        nu = mc['src'].to_numpy() == 'nu'
+        scale = float(mc['w'].to_numpy()[nu][0]) if nu.any() else 1.0
+        jobs = stage_jobs(cl) + [dict(key=(s['sub'], s['c']['var']), kind=s['kind'], j=s['j'], var=s['c']['var'],
+                                      edges=s['edges']) for s in specs]
+        band = sys_band(a.weights, cl, lambda d: d[NSH].to_numpy() == a.n_showers, jobs, scale,
+                        clip=tuple(a.weight_clip))
+        uncertainty_table(a, mc, on, p_mc, p_on, cl, stages, band)
 
-    plots(mc, on, p_mc, p_on, cl, a.out, pot_on, region)
+    plots(mc, on, p_mc, p_on, specs, a.out, pot_on, region, band)
     print(f'\nwrote {a.out}/cutflow.csv and {a.out}/{{before,after,nm1}}/*.png,pdf')
     return 0
 
 
-def uncertainty_table(a, mc, on, p_mc, p_on, cl, stages):
+def uncertainty_table(a, mc, on, p_mc, p_on, cl, stages, band):
     """Cut flow with its uncertainties: MC statistics, flux + cross section (from the --weights sys ROOT),
     and the data/MC significance with and without them. Writes sysband.csv."""
     import pandas as pd
     src, w = mc['src'].to_numpy(), mc['w'].to_numpy()
     nu = src == 'nu'
-    scale = float(w[nu][0]) if nu.any() else 1.0
-    sm = StageMasks(cl)
-    cv, var, per_knob = sys_band(a.weights, sm, lambda d: d[NSH].to_numpy() == a.n_showers, scale)
-    m_mc = np.vstack([np.ones(len(mc), bool)] + [np.all(p_mc[:, :j + 1], axis=1) for j in range(len(cl))])
-    m_on = np.vstack([np.ones(len(on), bool)] + [np.all(p_on[:, :j + 1], axis=1) for j in range(len(cl))])
+    cv = np.array([band['cv'][('stage', k)][0] for k in range(len(stages))])
+    var = np.array([band['var'][('stage', k)][0] for k in range(len(stages))])
+    m_mc = np.vstack([job_mask('stage', k, p_mc) for k in range(len(stages))])
+    m_on = np.vstack([job_mask('stage', k, p_on) for k in range(len(stages))])
     nu_sel = np.array([w[m & nu].sum() for m in m_mc])
-    print(f'\nuncertainties: flux + cross section from {a.weights} ({len(per_knob)} knobs; no detector '
-          f'variations in this production), MC statistics sqrt(sum w^2) over all MC terms')
+    print(f'\nuncertainties: flux + cross section from {a.weights} ({band["n_knobs"]} knobs, weights clamped to '
+          f'{list(a.weight_clip)}; no detector variations in this production), MC statistics sqrt(sum w^2) over '
+          f'all MC terms')
     lost = np.abs(cv - nu_sel) > 0.01 * np.maximum(nu_sel, 1e-9) + 0.05
     if lost.any():
         k = int(np.argmax(lost))
@@ -588,17 +644,46 @@ def uncertainty_table(a, mc, on, p_mc, p_on, cl, stages):
         print(f'  {label:<38} {mu:8.2f} {nu_sel[k]:7.2f} {st:6.2f} {sy:6.2f} '
               f'{100 * rows[-1]["syst_frac"]:5.0f}% {n:6d} {z0:7.2f} {z1:7.2f}')
     last = len(stages) - 1
-    top = sorted(per_knob.items(), key=lambda kv: kv[1][last], reverse=True)[:8]
+    top = sorted(band['per_knob'].items(), key=lambda kv: kv[1][last], reverse=True)[:8]
     if top and var[last] > 0:
-        print('  largest knobs after all cuts (share of the flux + xsec variance):')
+        print('  largest knobs after all cuts: share of the flux + xsec variance, and the selected count in the '
+              'knob\'s variations relative to the CV')
         for knob, v in top:
-            print(f'    {knob:<60} {100 * v[last] / var[last]:5.1f}%')
+            p = band['points'].get(knob)
+            if p is None:
+                how = ''
+            elif len(p) == 6:
+                how = f'-1 sigma x{p[0]:.2f}, +1 sigma x{p[1]:.2f}'
+            elif len(p) == 7:
+                how = f'-1 sigma x{p[2]:.2f}, +1 sigma x{p[4]:.2f}'
+            else:
+                how = f'{len(p)} universes: mean x{p.mean():.2f}, sd {p.std():.2f}'
+            print(f'    {knob:<60} {100 * v[last] / var[last]:5.1f}%   {how}')
     print('  z stat: Poisson for the data with the MC-statistics uncertainty on the prediction; z all: also the '
           'flux + xsec band (both Gaussian on the prediction, marginalised)')
     pd.DataFrame(rows).to_csv(os.path.join(a.out, 'sysband.csv'), index=False)
 
 
-def plots(mc, on, p_mc, p_on, cl, out, pot_on, region):
+KE_SPEC = dict(var=KE, range=(0.0, 2000.0), nbins=20, xlabel='Shower KE [MeV]', lines=[], name='shower KE')
+
+
+def plot_specs(cl):
+    """Every figure: each cut variable (and the shower KE) before and after all cuts, and each cut variable
+    with all the other cuts (N-1), with the bin edges the cut values fall on."""
+    specs = []
+    for c in cl + [KE_SPEC]:
+        edges = aligned_edges(*c['range'], c['nbins'], [x for x, _ in c.get('lines', [])])
+        specs.append(dict(sub='before', c=c, kind='before', j=None, edges=edges, stage='preselection'))
+        specs.append(dict(sub='after', c=c, kind='after', j=None, edges=edges, stage='all cuts'))
+    for j, c in enumerate(cl):
+        edges = aligned_edges(*c['range'], c['nbins'], [x for x, _ in c['lines']])
+        specs.append(dict(sub='nm1', c=c, kind='nm1', j=j, edges=edges, stage=f'all cuts but {c["name"]}'))
+    return specs
+
+
+def plots(mc, on, p_mc, p_on, specs, out, pot_on, region, band=None):
+    """The stacked truth groups with the data; a hatched band on the MC total: MC statistics, plus the
+    flux + xsec band of the neutrino MC when `band` (sys_band) is given."""
     try:
         import matplotlib
     except ImportError:
@@ -613,21 +698,14 @@ def plots(mc, on, p_mc, p_on, cl, out, pot_on, region):
     sheet = os.path.join(here, '..', 'spineplot', 'styles', 'muon2024.mplstyle')
     if os.path.exists(sheet):
         plt.style.use(sheet)
-    all_mc, all_on = np.all(p_mc, axis=1), np.all(p_on, axis=1)
-    ke = dict(var=KE, range=(0.0, 2000.0), nbins=20, xlabel='Shower KE [MeV]', lines=[], name='shower KE')
-    jobs = []
-    for c in cl + [ke]:
-        lines = c['lines'] if c is not ke else []
-        jobs.append(('before', c, np.ones(len(mc), bool), np.ones(len(on), bool), lines, 'preselection'))
-        jobs.append(('after', c, all_mc, all_on, lines, 'all cuts'))
-    for j, c in enumerate(cl):
-        jobs.append(('nm1', c, np.all(np.delete(p_mc, j, axis=1), axis=1),
-                     np.all(np.delete(p_on, j, axis=1), axis=1), c['lines'], f'all cuts but {c["name"]}'))
-    for sub, c, m_mc, m_on, lines, stage in jobs:
-        d = os.path.join(out, sub)
+    w_all = mc['w'].to_numpy(dtype=float)
+    for sp in specs:
+        c, edges = sp['c'], sp['edges']
+        m_mc, m_on = job_mask(sp['kind'], sp['j'], p_mc), job_mask(sp['kind'], sp['j'], p_on)
+        lines = c.get('lines', [])
+        d = os.path.join(out, sp['sub'])
         os.makedirs(d, exist_ok=True)
         fig, ax = plt.subplots(figsize=(10, 7.5))
-        edges = aligned_edges(*c['range'], c['nbins'], [x for x, _ in c.get('lines', [])])
         lo, hi = edges[0], edges[-1]
         sel, dsel = mc[m_mc], on[m_on]
         xs, ws = [], []
@@ -640,6 +718,21 @@ def plots(mc, on, p_mc, p_on, cl, out, pot_on, region):
             ax.hist([xs[i] for i in keep], bins=edges, weights=[ws[i] for i in keep], stacked=True,
                     histtype='barstacked', color=[GROUPS[i][1] for i in keep],
                     label=[f'{GROUPS[i][0]} ({ws[i].sum():.1f})' for i in keep])
+        # uncertainty band on the MC total
+        bi = bin_index(sel[c['var']].to_numpy(dtype=float), edges)
+        ok = bi >= 0
+        nb = len(edges) - 1
+        tot = np.bincount(bi[ok], weights=w_all[m_mc][ok], minlength=nb)
+        var = np.bincount(bi[ok], weights=w_all[m_mc][ok] ** 2, minlength=nb)
+        what = 'MC stat.'
+        key = (sp['sub'], c['var'])
+        if band is not None and key in band['var']:
+            var = var + band['var'][key]
+            what = 'MC stat. + flux/xsec syst.'
+        err = np.sqrt(var)
+        if tot.sum() > 0:
+            ax.bar(0.5 * (edges[1:] + edges[:-1]), 2 * err, width=np.diff(edges), bottom=tot - err, color='none',
+                   edgecolor='dimgray', hatch='////', linewidth=0, label=what)
         x_on = np.clip(dsel[c['var']].to_numpy(dtype=float), lo, hi - 1e-9 * (hi - lo))
         k = np.histogram(x_on, edges)[0]
         ctr = 0.5 * (edges[1:] + edges[:-1])
@@ -660,7 +753,7 @@ def plots(mc, on, p_mc, p_on, cl, out, pot_on, region):
         ax.text(0.0, 1.01, PRELIM, transform=ax.transAxes, ha='left', va='bottom', color='red',
                 fontweight='bold', fontsize='medium')
         ax.text(1.0, 1.01, f'{pot_on:.2e} POT', transform=ax.transAxes, ha='right', va='bottom', fontsize='medium')
-        ax.legend(loc='upper right', fontsize='x-small', frameon=False, title=f'{region}\n{stage}',
+        ax.legend(loc='upper right', fontsize='x-small', frameon=False, title=f'{region}\n{sp["stage"]}',
                   title_fontsize='x-small')
         fig.tight_layout()
         for ext in ('png', 'pdf'):

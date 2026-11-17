@@ -221,14 +221,44 @@ def test_sys_band_matches_the_analytic_spread(tmp_path):
     path = str(tmp_path / 'sys.root')
     n = write_sys(path)
     cl = S.cuts(dict(gps=0.9985, pps=0.9513, dm=95, dedx=4.07, axial=-0.5, dirs=0.037, phs=0.9225))
+    specs = S.plot_specs(cl)
+    after = next(s for s in specs if s['sub'] == 'after' and s['c']['var'] == S.GPS)
+    jobs = S.stage_jobs(cl) + [dict(key='after_gps', kind='after', j=None, var=S.GPS, edges=after['edges'])]
     # step=7: the weights are read in chunks that do not divide the 100 rows (chunk edges inside the region)
-    cv, var, per = S.sys_band(path, S.StageMasks(cl), lambda d: d[S.NSH].to_numpy() == 1, 0.5, nuniv=20000,
-                              step=7)
+    b = S.sys_band(path, cl, lambda d: d[S.NSH].to_numpy() == 1, jobs, 0.5, nuniv=20000, step=7)
+    cv = [b['cv'][('stage', k)][0] for k in range(len(cl) + 1)]
+    var = [b['var'][('stage', k)][0] for k in range(len(cl) + 1)]
+    per = b['per_knob']
     assert cv[0] == pytest.approx(0.5 * n) and cv[-1] == pytest.approx(0.5 * 40)
     assert set(per) == {'flux', 'xsec'}
     assert np.sqrt(per['flux'][-1]) == pytest.approx(0.1 * cv[-1])
     assert np.sqrt(per['xsec'][-1]) == pytest.approx(0.2 * cv[-1], rel=0.03)
     assert np.sqrt(var[-1]) == pytest.approx(np.hypot(0.1, 0.2) * cv[-1], rel=0.03)
+    # the after-cuts histogram holds the same events in one bin here (all at gps 0.9999): same band
+    assert b['cv']['after_gps'].sum() == pytest.approx(cv[-1])
+    assert b['var']['after_gps'].sum() == pytest.approx(var[-1])
+    assert b['points']['flux'] == pytest.approx([1.1, 0.9])
+
+
+def test_sys_band_clamps_pathological_weights(tmp_path):
+    import uproot
+    ak = pytest.importorskip('awkward')
+    n = 10
+    path = str(tmp_path / 'sys.root')
+    base = {S.GPS: np.full(n, 0.9999), S.PPS: np.full(n, 0.99), S.DM: np.full(n, 1232.0), S.NSH: np.ones(n),
+            'reco_leading_primary_gOre_start_dedx': np.full(n, 5.0),
+            'reco_leading_primary_gOre_axial_spread': np.zeros(n),
+            'reco_leading_primary_gOre_directional_spread': np.full(n, 0.01),
+            'reco_leading_primary_gOre_photon_softmax': np.full(n, 0.99)}
+    w = [[1.0, 1.0]] * n
+    w[3] = [1e6, 1.0]                                          # one event with a GENIE-style runaway weight
+    with uproot.recreate(path) as f:
+        f[f'events/full/{S.TREE}'] = base
+        f[f'events/full/{S.TREE}_multisimTree'] = {'k': ak.Array(w)}
+    cl = S.cuts(dict(gps=0.9985, pps=0.9513, dm=95, dedx=4.07, axial=-0.5, dirs=0.037, phs=0.9225))
+    b = S.sys_band(path, cl, lambda d: d[S.NSH].to_numpy() == 1, S.stage_jobs(cl), 1.0)
+    # clamped to 10: universe 0 counts 9 + 10 = 19 vs CV 10, universe 1 counts 10 -> variance 81 / 2
+    assert b['var'][('stage', 0)][0] == pytest.approx(40.5)
 
 
 def test_uncertainty_table_end_to_end(tmp_path):
