@@ -289,24 +289,54 @@ def marginal_z(n, mu, sigma):
 SIGMA_LEVELS = {6: np.array([-1, 1, -2, 2, -3, 3], float), 7: np.linspace(-3, 3, 7)}
 
 
-def knob_universe_sums(W, S, nuniv, rng):
-    """Selected-event sums per universe for one knob: S (stages x events, 0/1) @ universe weights.
+def interpolate_universes(sums, nuniv, rng):
+    """Universe counts of one knob from its selected-event sums per weight point (stages x points).
     Multisigma knobs (6 or 7 points: GENIE -1,+1,-2,+2,-3,+3 or detector -3..+3) are linearly
     interpolated at nuniv sigmas drawn once for the knob (shared by all events), clamped at the
-    end points, exactly as spineplot/systematic.py does; anything else is taken as universes."""
-    sums = S @ W                                              # stages x points
-    if W.shape[1] not in SIGMA_LEVELS:
+    end points, exactly as spineplot/systematic.py does per event; the interpolation is linear in
+    the weights, so doing it on the sums is exact. Anything else is taken as universes."""
+    if sums.shape[1] not in SIGMA_LEVELS:
         return sums
-    lv = SIGMA_LEVELS[W.shape[1]]
+    lv = SIGMA_LEVELS[sums.shape[1]]
     order = np.argsort(lv)
     lv, sums = lv[order], sums[:, order]
     s = rng.normal(0, 1, nuniv)
     i = np.clip(np.searchsorted(lv, s) - 1, 0, len(lv) - 2)
     t = np.clip((s - lv[i]) / (lv[i + 1] - lv[i]), 0, 1)
-    return sums[:, i] * (1 - t) + sums[:, i + 1] * t          # interpolation is linear in the weights
+    return sums[:, i] * (1 - t) + sums[:, i + 1] * t
 
 
-def sys_band(path, stage_masks, region_fn, scale, nuniv=1000, seed=12345):
+def knob_universe_sums(W, S, nuniv, rng):
+    """Selected-event sums per universe for one knob: S (stages x events, 0/1) @ weights (events x points)."""
+    return interpolate_universes(S @ W, nuniv, rng)
+
+
+def knob_point_sums(branch, S, keep, step=4000):
+    """S (stages x all rows, 0 outside the region) @ the knob's weight vectors, read `step` rows at a time
+    (a whole branch of 1000-universe vectors does not fit in a gpvm's memory). None for a scalar branch
+    (Run/Subrun/Evt, a counter) or when no region row is in the tree."""
+    import awkward as ak
+    n, tot = branch.num_entries, None
+    for a in range(0, n, step):
+        b = min(n, a + step)
+        k = keep[a:b]
+        if not k.any():
+            continue
+        arr = branch.array(entry_start=a, entry_stop=b, library='ak')
+        if arr.ndim < 2:
+            return None
+        arr = arr[k]
+        lens = np.unique(ak.to_numpy(ak.num(arr, axis=1)))
+        if len(lens) != 1 or lens[0] == 0 or (tot is not None and lens[0] != tot.shape[1]):
+            raise ValueError(f'ragged/empty weight vectors (lengths {lens[:5]})')
+        W = ak.to_numpy(ak.to_regular(arr, axis=1)).astype(float)
+        W = np.where(np.isfinite(W), W, 1.0)
+        part = S[:, a:b][:, k] @ W
+        tot = part if tot is None else tot + part
+    return tot
+
+
+def sys_band(path, stage_masks, region_fn, scale, nuniv=1000, seed=12345, step=4000):
     """Flux + cross section uncertainty on the expected neutrino count of each stage.
 
     `path` is a run_systematics output (events/full/TREE plus TREE_{multisim,multisigma}Tree, filled row by
@@ -322,8 +352,8 @@ def sys_band(path, stage_masks, region_fn, scale, nuniv=1000, seed=12345):
     cols = stage_masks.columns
     df = t.arrays([c for c in cols if c in t.keys()] + [c for c in TRIG if c in t.keys()], library='pd')
     trig = next((c for c in TRIG if c in df), None)
-    keep = region_fn(df) & ((df[trig].to_numpy(dtype=float) == 1) if trig else True)
-    S = stage_masks(df)[:, keep].astype(float)
+    keep = np.asarray(region_fn(df) & ((df[trig].to_numpy(dtype=float) == 1) if trig else True), bool)
+    S = stage_masks(df).astype(float) * keep                  # stages x all rows, 0 outside the region
     cv = S.sum(axis=1)
     rng = np.random.default_rng(seed)
     per_knob = {}
@@ -338,16 +368,14 @@ def sys_band(path, stage_masks, region_fn, scale, nuniv=1000, seed=12345):
         for knob in wt.keys():
             if knob in ('Run', 'Subrun', 'Evt') or knob.endswith('_sigma'):
                 continue
-            arr = wt[knob].array(library='np')[keep]
-            if arr.dtype != object:                           # scalar branch (Run/Subrun/Evt, a counter): no weights
+            try:
+                sums = knob_point_sums(wt[knob], S, keep, step)
+            except ValueError as e:
+                print(f'  WARNING {knob}: {e}: skipped')
                 continue
-            lens = {len(x) for x in arr}
-            if len(lens) != 1 or 0 in lens:
-                print(f'  WARNING {knob}: ragged/empty weight vectors {sorted(lens)[:5]}: skipped')
+            if sums is None:
                 continue
-            W = np.stack(arr).astype(float)
-            W = np.where(np.isfinite(W), W, 1.0)
-            N = knob_universe_sums(W, S, nuniv, rng)
+            N = interpolate_universes(sums, nuniv, rng)
             per_knob[knob] = (scale ** 2) * np.mean((N - cv[:, None]) ** 2, axis=1)
     total = np.sum(list(per_knob.values()), axis=0) if per_knob else np.zeros(len(cv))
     return scale * cv, total, per_knob

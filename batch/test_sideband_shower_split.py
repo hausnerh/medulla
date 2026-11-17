@@ -221,7 +221,9 @@ def test_sys_band_matches_the_analytic_spread(tmp_path):
     path = str(tmp_path / 'sys.root')
     n = write_sys(path)
     cl = S.cuts(dict(gps=0.9985, pps=0.9513, dm=95, dedx=4.07, axial=-0.5, dirs=0.037, phs=0.9225))
-    cv, var, per = S.sys_band(path, S.StageMasks(cl), lambda d: d[S.NSH].to_numpy() == 1, 0.5, nuniv=20000)
+    # step=7: the weights are read in chunks that do not divide the 100 rows (chunk edges inside the region)
+    cv, var, per = S.sys_band(path, S.StageMasks(cl), lambda d: d[S.NSH].to_numpy() == 1, 0.5, nuniv=20000,
+                              step=7)
     assert cv[0] == pytest.approx(0.5 * n) and cv[-1] == pytest.approx(0.5 * 40)
     assert set(per) == {'flux', 'xsec'}
     assert np.sqrt(per['flux'][-1]) == pytest.approx(0.1 * cv[-1])
