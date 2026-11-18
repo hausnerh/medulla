@@ -415,13 +415,20 @@ def sys_band(path, cl, region_fn, jobs, scale, clip=WEIGHT_CLIP, nuniv=1000, see
                 W = ak.to_numpy(ak.to_regular(arr, axis=1)).astype(float)
                 fin = np.isfinite(W)
                 W = np.where(fin, W, 1.0)
-                out_ = ((W < clip[0]) | (W > clip[1])).any(axis=1) | ~fin.all(axis=1)
+                nan_ = ~fin.all(axis=1)
+                low_, high_ = (W < clip[0]).any(axis=1), (W > clip[1]).any(axis=1)
+                out_ = nan_ | low_ | high_
                 if out_.any():                                # what the clamp touches (reported, not hidden)
-                    cr = clipped.setdefault(knob, [0, 0, -np.inf])
+                    # [events in region, of those after all cuts, max raw, min raw, events with NaN, < lo, > hi]
+                    cr = clipped.setdefault(knob, [0, 0, -np.inf, np.inf, 0, 0, 0])
                     cr[0] += int(out_.sum())
                     if final is not None:
                         cr[1] += int((out_ & (idx[final][a:b][kc] >= 0)).sum())
                     cr[2] = max(cr[2], float(W.max()))
+                    cr[3] = min(cr[3], float(W.min()))
+                    cr[4] += int(nan_.sum())
+                    cr[5] += int(low_.sum())
+                    cr[6] += int(high_.sum())
                 W = np.clip(W, *clip)
                 for k, i_all in idx.items():
                     ii = i_all[a:b][kc]
@@ -671,10 +678,14 @@ def uncertainty_table(a, mc, on, p_mc, p_on, cl, stages, band):
     cr = band.get('clipped', {})
     nrow = int(round(cv[0] / max(w[nu][0], 1e-300))) if nu.any() else 0
     if cr:
-        print(f'  weight clamp {list(a.weight_clip)}: {len(cr)} knobs have events with a weight outside it (or NaN); '
-              f'events of the {nrow} in the region, of those after all cuts, largest raw weight:')
-        for knob, (n_reg, n_fin, mx) in sorted(cr.items(), key=lambda kv: -kv[1][0])[:10]:
-            print(f'    {knob:<60} {n_reg:6d} {n_fin:4d}   {mx:.3g}')
+        print(f'  weight clamp {list(a.weight_clip)}: {len(cr)} knobs have events with a weight outside it or NaN '
+              f'(NaN -> 1, then clamped); events of the {nrow} in the region:')
+        print(f'    {"knob":<60} {"events":>6} {"cut":>4} | {"NaN":>5} {"<lo":>5} {">hi":>5} | {"min raw":>9} '
+              f'{"max raw":>9}')
+        for knob, c in sorted(cr.items(), key=lambda kv: -kv[1][0])[:15]:
+            print(f'    {knob:<60} {c[0]:6d} {c[1]:4d} | {c[4]:5d} {c[5]:5d} {c[6]:5d} | {c[3]:9.3g} {c[2]:9.3g}')
+        print('    (events: in the region; cut: of those, after all cuts. A knob with NaN or negative weights, or '
+              'weights of 100 or 1e9, is a reweighting failure to chase with its producer, not a physics spread)')
     else:
         print(f'  weight clamp {list(a.weight_clip)}: no weight outside it (the clamp changes nothing)')
     print('  z stat: Poisson for the data with the MC-statistics uncertainty on the prediction; z all: also the '

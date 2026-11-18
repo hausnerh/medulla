@@ -260,7 +260,7 @@ def test_sys_band_clamps_pathological_weights(tmp_path):
     # clamped to 10: universe 0 counts 9 + 10 = 19 vs CV 10, universe 1 counts 10 -> variance 81 / 2
     assert b['var'][('stage', 0)][0] == pytest.approx(40.5)
     # and the clamp is reported: 1 event touched in the region, 1 after all cuts, raw weight 1e6
-    assert b['clipped'] == {'k': [1, 1, pytest.approx(1e6)]}
+    assert b['clipped'] == {'k': [1, 1, pytest.approx(1e6), pytest.approx(1.0), 0, 0, 1]}
 
 
 def test_caf_pset_diagnostic_flags_labels_grids_and_overlaps(tmp_path, monkeypatch, capsys):
@@ -298,3 +298,39 @@ def test_uncertainty_table_end_to_end(tmp_path):
                                                                     'stage.str.startswith("+")'))
     assert (band['syst_frac'].dropna() > 0).all()
     assert (band['z_stat_syst'].abs() <= band['z_stat'].abs() + 1e-9).all()
+
+
+def test_clamp_report_separates_nan_negative_and_high(tmp_path):
+    import uproot
+    ak = pytest.importorskip('awkward')
+    n = 10
+    path = str(tmp_path / 'sys.root')
+    base = {S.GPS: np.full(n, 0.9999), S.PPS: np.full(n, 0.99), S.DM: np.full(n, 1232.0), S.NSH: np.ones(n),
+            'reco_leading_primary_gOre_start_dedx': np.full(n, 5.0),
+            'reco_leading_primary_gOre_axial_spread': np.zeros(n),
+            'reco_leading_primary_gOre_directional_spread': np.full(n, 0.01),
+            'reco_leading_primary_gOre_photon_softmax': np.full(n, 0.99)}
+    w = [[1.0, 1.0]] * n
+    w[1] = [np.nan, 1.0]
+    w[2] = [-0.5, 1.0]
+    w[3] = [50.0, 1.0]
+    with uproot.recreate(path) as f:
+        f[f'events/full/{S.TREE}'] = base
+        f[f'events/full/{S.TREE}_multisimTree'] = {'k': ak.Array(w)}
+    cl = S.cuts(dict(gps=0.9985, pps=0.9513, dm=95, dedx=4.07, axial=-0.5, dirs=0.037, phs=0.9225))
+    b = S.sys_band(path, cl, lambda d: d[S.NSH].to_numpy() == 1, S.stage_jobs(cl), 1.0)
+    assert b['clipped'] == {'k': [3, 3, pytest.approx(50.0), pytest.approx(-0.5), 1, 1, 1]}
+
+
+def test_caf_pset_diagnostic_reads_split_layout():
+    import diag_caf_wgt_psets as D
+    ak = pytest.importorskip('awkward')
+    assert D.canon('global/wgts/wgts.name') == 'global.wgts.name'
+    assert D.canon('global/wgts/wgts.map') == 'global.wgts.map'
+    assert D.canon('global.wgts.nuniv') == 'global.wgts.nuniv'
+    m = ak.Array([[{'wgts.map.param': {'name': 'MaCCRES', 'id': 3}, 'wgts.map.vals': [-1.0, 1.0, -2.0, 2.0]}],
+                  [{'wgts.map.param': {'name': 'MaCCRES', 'id': 3}, 'wgts.map.vals': []},
+                   {'wgts.map.param': {'name': 'MvCCRES', 'id': 4}, 'wgts.map.vals': []}]])
+    out = D.parse_map(m)
+    assert out[0] == (['MaCCRES'], [[-1.0, 1.0, -2.0, 2.0]])
+    assert out[1][0] == ['MaCCRES', 'MvCCRES']
