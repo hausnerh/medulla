@@ -311,6 +311,14 @@ def interpolate_universes(sums, s):
     return sums[..., i] * (1 - t) + sums[..., i + 1] * t
 
 
+def tiled_copies(W, cands):
+    """The candidate repeat counts k for which every row of W (events x L) is k copies of its first L/k
+    entries. run_systematics (systematics/src/trees.cc) appends a knob's weights once per [[sysvar]] in its
+    toml, so with 5 sysvars a 6-point multisigma knob is stored as 30 entries: the 6 points 5 times."""
+    L = W.shape[1]
+    return {k for k in cands if np.array_equal(W, np.tile(W[:, :L // k], (1, k)))}
+
+
 def knob_universe_sums(W, S, nuniv, rng):
     """Selected-event sums per universe for one knob: S (stages x events, 0/1) @ weights (events x points)."""
     return interpolate_universes(S @ W, sigma_draws(W.shape[1], nuniv, rng))
@@ -385,6 +393,7 @@ def sys_band(path, cl, region_fn, jobs, scale, clip=WEIGHT_CLIP, nuniv=1000, see
     rng = np.random.default_rng(seed)
     var = {k: np.zeros(nb[k]) for k in idx}
     per_knob, points, clipped = {}, {}, {}
+    raw = {}                                          # knob -> (bin sums over all stored entries, repeat counts)
     for suffix in ('multisimTree', 'multisigmaTree'):
         tname = f'{TREE}_{suffix}'
         if tname not in names:
@@ -396,7 +405,7 @@ def sys_band(path, cl, region_fn, jobs, scale, clip=WEIGHT_CLIP, nuniv=1000, see
         for knob in wt.keys():
             if knob in ('Run', 'Subrun', 'Evt') or knob.endswith('_sigma'):
                 continue
-            sums, bad = {}, None
+            sums, bad, reps = {}, None, None
             for a in range(0, t.num_entries, step):
                 b = min(t.num_entries, a + step)
                 kc = keep[a:b]
@@ -429,6 +438,9 @@ def sys_band(path, cl, region_fn, jobs, scale, clip=WEIGHT_CLIP, nuniv=1000, see
                     cr[4] += int(nan_.sum())
                     cr[5] += int(low_.sum())
                     cr[6] += int(high_.sum())
+                if reps is None:
+                    reps = {k for k in range(1, W.shape[1] + 1) if W.shape[1] % k == 0}
+                reps = tiled_copies(W, reps)
                 W = np.clip(W, *clip)
                 for k, i_all in idx.items():
                     ii = i_all[a:b][kc]
@@ -445,18 +457,28 @@ def sys_band(path, cl, region_fn, jobs, scale, clip=WEIGHT_CLIP, nuniv=1000, see
             if bad:
                 print(f'  WARNING {knob}: {bad}: skipped')
                 continue
-            npts = next(iter(sums.values())).shape[1]
-            s = sigma_draws(npts, nuniv, rng)
-            kv = {}
-            for k in idx:
-                N = interpolate_universes(sums.get(k, np.zeros((nb[k], npts))), s)
-                kv[k] = (scale ** 2) * np.mean((N - cv[k][:, None]) ** 2, axis=1)
-                var[k] += kv[k]
-            per_knob[knob] = np.array([kv[k][0] for k in stages])
-            if final is not None and cv[final][0] > 0:
-                points[knob] = sums.get(final, np.zeros((1, npts)))[0] / cv[final][0]
+            raw[knob] = (sums, max(reps))
+    # one repeat count for the file: knobs that never vary are tiled by every k, so take the gcd
+    copies = int(np.gcd.reduce([r for _, r in raw.values()])) if raw else 1
+    if copies > 1:
+        L = {next(iter(sm.values())).shape[1] for sm, _ in raw.values()}
+        print(f'  NOTE: every weight vector is stored {copies} times over (run_systematics appends a knob\'s '
+              f'weights once per [[sysvar]]): using one copy (stored lengths {sorted(L)[:6]} -> '
+              f'{sorted({x // copies for x in L})[:6]})')
+    for knob, (sums, _) in raw.items():
+        npts = next(iter(sums.values())).shape[1] // copies
+        sums = {k: v[:, :npts] for k, v in sums.items()}
+        s = sigma_draws(npts, nuniv, rng)
+        kv = {}
+        for k in idx:
+            N = interpolate_universes(sums.get(k, np.zeros((nb[k], npts))), s)
+            kv[k] = (scale ** 2) * np.mean((N - cv[k][:, None]) ** 2, axis=1)
+            var[k] += kv[k]
+        per_knob[knob] = np.array([kv[k][0] for k in stages])
+        if final is not None and cv[final][0] > 0:
+            points[knob] = sums.get(final, np.zeros((1, npts)))[0] / cv[final][0]
     return dict(cv={k: scale * v for k, v in cv.items()}, var=var, per_knob=per_knob, points=points,
-                n_knobs=len(per_knob), clipped=clipped)
+                n_knobs=len(per_knob), clipped=clipped, copies=copies)
 
 
 def build(a, want):

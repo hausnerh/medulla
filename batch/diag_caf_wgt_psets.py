@@ -173,11 +173,13 @@ def main(argv=None):
     if not a.toml:
         return 0
     try:
-        import tomllib
+        import tomllib                                   # python >= 3.11: binary file
+        with open(a.toml, 'rb') as fh:
+            knobs = tomllib.load(fh)['sys']
     except ImportError:
-        import toml as tomllib  # noqa
-    with open(a.toml, 'rb') as fh:
-        knobs = tomllib.load(fh)['sys']
+        import toml                                      # older pythons (gpvm 3.9): text
+        with open(a.toml) as fh:
+            knobs = toml.load(fh)['sys']
     print(f'\n{a.toml}: {len(knobs)} knobs')
     bad = 0
     for k in knobs:

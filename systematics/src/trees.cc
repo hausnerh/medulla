@@ -436,10 +436,17 @@ void sys::trees::copy_with_weight_systematics(cfg::ConfigurationTable & config, 
                     value->get_weights()->clear();
                     if(value->get_type() == Type::kMULTISIM || value->get_type() == Type::kMULTISIGMA)
                     {
+                        // The weights are stored once per event. (They used to be appended
+                        // inside the loop over the [[sysvar]] entries below, so a toml with
+                        // N sysvars stored every weight vector N times over, e.g. a 6-point
+                        // multisigma knob as 30 entries, which downstream code then took
+                        // for 30 universes.)
+                        reader.set(value->get_index());
+                        for(size_t u(0); u < reader.get_nuniv(idn); ++u)
+                            value->get_weights()->push_back(value->clip(reader.get_weight(idn, u)));
                         for(SysVariable & sv : sysvariables)
                         {
                             syst_t syskey = std::make_pair(sv.name, value->get_index());
-                            reader.set(value->get_index());
                             if(results1d.find(syskey) == results1d.end())
                             {
                                 results1d[syskey] = new TH1D((sv.name + "_" + key + "_1d").c_str(), (sv.name + "_" + key + "_1d").c_str(), 1000, -0.25, 0.25);
@@ -447,12 +454,9 @@ void sys::trees::copy_with_weight_systematics(cfg::ConfigurationTable & config, 
                                 results2d[syskey] = new TH2D((sv.name + "_" + key + "_2d").c_str(), (sv.name + "_" + key + "_2d").c_str(), sv.nbins, sv.min, sv.max, reader.get_nuniv(idn), 0, reader.get_nuniv(idn));
                                 results2d[syskey]->SetDirectory(nullptr);
                             }
-                            for(size_t u(0); u < reader.get_nuniv(idn); ++u)
-                            {
-                                double w = value->clip(reader.get_weight(idn, u));
-                                value->get_weights()->push_back(w);
-                                results2d[syskey]->Fill(brs[sv.name], u, w);
-                            }
+                            const std::vector<double> & w = *value->get_weights();
+                            for(size_t u(0); u < w.size(); ++u)
+                                results2d[syskey]->Fill(brs[sv.name], u, w[u]);
                         }
                     }
                     else

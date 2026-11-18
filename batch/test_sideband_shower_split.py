@@ -334,3 +334,34 @@ def test_caf_pset_diagnostic_reads_split_layout():
     out = D.parse_map(m)
     assert out[0] == (['MaCCRES'], [[-1.0, 1.0, -2.0, 2.0]])
     assert out[1][0] == ['MaCCRES', 'MvCCRES']
+
+
+def test_sys_band_uses_one_copy_of_repeated_weight_vectors(tmp_path):
+    """run_systematics with 5 [[sysvar]]s stored each knob 5 times over (a 6-point multisigma knob as 30
+    entries). The band must equal the one from a single copy, not treat the 30 entries as universes."""
+    import uproot
+    ak = pytest.importorskip('awkward')
+    n = 12
+    rng = np.random.default_rng(3)
+    base = {S.GPS: np.full(n, 0.9999), S.PPS: np.full(n, 0.99), S.DM: np.full(n, 1232.0), S.NSH: np.ones(n),
+            'reco_leading_primary_gOre_start_dedx': np.full(n, 5.0),
+            'reco_leading_primary_gOre_axial_spread': np.zeros(n),
+            'reco_leading_primary_gOre_directional_spread': np.full(n, 0.01),
+            'reco_leading_primary_gOre_photon_softmax': np.full(n, 0.99)}
+    resp = 1 + 0.2 * rng.random(n)[:, None] * np.array([-1, 1, -2, 2, -3, 3])   # 6 sigma points per event
+    univ = 1 + 0.1 * rng.normal(size=(n, 4))                                     # 4 multisim universes
+    flat = np.ones((n, 6))                                                       # a knob that never moves
+    cl = S.cuts(dict(gps=0.9985, pps=0.9513, dm=95, dedx=4.07, axial=-0.5, dirs=0.037, phs=0.9225))
+    bands = []
+    for copies in (1, 5):
+        path = str(tmp_path / f'sys{copies}.root')
+        with uproot.recreate(path) as f:
+            f[f'events/full/{S.TREE}'] = base
+            f[f'events/full/{S.TREE}_multisimTree'] = {'u': ak.Array(np.tile(univ, copies).tolist())}
+            f[f'events/full/{S.TREE}_multisigmaTree'] = {'m': ak.Array(np.tile(resp, copies).tolist()),
+                                                         'f': ak.Array(np.tile(flat, copies).tolist())}
+        bands.append(S.sys_band(path, cl, lambda d: d[S.NSH].to_numpy() == 1, S.stage_jobs(cl), 1.0))
+    assert bands[0]['copies'] == 1 and bands[1]['copies'] == 5
+    for k in bands[0]['var']:
+        assert bands[1]['var'][k] == pytest.approx(bands[0]['var'][k])
+    assert len(bands[1]['points']['m']) == 6
